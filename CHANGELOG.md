@@ -2,29 +2,30 @@
 
 All notable changes are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [0.1.1] — 2026-06-13
-
-### Added
-- `CODE_OF_CONDUCT.md` — contributor code of conduct
-- `CONTRIBUTING.md` — contribution types, setup, file conventions, branch naming, PR checklist
-- `DEVELOPMENT-GUIDE.md` — architecture, AGENTS.md structure, SKILL.md writing guide, severity assignment guide, cross-platform compatibility
-- `SECURITY.md` — supported versions, scope, reporting process
-- `CLAUDE.md` — Claude Code compatibility bridge (`@AGENTS.md`)
-- `LICENSE` — MIT
-
-### Changed
-- `README.md` — rewritten without decorative emoji, added project structure table
-- `AGENTS.md` — clarified Argus's relationship with Kold, review output format
-
-### Fixed
-- SKILL.md description now has 3+ real-world trigger phrases
-
----
-
 ## [0.1.0] — 2026-06-13
 
 ### Added
-- `AGENTS.md` — identity, hard rules, review dimensions, severity guide
+- `AGENTS.md` — identity, hard rules, Kold-Argus workflow, review dimensions, severity guide
 - `SKILL.md` — design review skill with issue format, workflow, non-blocking context
 - `README.md` — project overview, usage, project structure
 - `VERSION` — 0.1.0
+- `CODE_OF_CONDUCT.md`
+- `CONTRIBUTING.md`
+- `DEVELOPMENT-GUIDE.md`
+- `SECURITY.md`
+- `CHANGELOG.md`
+- `LICENSE` — MIT
+- `CLAUDE.md` — Claude Code compatibility bridge
+- `Makefile` — check-version, validate, release, package
+- `.github/workflows/ci.yml`
+- `.github/workflows/release.yml`
+
+### Changed
+- AGENTS.md: Kold-Argus workflow formally documented; Argus connects to GitHub Argus App
+- AGENTS.md: review dimensions table added
+- SKILL.md: non-blocking context clarified
+
+### Notes
+- Kold and Argus are companion agents sharing the same design principles
+- Argus is the review gate; Kold never bypasses the review
+- All merge operations require human approval
