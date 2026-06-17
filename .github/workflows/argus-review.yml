@@ -4,15 +4,13 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
-# Only run on PRs to this repository (argus itself)
-if: github.event.pull_request.base.repo.full_name == github.repository
-
 concurrency:
   group: ${{ github.event.pull_request.id }}
   cancel-in-progress: true
 
 jobs:
   review:
+    if: github.event.pull_request.base.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -45,5 +43,4 @@ jobs:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         with:
           model: opencode/deepseek-v4-flash-free
-          agent: argus
           use_github_token: true
