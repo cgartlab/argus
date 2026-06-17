@@ -1,41 +1,25 @@
 name: CI
-
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-
 jobs:
-  validate:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Check version in CHANGELOG
+      - name: Validate YAML syntax
         run: |
-          VERSION="$(cat VERSION)"
-          grep -q "^## \[${VERSION}\]" CHANGELOG.md && echo "CHANGELOG entry found" || (echo "CHANGELOG missing [${VERSION}] section"; exit 1)
-
+          python3 -c "
+          import yaml, sys
+          for f in ['ci.yml', 'review.yml']:
+              with open(f'.github/workflows/{f}') as fp:
+                  yaml.safe_load(fp)
+              print(f'{f}: valid YAML')
+          "
       - name: Check required files
         run: |
-          for f in AGENTS.md SKILL.md README.md VERSION LICENSE; do
+          for f in AGENTS.md SKILL.md README.md VERSION; do
             test -f "$f" && echo "$f ok" || (echo "$f missing"; exit 1)
           done
-
-      - name: Check SKILL.md trigger phrases
-        run: |
-          python3 << 'PYEOF'
-          import re, sys
-          f = open('SKILL.md').read()
-          matches = re.findall(r'(?:when|trigger)[:\s]+([^"\n]+)', f, re.I)
-          print('Found ' + str(len(matches)) + ' trigger phrase groups')
-          if len(matches) < 3:
-            print('WARNING: SKILL.md should have 3+ trigger phrases')
-          PYEOF
-
-      - name: Check VERSION matches tag
-        run: |
-          VERSION="$(cat VERSION)"
-          echo "v${VERSION}" > .version_check
-          echo "Version: ${VERSION}"

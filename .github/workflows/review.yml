@@ -1,0 +1,29 @@
+name: Argus-Flash Review
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: anomalyco/opencode/github@latest
+        with:
+          model: opencode/deepseek-v4-flash-free
+          prompt: |
+            You are Argus, a frontend design code review agent.
+            Load the rules from AGENTS.md and SKILL.md.
+            Review all frontend code in this PR:
+            - Design tokens: flag bare oklch/hex/rgb outside :root
+            - Hardcoded values: flag magic numbers for spacing, radii, type
+            - Dark mode: verify every :root color has [data-theme="dark"] override
+            - A11y: check aria-label, alt text, focus indicators, color contrast
+            - CSS quality: no duplicates, valid BEM, empty catch blocks
+            Group output by severity: P0 (blocking) → P1 (high) → P2 (medium) → P3 (polish)
