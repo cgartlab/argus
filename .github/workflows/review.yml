@@ -6,7 +6,6 @@ jobs:
   review:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
       contents: read
       pull-requests: write
       issues: write
@@ -14,9 +13,20 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+
+      - name: Generate argus-flash token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.ARGUS_FLASH_APP_ID }}
+          private-key: ${{ secrets.ARGUS_FLASH_PRIVATE_KEY }}
+
       - uses: anomalyco/opencode/github@latest
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         with:
           model: opencode/deepseek-v4-flash-free
+          use_github_token: true
           prompt: |
             You are Argus, a frontend design code review agent.
             Load the rules from AGENTS.md and SKILL.md.
