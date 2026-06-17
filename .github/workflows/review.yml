@@ -21,23 +21,6 @@ jobs:
           app-id: ${{ secrets.ARGUS_FLASH_APP_ID }}
           private-key: ${{ secrets.ARGUS_FLASH_PRIVATE_KEY }}
 
-      - name: Configure git with argus-flash token
-        run: |
-          git remote set-url origin https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git
-
-      - uses: anomalyco/opencode/github@latest
-        env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+      - uses: cgartlab/argus/.github/actions/argus-review@main
         with:
-          model: opencode/deepseek-v4-flash-free
-          use_github_token: true
-          prompt: |
-            You are Argus, a frontend design code review agent.
-            Load the rules from AGENTS.md and SKILL.md.
-            Review all frontend code in this PR:
-            - Design tokens: flag bare oklch/hex/rgb outside :root
-            - Hardcoded values: flag magic numbers for spacing, radii, type
-            - Dark mode: verify every :root color has [data-theme="dark"] override
-            - A11y: check aria-label, alt text, focus indicators, color contrast
-            - CSS quality: no duplicates, valid BEM, empty catch blocks
-            Group output by severity: P0 (blocking) → P1 (high) → P2 (medium) → P3 (polish)
+          github-token: ${{ steps.app-token.outputs.token }}
