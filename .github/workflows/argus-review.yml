@@ -4,14 +4,9 @@ on:
   push:
     branches:
       - main
-      - 'test/**'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
-
-concurrency:
-  group: ${{ github.event.pull_request.id }}
-  cancel-in-progress: true
 
 jobs:
   review:
