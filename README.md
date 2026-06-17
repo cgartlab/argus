@@ -1,4 +1,6 @@
-# Kold
+# Argus
+
+[![CI](https://github.com/cgartlab/argus/actions/workflows/ci.yml/badge.svg)](https://github.com/cgartlab/argus/actions/workflows/ci.yml)
 
 Code review agent for frontend design. Works in any agent framework.
 
