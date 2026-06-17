@@ -12,7 +12,7 @@
     "argus": {
       "description": "Frontend design code review agent - specializes in design tokens, a11y, dark mode, hardcoded values",
       "model": "opencode/deepseek-v4-flash-free",
-      "mode": "agent",
+      "mode": "subagent",
       "permission": {
         "edit": "deny",
         "write": "deny",
