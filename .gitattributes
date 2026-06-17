@@ -1,0 +1,22 @@
+# Auto detect text files and set correct line endings
+* text=auto
+
+# Force checkout with LF for workflow files (GitHub Actions requires LF)
+.github/**/*.yml text eol=lf
+.github/**/*.yaml text eol=lf
+
+# Keep these files with LF
+*.md text eol=lf
+*.json text eol=lf
+Makefile text eol=lf
+VERSION text eol=lf
+SKILL.md text eol=lf
+AGENTS.md text eol=lf
+
+# Denote all files that are truly binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.tar.gz binary

@@ -14,29 +14,28 @@ jobs:
 
       - name: Check version in CHANGELOG
         run: |
-          VERSION=$$(cat VERSION)
-          grep -q "^## \[$$VERSION\]" CHANGELOG.md && echo "CHANGELOG entry found" || (echo "CHANGELOG missing [$$VERSION] section"; exit 1)
+          VERSION="$(cat VERSION)"
+          grep -q "^## \[${VERSION}\]" CHANGELOG.md && echo "CHANGELOG entry found" || (echo "CHANGELOG missing [${VERSION}] section"; exit 1)
 
       - name: Check required files
         run: |
           for f in AGENTS.md SKILL.md README.md VERSION LICENSE; do
-            test -f $$f && echo "$$f ok" || (echo "$$f missing"; exit 1)
+            test -f "$f" && echo "$f ok" || (echo "$f missing"; exit 1)
           done
 
       - name: Check SKILL.md trigger phrases
         run: |
-          python3 -c "
+          python3 << 'PYEOF'
           import re, sys
           f = open('SKILL.md').read()
-          # count trigger-like phrases in description
           matches = re.findall(r'(?:when|trigger)[:\s]+([^"\n]+)', f, re.I)
-          print(f'Found {len(matches)} trigger phrase groups')
+          print('Found ' + str(len(matches)) + ' trigger phrase groups')
           if len(matches) < 3:
             print('WARNING: SKILL.md should have 3+ trigger phrases')
-          "
+          PYEOF
 
       - name: Check VERSION matches tag
         run: |
-          VERSION=$$(cat VERSION)
-          echo "v$$VERSION" > .version_check
-          echo "Version: $$VERSION"
+          VERSION="$(cat VERSION)"
+          echo "v${VERSION}" > .version_check
+          echo "Version: ${VERSION}"

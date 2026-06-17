@@ -2,6 +2,21 @@
 
 All notable changes are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.1.1] — 2026-06-17
+
+### Added
+- `opencode.jsonc` — Argus agent configuration for OpenCode, auto-loads AGENTS.md + SKILL.md
+- `.github/workflows/argus-review.yml` — GitHub App PR review workflow (triggers on PR open/sync/reopen)
+
+### Changed
+- `AGENTS.md` — refreshed format with init-deep template (STRUCTURE, WHERE TO LOOK, CONVENTIONS, ANTI-PATTERNS sections)
+- `LICENSE` — migrated from MIT to BSL 1.1 for commercial readiness
+- `VERSION` — 0.1.1
+
+### Notes
+- Argus-flash GitHub App (https://github.com/apps/argus-flash) now integrated for PR review
+- BSL 1.1 allows research/fork but prohibits commercial production use; auto-converts to Apache 2.0 after 5 years
+
 ## [0.1.0] — 2026-06-13
 
 ### Added
@@ -14,7 +29,7 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 - `DEVELOPMENT-GUIDE.md`
 - `SECURITY.md`
 - `CHANGELOG.md`
-- `LICENSE` — MIT
+- `LICENSE` — MIT (upgraded to BSL 1.1 in v0.1.1)
 - `CLAUDE.md` — Claude Code compatibility bridge
 - `Makefile` — check-version, validate, release, package
 - `.github/workflows/ci.yml`
