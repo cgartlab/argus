@@ -1,0 +1,14 @@
+name: argus-test
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug event
+        run: |
+          echo "Event: ${{ github.event_name }}"
+          echo "PR: ${{ github.event.pull_request.number }}"
