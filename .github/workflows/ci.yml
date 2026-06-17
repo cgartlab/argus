@@ -25,15 +25,14 @@ jobs:
 
       - name: Check SKILL.md trigger phrases
         run: |
-          python3 -c "
+          python3 << 'PYEOF'
           import re, sys
           f = open('SKILL.md').read()
-          # count trigger-like phrases in description
           matches = re.findall(r'(?:when|trigger)[:\s]+([^"\n]+)', f, re.I)
-          print(f'Found {len(matches)} trigger phrase groups')
+          print('Found ' + str(len(matches)) + ' trigger phrase groups')
           if len(matches) < 3:
             print('WARNING: SKILL.md should have 3+ trigger phrases')
-          "
+          PYEOF
 
       - name: Check VERSION matches tag
         run: |
