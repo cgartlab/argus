@@ -30,6 +30,7 @@ cd argus
 
 - `AGENTS.md` — behavioral rules, never removed or weakened
 - `SKILL.md` — skill definition with trigger phrases; description must have 3+ real-world trigger phrases
+- `.github/actions/argus-review/action.yml` — composite action wrapping OpenCode CLI + rule injection
 - `VERSION` — single line, semantic versioning
 - All Markdown files — no emoji decorations in headings or lists
 
@@ -37,9 +38,9 @@ cd argus
 
 ```bash
 # After changing any content
-echo "0.1.1" > VERSION
-git add -A && git commit -m "chore(release): bump to v0.1.1"
-git tag v0.1.1 && git push origin main --tags
+echo "0.2.0" > VERSION
+git add -A && git commit -m "chore(release): bump to v0.2.0"
+git tag v0.2.0 && git push origin main --tags
 ```
 
 ## Branch Naming
@@ -52,6 +53,7 @@ git tag v0.1.1 && git push origin main --tags
 ## Pull Request Checklist
 
 - [ ] `AGENTS.md` and `SKILL.md` remain consistent with each other
+- [ ] `.github/actions/argus-review/action.yml` is consistent with `AGENTS.md` and `SKILL.md`
 - [ ] VERSION bumped if this is a meaningful change
 - [ ] No emoji decorations in prose
 - [ ] SKILL.md description has 3+ trigger phrases

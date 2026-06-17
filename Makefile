@@ -25,6 +25,8 @@ validate:
 	@grep -q "^## \[$(VERSION)\]" CHANGELOG.md && echo "CHANGELOG ok" || (echo "CHANGELOG: missing [$(VERSION)] section" && exit 1)
 	@echo "Checking AGENTS.md exists..."
 	@test -f AGENTS.md && echo "AGENTS.md ok" || (echo "AGENTS.md missing" && exit 1)
+	@echo "Checking composite action exists..."
+	@test -f .github/actions/argus-review/action.yml && echo "action.yml ok" || (echo ".github/actions/argus-review/action.yml missing" && exit 1)
 	@echo "All checks passed"
 
 .PHONY: release

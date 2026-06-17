@@ -1,7 +1,7 @@
 ---
 name: argus-design-review
-description: "Use when reviewing frontend code for design quality — checking design token usage, hardcoded values, dark mode coverage, accessibility compliance, CSS consistency, or semantic HTML. Use when auditing a component, page, or design system for issues. Trigger phrases: '帮我 review 这段代码'、'检查一下这个组件的设计问题'、'看看有没有 hardcoded values'、'dark mode 有没有遗漏'、'无障碍有没有问题'、'帮我做个 design audit'"
-version: 0.1.0
+description: "Use when reviewing frontend code for design quality — checking design token usage, hardcoded values, dark mode coverage, accessibility compliance, CSS consistency, or semantic HTML. Use when auditing a component, page, or design system for issues. Trigger phrases: '帮我 review 这段代码'、'检查一下这个组件的设计问题'、'看看有没有 hardcoded values'、'dark mode 有没有遗漏'、'无障碍有没有问题'、'帮我做个 design audit'、'让 Argus-Flash 审一下'"
+version: 0.2.0
 ---
 
 # Argus Design Review Skill
@@ -124,6 +124,8 @@ Group output by severity: P0 → P1 → P2 → P3.
 6. Check CSS quality — duplicates, BEM, empty catch blocks
 7. Report findings grouped by severity
 
+**In automated PR review mode:** The composite action at `.github/actions/argus-review/action.yml` reads `AGENTS.md` + `SKILL.md` from the argus repo at runtime and injects their contents into the LLM prompt. The review is performed by the `argus-flash` GitHub App, which comments findings directly on the PR.
+
 ## Non-Blocking Context
 
 Do NOT flag issues in:
@@ -131,3 +133,4 @@ Do NOT flag issues in:
 - Generated boilerplate that will be replaced
 - Test fixtures and mock data files
 - `node_modules/` (ignore entirely)
+- Workflow YAML files (`.github/workflows/`, `.github/actions/`)
