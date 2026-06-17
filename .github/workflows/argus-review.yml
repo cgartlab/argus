@@ -1,0 +1,49 @@
+name: argus-review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# Only run on PRs to this repository (argus itself)
+if: github.event.pull_request.base.repo.full_name == github.repository
+
+concurrency:
+  group: ${{ github.event.pull_request.id }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+      metadata: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Generate App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.ARGUS_FLASH_APP_ID }}
+          private-key: ${{ secrets.ARGUS_FLASH_PRIVATE_KEY }}
+
+      - name: Configure git
+        run: |
+          git config user.name "argus-flash[bot]"
+          git config user.email "argus-flash[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git
+
+      - name: Run Argus Review
+        uses: anomalyco/opencode/github@latest
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+        with:
+          model: opencode/deepseek-v4-flash-free
+          agent: argus
+          use_github_token: true

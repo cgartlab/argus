@@ -1,21 +1,50 @@
-MIT License
+Business Source License 1.1 (BSL 1.1)
 
 Copyright (c) 2026 CGArtLab
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Licensor: CGArtLab
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The Program is subject to the terms of the BSL 1.1 license.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Non-Production Use: This license applies only to non-production use of the
+Software. "Non-Production Use" means any use of the Software other than for
+its intended purpose, including but not limited to development, testing,
+evaluation, and internal benchmarking.
+
+You may not use this Software for any commercial purpose, including but not
+limited to: (i) use in a business or production environment; (ii) use by a
+competitor to provide competitive services; or (iii) use by any party to
+provide services competitive to the Licensor's business.
+
+Notwithstanding the foregoing, if you are an Open Source Initiative (OSI)
+approved license, you may use the Software under the terms of that license,
+provided that such use does not constitute commercial use as defined above.
+
+After five (5) years from the date of the last distribution of the Software
+(or any component thereof) by the Licensor under this license, the license
+granted herein shall automatically convert to the Apache License, Version 2.0,
+without notice or further action, and you may thereafter use the Software under
+the terms of the Apache License, Version 2.0.
+
+You may obtain a copy of the BSL 1.1 license at:
+https://www.mozilla.org/en-US/MPL/2.0/BSL-1.1/
+
+You may obtain a copy of the Apache License, Version 2.0 at:
+https://www.apache.org/licenses/LICENSE-2.0
+
+THE PROGRAM IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
+OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING, WITHOUT LIMITATION, ANY
+WARRANTIES OR CONDITIONS OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY, OR
+FITNESS FOR A PARTICULAR PURPOSE.
+
+EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, NEITHER THE LICENSOR NOR
+ANY CONTRIBUTOR SHALL HAVE ANY LIABILITY FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING WITHOUT LIMITATION
+LOST PROFITS), HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+IN ANY WAY OUT OF THE USE OR DISTRIBUTION OF THE PROGRAM OR THE EXERCISE OF
+ANY RIGHTS GRANTED HEREUNDER, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+This license does not grant permission to use the trade names, trademarks,
+service marks, or product names of the Licensor, except as required for
+reasonable and customary use in describing the origin of the Program.
