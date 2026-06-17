@@ -10,6 +10,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      reactions: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
