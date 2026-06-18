@@ -1,0 +1,7 @@
+# OpenCode 运行时文件
+.opencode/
+.omo/
+
+# 系统文件
+.DS_Store
+Thumbs.db
