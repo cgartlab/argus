@@ -8,14 +8,25 @@ help:
 	@echo "Argus Makefile"
 	@echo ""
 	@echo "  make check-version    — show current version"
+	@echo "  make bump-patch       — bump PATCH (e.g. 0.2.0 → 0.2.1)"
+	@echo "  make bump-minor       — bump MINOR (e.g. 0.2.0 → 0.3.0)"
+	@echo "  make bump-major       — bump MAJOR (e.g. 0.2.0 → 1.0.0)"
 	@echo "  make validate         — run all quality checks"
-	@echo "  make release          — tag and push a release"
+	@echo "  make release          — commit, tag and push a release"
 	@echo "  make package         — create release archive"
 	@echo "  make clean           — remove generated files"
 
 .PHONY: check-version
 check-version:
 	@echo "Current version: $(VERSION)"
+
+# ─── Version bumping ─────────────────────────────────────────────
+.PHONY: bump-patch bump-minor bump-major
+bump-patch bump-minor bump-major: BUMP_KIND=$(notdir $(firstword $(MAKECMDGOALS)))
+bump-patch bump-minor bump-major:
+	@python3 tools/bump_version.py $(BUMP_KIND)
+	@echo ""
+	@echo "Files staged. Review, then: make validate && make release"
 
 .PHONY: validate
 validate:
@@ -31,13 +42,16 @@ validate:
 
 .PHONY: release
 release: validate
-	@echo "Releasing v$(VERSION)..."
-	@git add -A
-	@git commit -m "chore(release): v$(VERSION)"
+	@echo "Checking for staged changes..."
+	@git diff --quiet --cached \
+	  || { echo "Uncommitted changes found. Commit or stash first."; exit 1; }
+	@echo "Creating commit and tag for v$(VERSION)..."
+	@git commit -m "chore(release): v$(VERSION)" || { echo "Nothing to commit"; exit 0; }
 	@git tag v$(VERSION)
-	@git push origin main
-	@git push origin tags/v$(VERSION)
-	@echo "Released v$(VERSION)"
+	@echo "Pushing main and tag..."
+	@git push origin main && git push origin tags/v$(VERSION)
+	@echo ""
+	@echo "Released v$(VERSION) — GitHub Actions will create the Release page"
 
 .PHONY: package
 package:
