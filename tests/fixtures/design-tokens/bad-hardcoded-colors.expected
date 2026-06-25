@@ -1,0 +1,34 @@
+# Expected findings for: design-tokens/bad-hardcoded-colors.css
+# Format: SEVERITY | LINE_HINT | KEYWORD
+# LINE_HINT is a substring that must appear in the reported file:line reference (optional).
+# KEYWORD is a substring that must appear in the issue description (case-insensitive).
+#
+# Rules:
+#   - count: exact number of findings at this severity level
+#   - Each finding line declares one required match.
+#   - Lines starting with # are comments.
+
+[meta]
+fixture = design-tokens/bad-hardcoded-colors.css
+description = Bare color values in component rules should be flagged as P0; :root declarations and token usages must not be flagged.
+
+[findings]
+# 5 P0 findings: two bare oklch, two bare hex, one bare rgb in component rules
+P0 | | oklch
+P0 | | oklch
+P0 | | #e94560
+P0 | | #ffffff
+P0 | | rgb
+
+[must-not-flag]
+# :root token declarations must not produce findings
+:root
+# Correct var(--ds-*) usages must not produce findings
+var(--ds-color-surface)
+var(--ds-color-fg)
+
+[counts]
+P0 = 5
+P1 = 0
+P2 = 0
+P3 = 0

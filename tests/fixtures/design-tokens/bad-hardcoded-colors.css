@@ -1,0 +1,45 @@
+/*
+ * FIXTURE: design-tokens/bad-hardcoded-colors
+ * Purpose: Contains intentional design token violations for Argus fixture testing.
+ * Expected findings: see bad-hardcoded-colors.expected
+ */
+
+/* Token declarations in :root — ALLOWED, not flagged */
+:root {
+  --ds-color-surface: oklch(99% 0.005 80);
+  --ds-color-fg: oklch(20% 0.02 60);
+}
+
+/* Dark overrides present — must NOT trigger dark-mode P0 for this fixture */
+[data-theme="dark"] {
+  --ds-color-surface: oklch(15% 0.005 80);
+  --ds-color-fg: oklch(90% 0.02 60);
+}
+
+/* ── Component rules below ── */
+
+/* BAD: bare oklch in component rule → P0 */
+.ds-card {
+  background: oklch(99% 0.005 80);    /* line 17 */
+  color: oklch(20% 0.02 60);          /* line 18 */
+  padding: var(--ds-space-4);
+}
+
+/* BAD: bare hex in component rule → P0 */
+.ds-button--primary {
+  background: #e94560;                /* line 23 */
+  color: #ffffff;                     /* line 24 */
+  border-radius: var(--ds-radius-md);
+}
+
+/* BAD: bare rgb in component rule → P0 */
+.ds-alert {
+  border: 1px solid rgb(255, 100, 100);  /* line 29 */
+}
+
+/* GOOD: correct token usage — must NOT be flagged */
+.ds-badge {
+  background: var(--ds-color-surface);
+  color: var(--ds-color-fg);
+  padding: var(--ds-space-2);
+}

@@ -1,0 +1,23 @@
+# Expected findings for: hardcoded-values/bad-magic-numbers.css
+
+[meta]
+fixture = hardcoded-values/bad-magic-numbers.css
+description = Hardcoded px values for spacing/radii/font-size must be flagged as P1. Zero values and var(--ds-*) usages must not be flagged.
+
+[findings]
+P1 | | 16px
+P1 | | 24px
+P1 | | 8px
+P1 | | 14px
+
+[must-not-flag]
+margin: 0
+padding: 0
+var(--ds-space-2)
+var(--ds-radius-sm)
+
+[counts]
+P0 = 0
+P1 = 4
+P2 = 0
+P3 = 0

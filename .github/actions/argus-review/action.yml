@@ -1,5 +1,8 @@
 name: Argus Review
-description: Frontend design code review via OpenCode, powered by Argus project rules
+description: >
+  Frontend design code review via OpenCode, powered by Argus project rules.
+  Supports consumer-side .argus.yml configuration for per-repo customization.
+
 inputs:
   github-token:
     description: argus-flash GitHub App installation token
@@ -7,6 +10,18 @@ inputs:
   model:
     description: LLM model to use
     default: opencode/deepseek-v4-flash-free
+  config-path:
+    description: >
+      Path to the consumer repository's .argus.yml config file, relative to
+      the consumer repo root. Defaults to .argus.yml (repo root).
+    default: .argus.yml
+  fixture-mode:
+    description: >
+      When set to "true", run Argus against the fixture files in
+      tests/fixtures/ for regression validation instead of reviewing a PR.
+      Intended for use in the Argus repo's own CI only.
+    default: "false"
+
 runs:
   using: composite
   steps:
@@ -19,6 +34,27 @@ runs:
 
     - name: Install OpenCode CLI
       run: curl -fsSL https://opencode.ai/install | bash
+      shell: bash
+
+    - name: Load consumer configuration (.argus.yml)
+      id: load-config
+      run: |
+        CONFIG_PATH="${{ inputs.config-path }}"
+
+        # If the consumer has a .argus.yml, validate and emit env vars.
+        # If not present, load_config.py will silently use defaults.
+        python3 ${{ github.action_path }}/../../../tools/load_config.py \
+          --config "$CONFIG_PATH" \
+          --output-env
+
+        # Surface which config source was used for debug visibility
+        if [ -f "$CONFIG_PATH" ]; then
+          echo "ARGUS_CONFIG_SOURCE=$CONFIG_PATH" >> $GITHUB_ENV
+          echo "[argus] Loaded consumer config from $CONFIG_PATH"
+        else
+          echo "ARGUS_CONFIG_SOURCE=defaults" >> $GITHUB_ENV
+          echo "[argus] No $CONFIG_PATH found — using built-in defaults"
+        fi
       shell: bash
 
     - name: Build review prompt from Argus rules
@@ -34,14 +70,42 @@ runs:
           echo "## Review Dimensions"
           cat ${{ github.action_path }}/../../../SKILL.md
           echo ""
+
+          # Inject consumer configuration context if present
+          if [ -n "$ARGUS_TOKEN_PREFIX" ] && [ "$ARGUS_TOKEN_PREFIX" != "--ds-" ]; then
+            echo "## Consumer Configuration"
+            echo "Design token prefix for this repository: \`$ARGUS_TOKEN_PREFIX\`"
+            echo "Treat any \`var($ARGUS_TOKEN_PREFIX*)\` as a valid design token reference."
+            echo ""
+          fi
+
+          if [ -n "$ARGUS_IGNORE_RULES" ]; then
+            echo "## Disabled Rules (per .argus.yml)"
+            echo "The following rule IDs are disabled for this repository: $ARGUS_IGNORE_RULES"
+            echo "Do NOT report findings for these rules."
+            echo ""
+          fi
+
+          if [ -n "$ARGUS_IGNORE_PATHS" ]; then
+            echo "## Ignored Paths (per .argus.yml)"
+            echo "Skip any files matching these patterns:"
+            echo "$ARGUS_IGNORE_PATHS"
+            echo ""
+          fi
+
+          echo "## Failure Threshold"
+          echo "Block-level severities for this repository: ${ARGUS_FAIL_ON:-P0,P1}"
+          echo ""
           echo "Review ALL frontend code in this PR."
           echo "Group output by severity: P0 (blocking) -> P1 (high) -> P2 (medium) -> P3 (polish)."
           echo "For every issue show: Found vs Expected, and name the exact design token."
+          echo "Cap total findings to ${ARGUS_MAX_FINDINGS:-50} (report highest severity first)."
           echo "EOF"
         } >> $GITHUB_ENV
       shell: bash
 
     - name: Run OpenCode review
+      if: inputs.fixture-mode == 'false'
       run: opencode github run
       shell: bash
       env:
@@ -49,3 +113,13 @@ runs:
         MODEL: ${{ inputs.model }}
         USE_GITHUB_TOKEN: "true"
         PROMPT: ${{ env.PROMPT }}
+
+    - name: Run fixture regression tests
+      if: inputs.fixture-mode == 'true'
+      run: |
+        python3 ${{ github.action_path }}/../../../tools/run_fixture_tests.py \
+          --model "${{ inputs.model }}" \
+          --json fixture-results.json
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}

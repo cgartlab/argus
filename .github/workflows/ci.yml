@@ -1,25 +1,178 @@
 name: CI
+
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+
 jobs:
+  # ── Job 1: YAML lint + required file checks ─────────────────────────────────
   lint:
+    name: Lint & Required Files
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Validate YAML syntax
         run: |
           python3 -c "
-          import yaml, sys
-          for f in ['ci.yml', 'review.yml']:
-              with open(f'.github/workflows/{f}') as fp:
-                  yaml.safe_load(fp)
-              print(f'{f}: valid YAML')
+          import yaml, sys, pathlib
+          targets = [
+            '.github/workflows/ci.yml',
+            '.github/workflows/review.yml',
+            '.github/actions/argus-review/action.yml',
+          ]
+          errors = []
+          for f in targets:
+              p = pathlib.Path(f)
+              if not p.exists():
+                  errors.append(f'{f}: file not found')
+                  continue
+              try:
+                  yaml.safe_load(p.read_text())
+                  print(f'{f}: valid YAML')
+              except yaml.YAMLError as e:
+                  errors.append(f'{f}: YAML error — {e}')
+          if errors:
+              for e in errors: print(e, file=sys.stderr)
+              sys.exit(1)
           "
+
       - name: Check required files
         run: |
-          for f in AGENTS.md SKILL.md README.md VERSION; do
-            test -f "$f" && echo "$f ok" || (echo "$f missing"; exit 1)
+          required=(
+            AGENTS.md
+            SKILL.md
+            README.md
+            VERSION
+            CHANGELOG.md
+            CONTRIBUTING.md
+            Makefile
+            tools/run_fixture_tests.py
+            tools/load_config.py
+            tools/bump_version.py
+            tools/validate_versioning.py
+            docs/argus-config-schema.md
+            .github/actions/argus-review/action.yml
+            tests/fixtures/README.md
+          )
+          missing=()
+          for f in "${required[@]}"; do
+            if [ -f "$f" ]; then
+              echo "$f ok"
+            else
+              echo "$f MISSING" >&2
+              missing+=("$f")
+            fi
           done
+          [ ${#missing[@]} -eq 0 ] || exit 1
+
+  # ── Job 2: Validate Python tool syntax ─────────────────────────────────────
+  validate-tools:
+    name: Validate Python Tools
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Python syntax for all tools
+        run: |
+          python3 -m py_compile tools/run_fixture_tests.py && echo "run_fixture_tests.py: ok"
+          python3 -m py_compile tools/load_config.py       && echo "load_config.py: ok"
+          python3 -m py_compile tools/bump_version.py      && echo "bump_version.py: ok"
+          python3 -m py_compile tools/validate_versioning.py && echo "validate_versioning.py: ok"
+
+      - name: Validate load_config.py defaults (no .argus.yml)
+        run: |
+          python3 tools/load_config.py --validate-only
+          echo "load_config default validation: ok"
+
+      - name: Validate load_config.py with example config
+        run: |
+          cat > /tmp/test-argus.yml << 'EOF'
+          version: "0.3"
+          skills:
+            - design-review
+          overrides:
+            token-prefix: "--ds-"
+          fail-on: [P0, P1]
+          output:
+            max-findings: 30
+          EOF
+          python3 tools/load_config.py --config /tmp/test-argus.yml --validate-only
+          echo "load_config with example .argus.yml: ok"
+
+  # ── Job 3: Fixture regression tests ────────────────────────────────────────
+  fixture-tests:
+    name: Fixture Regression Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run fixture tests (dry-run — parse & validate .expected files)
+        run: |
+          python3 tools/run_fixture_tests.py --dry-run
+          echo "Fixture .expected files: all parsed successfully"
+
+      - name: Verify fixture directory structure
+        run: |
+          python3 - << 'EOF'
+          import sys
+          from pathlib import Path
+
+          fixtures_dir = Path("tests/fixtures")
+          required_categories = ["design-tokens", "accessibility", "hardcoded-values", "css-quality"]
+          # Extensions that count as fixture input files
+          INPUT_SUFFIXES = {".css", ".html", ".js", ".ts", ".jsx", ".tsx", ".json"}
+          errors = []
+
+          for category in required_categories:
+              cat_dir = fixtures_dir / category
+              if not cat_dir.is_dir():
+                  errors.append(f"Missing fixture category: {cat_dir}")
+                  continue
+
+              # Input files: regular files with a recognised fixture extension
+              input_files = [
+                  f for f in cat_dir.iterdir()
+                  if f.is_file() and f.suffix in INPUT_SUFFIXES
+              ]
+              expected_files = list(cat_dir.glob("*.expected"))
+
+              if not input_files:
+                  errors.append(f"{category}: no input fixture files found")
+              if not expected_files:
+                  errors.append(f"{category}: no .expected files found")
+              if len(input_files) != len(expected_files):
+                  errors.append(
+                      f"{category}: {len(input_files)} input file(s) but "
+                      f"{len(expected_files)} .expected file(s) — must match"
+                  )
+
+              # Each .expected must have a matching fixture with any INPUT_SUFFIX
+              for exp in expected_files:
+                  bare = exp.name[: -len(".expected")]  # e.g. "missing-aria"
+                  matches = [f for f in input_files if f.stem == bare]
+                  if not matches:
+                      errors.append(
+                          f"{exp.name}: .expected file has no matching input fixture "
+                          f"(looked for '{bare}.<ext>' in {category}/)"
+                      )
+
+              print(f"{category}: {len(input_files)} fixture(s) ok")
+
+          if errors:
+              for e in errors:
+                  print(f"ERROR: {e}", file=sys.stderr)
+              sys.exit(1)
+          else:
+              print("All fixture categories valid.")
+          EOF
+
+      - name: Upload fixture test results (if any)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fixture-results
+          path: fixture-results.json
+          if-no-files-found: ignore

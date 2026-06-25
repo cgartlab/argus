@@ -1,0 +1,18 @@
+# Expected findings for: css-quality/duplicate-rules.css
+
+[meta]
+fixture = css-quality/duplicate-rules.css
+description = Duplicate property declarations within the same selector block should be flagged as P2. Identical properties in different selectors must not be flagged.
+
+[findings]
+P2 | | duplicate
+P2 | | duplicate
+
+[must-not-flag]
+.ds-button--primary
+
+[counts]
+P0 = 0
+P1 = 0
+P2 = 2
+P3 = 0
