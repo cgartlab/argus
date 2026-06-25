@@ -1,0 +1,22 @@
+/*
+ * FIXTURE: design-tokens/missing-dark-mode
+ * Purpose: Tokens declared in :root but missing [data-theme="dark"] overrides.
+ * Expected findings: see missing-dark-mode.expected
+ */
+
+/* BAD: color tokens with no dark override → P0 */
+:root {
+  --ds-color-bg: oklch(97% 0.012 80);         /* line 9 — no dark override */
+  --ds-color-surface: oklch(99% 0.005 80);    /* line 10 — no dark override */
+  --ds-color-fg: oklch(20% 0.02 60);          /* line 11 — no dark override */
+  --ds-space-4: 1rem;                         /* line 12 — spacing, not a color, must NOT be flagged */
+}
+
+/* GOOD: this token has a dark override — must NOT be flagged */
+:root {
+  --ds-color-accent: oklch(55% 0.18 250);
+}
+
+[data-theme="dark"] {
+  --ds-color-accent: oklch(70% 0.20 255);
+}

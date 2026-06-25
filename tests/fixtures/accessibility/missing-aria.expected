@@ -1,0 +1,22 @@
+# Expected findings for: accessibility/missing-aria.html
+
+[meta]
+fixture = accessibility/missing-aria.html
+description = Icon-only buttons missing aria-label, img missing alt, and <a> used as button should all be P1. Elements with correct attributes must not be flagged.
+
+[findings]
+P1 | | aria-label
+P1 | | alt
+P1 | | button
+P1 | | aria-label
+
+[must-not-flag]
+search-btn
+logo.png
+/profile
+
+[counts]
+P0 = 0
+P1 = 4
+P2 = 0
+P3 = 0

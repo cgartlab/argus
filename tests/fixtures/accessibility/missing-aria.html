@@ -1,0 +1,42 @@
+<!--
+  FIXTURE: accessibility/missing-aria
+  Purpose: Contains intentional accessibility violations for Argus fixture testing.
+  Expected findings: see missing-aria.expected
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Fixture: Missing ARIA</title>
+</head>
+<body>
+
+  <!-- BAD: icon-only button with no aria-label → P1 -->
+  <button class="icon-btn">
+    <svg viewBox="0 0 24 24"><path d="M3 12h18"/></svg>
+  </button>
+
+  <!-- BAD: img with no alt attribute → P1 -->
+  <img src="/assets/avatar.png" class="user-avatar">
+
+  <!-- BAD: <a> used as a button (no href, has click handler) → P1 -->
+  <a onclick="handleDelete()" class="delete-link">Delete</a>
+
+  <!-- BAD: second icon-only button, different icon → P1 -->
+  <button class="close-btn">
+    <svg viewBox="0 0 24 24"><path d="M6 6l12 12M6 18L18 6"/></svg>
+  </button>
+
+  <!-- GOOD: proper aria-label on icon button — must NOT be flagged -->
+  <button class="search-btn" aria-label="Search">
+    <svg viewBox="0 0 24 24"><path d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/></svg>
+  </button>
+
+  <!-- GOOD: img with alt — must NOT be flagged -->
+  <img src="/assets/logo.png" alt="Company logo">
+
+  <!-- GOOD: anchor with href — must NOT be flagged -->
+  <a href="/profile">View Profile</a>
+
+</body>
+</html>

@@ -1,0 +1,20 @@
+# Expected findings for: design-tokens/missing-dark-mode.css
+
+[meta]
+fixture = design-tokens/missing-dark-mode.css
+description = Color tokens declared in :root without a [data-theme="dark"] override should be P0. Spacing tokens and tokens that DO have a dark override must not be flagged.
+
+[findings]
+P0 | | dark
+P0 | | dark
+P0 | | dark
+
+[must-not-flag]
+--ds-space-4
+--ds-color-accent
+
+[counts]
+P0 = 3
+P1 = 0
+P2 = 0
+P3 = 0

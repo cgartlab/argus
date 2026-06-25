@@ -1,0 +1,34 @@
+/*
+ * FIXTURE: hardcoded-values/bad-magic-numbers
+ * Purpose: Spacing, radii, and font-size values that bypass the design token scale.
+ * Expected findings: see bad-magic-numbers.expected
+ */
+
+/* BAD: hardcoded spacing → P1 */
+.card {
+  padding: 16px;         /* line 9 — should be var(--ds-space-4) */
+  margin-bottom: 24px;   /* line 10 — should be var(--ds-space-6) */
+}
+
+/* BAD: hardcoded border-radius → P1 */
+.modal {
+  border-radius: 8px;    /* line 15 — should be var(--ds-radius-lg) */
+}
+
+/* BAD: hardcoded font-size → P1 */
+.label {
+  font-size: 14px;       /* line 20 — should be var(--ds-text-sm) */
+}
+
+/* GOOD: value 0 — must NOT be flagged (zero is always allowed) */
+.reset {
+  margin: 0;
+  padding: 0;
+}
+
+/* GOOD: token usage — must NOT be flagged */
+.badge {
+  padding: var(--ds-space-2);
+  border-radius: var(--ds-radius-sm);
+  font-size: var(--ds-text-xs);
+}

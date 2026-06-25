@@ -1,0 +1,28 @@
+/*
+ * FIXTURE: css-quality/duplicate-rules
+ * Purpose: Duplicate property declarations within the same selector block.
+ * Expected findings: see duplicate-rules.expected
+ */
+
+/* BAD: duplicate color property → P2 */
+.ds-card {
+  background: var(--ds-color-surface);
+  color: var(--ds-color-fg);
+  padding: var(--ds-space-4);
+  color: var(--ds-color-fg-secondary);   /* line 12 — duplicate 'color' */
+}
+
+/* BAD: duplicate display property → P2 */
+.ds-flex-row {
+  display: flex;
+  align-items: center;
+  display: grid;                         /* line 19 — duplicate 'display' */
+}
+
+/* GOOD: same property in different selectors — must NOT be flagged */
+.ds-button {
+  color: var(--ds-color-fg);
+}
+.ds-button--primary {
+  color: var(--ds-color-accent);
+}
