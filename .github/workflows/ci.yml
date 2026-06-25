@@ -122,6 +122,8 @@ jobs:
 
           fixtures_dir = Path("tests/fixtures")
           required_categories = ["design-tokens", "accessibility", "hardcoded-values", "css-quality"]
+          # Extensions that count as fixture input files
+          INPUT_SUFFIXES = {".css", ".html", ".js", ".ts", ".jsx", ".tsx", ".json"}
           errors = []
 
           for category in required_categories:
@@ -130,8 +132,11 @@ jobs:
                   errors.append(f"Missing fixture category: {cat_dir}")
                   continue
 
-              input_files = [f for f in cat_dir.iterdir()
-                             if not f.name.endswith(".expected") and f.name != "README.md"]
+              # Input files: regular files with a recognised fixture extension
+              input_files = [
+                  f for f in cat_dir.iterdir()
+                  if f.is_file() and f.suffix in INPUT_SUFFIXES
+              ]
               expected_files = list(cat_dir.glob("*.expected"))
 
               if not input_files:
@@ -144,10 +149,15 @@ jobs:
                       f"{len(expected_files)} .expected file(s) — must match"
                   )
 
+              # Each .expected must have a matching fixture with any INPUT_SUFFIX
               for exp in expected_files:
-                  stem = exp.name[:-len(".expected")]
-                  if not (cat_dir / stem).exists():
-                      errors.append(f"{exp}: .expected file has no matching input fixture")
+                  bare = exp.name[: -len(".expected")]  # e.g. "missing-aria"
+                  matches = [f for f in input_files if f.stem == bare]
+                  if not matches:
+                      errors.append(
+                          f"{exp.name}: .expected file has no matching input fixture "
+                          f"(looked for '{bare}.<ext>' in {category}/)"
+                      )
 
               print(f"{category}: {len(input_files)} fixture(s) ok")
 
