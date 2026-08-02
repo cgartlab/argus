@@ -1,6 +1,6 @@
 ---
 name: argus-design-review
-description: "Use when reviewing frontend code for design quality — checking design token usage, hardcoded values, dark mode coverage, accessibility compliance, CSS consistency, semantic HTML, or framework API usage. Use when auditing a component, page, or design system for issues. Trigger phrases: '"'"'帮我 review 这段代码'"'"'、'"'"'检查一下这个组件的设计问题'"'"'、'"'"'看看有没有 hardcoded values'"'"'、'"'"'dark mode 有没有遗漏'"'"'、'"'"'无障碍有没有问题'"'"'、'"'"'帮我做个 design audit'"'"'、'"'"'让 Argus-Flash 审一下'"'"'"
+description: "Use when reviewing frontend code for design quality — checking design token usage, hardcoded values, dark mode coverage, accessibility compliance, CSS consistency, semantic HTML, or framework API usage. Use when auditing a component, page, or design system for issues. Trigger phrases: '帮我 review 这段代码'、'检查一下这个组件的设计问题'、'看看有没有 hardcoded values'、'dark mode 有没有遗漏'、'无障碍有没有问题'、'帮我做个 design audit'、'让 Argus-Flash 审一下'"
 version: 0.3.1
 ---
 
@@ -10,7 +10,7 @@ When this skill is active, every line of frontend code is audited against the sa
 
 ## Technology Stack Detection
 
-Before reviewing, detect the project'"'"'s technology stack:
+Before reviewing, detect the project's technology stack:
 
 | Indicator | Stack | Documentation |
 |-----------|-------|---------------|
@@ -34,7 +34,7 @@ Before reviewing, detect the project'"'"'s technology stack:
 
 **Rule:** Every color in component rules must be a `var(--ds-*)` reference. No bare `oklch()`, `#hex`, or `rgb()`.
 
-\`\`\`css
+```css
 /* WRONG — bare oklch in component rule */
 .ds-card {
   background: oklch(99% 0.005 80);
@@ -46,7 +46,7 @@ Before reviewing, detect the project'"'"'s technology stack:
   background: var(--ds-color-surface);
   color: var(--ds-color-fg);
 }
-\`\`\`
+```
 
 **Exception:** Token declarations in `:root` and `@keyframes` may use bare oklch/hex.
 
@@ -56,7 +56,7 @@ Before reviewing, detect the project'"'"'s technology stack:
 
 **Rule:** All spacing, radii, and type scale values must use design token scale. No magic numbers.
 
-\`\`\`css
+```css
 /* WRONG */
 padding: 16px;
 border-radius: 8px;
@@ -64,15 +64,15 @@ border-radius: 8px;
 /* RIGHT */
 padding: var(--ds-space-4);
 border-radius: var(--ds-radius-lg);
-\`\`\`
+```
 
-**Flag:** Any numeric value (not 0) that should be a design token but isn'"'"'t.
+**Flag:** Any numeric value (not 0) that should be a design token but isn't.
 
 ### 3. Dark Mode Coverage
 
 **Rule:** Every color token declared in `:root` must have a `[data-theme="dark"]` override.
 
-\`\`\`css
+```css
 /* WRONG — no dark override */
 :root {
   --ds-color-bg: oklch(97% 0.012 80);
@@ -82,7 +82,7 @@ border-radius: var(--ds-radius-lg);
 [data-theme="dark"] {
   --ds-color-bg: oklch(15% 0.008 75);
 }
-\`\`\`
+```
 
 **Flag:** Any `:root` color token without a `[data-theme="dark"]` override. This is a silent dark mode break — colors may become unreadable.
 
@@ -123,7 +123,7 @@ border-radius: var(--ds-radius-lg);
 - Validate `forwardRef`, `memo` usage patterns
 - Reference: https://react.dev/reference
 
-\`\`\`tsx
+```tsx
 /* WRONG — missing deps array */
 useEffect(() => {
   fetchData(id);
@@ -133,7 +133,7 @@ useEffect(() => {
 useEffect(() => {
   fetchData(id);
 }, [id]);
-\`\`\`
+```
 
 **Vue:**
 - Check Composition API vs Options API consistency
@@ -177,7 +177,7 @@ Comprehensive pattern catalog for each framework with detection rules, examples,
 **Detection:** `useEffect(` followed by variable without it in deps array
 **Reference:** https://react.dev/reference/react/useEffect#specifying-reactive-dependencies
 
-\`\`\`tsx
+```tsx
 // WRONG
 useEffect(() => {
   setFullName(`${firstName} ${lastName}`);
@@ -187,13 +187,13 @@ useEffect(() => {
 useEffect(() => {
   setFullName(`${firstName} ${lastName}`);
 }, [firstName, lastName]);
-\`\`\`
+```
 
 #### 2. Async useEffect Without IIFE (P1)
 **Detection:** `useEffect(` with `async` keyword before arrow function
 **Reference:** https://react.dev/reference/react/useEffect#fetching-data-with-effects
 
-\`\`\`tsx
+```tsx
 // WRONG — useEffect cannot return a promise
 useEffect(async () => {
   const data = await fetchUser(id);
@@ -208,39 +208,39 @@ useEffect(() => {
   };
   fetchUser();
 }, [id]);
-\`\`\`
+```
 
 #### 3. Inline Object/Array in JSX (P2)
 **Detection:** JSX attribute with inline `{}` object or `[]` array
 **Reference:** https://react.dev/learn/keeping-components-pure
 
-\`\`\`tsx
+```tsx
 // WRONG — new object on every render
-<div style={{ color: '"'"'red'"'"' }} />
+<div style={{ color: 'red' }} />
 <div onClick={{ handle: () => {} }} />
 
 // RIGHT — move outside component or use useMemo
-const buttonStyle = { color: '"'"'red'"'"' };
+const buttonStyle = { color: 'red' };
 <div style={buttonStyle} />
-\`\`\`
+```
 
 #### 4. Missing Key in List (P1)
 **Detection:** `.map()` without `key` prop on returned element
 **Reference:** https://react.dev/learn/rendering-lists#keeping-list-items-in-order-with-key
 
-\`\`\`tsx
+```tsx
 // WRONG — missing key
 users.map(user => <UserCard name={user.name} />)
 
 // RIGHT — use stable unique id
 users.map(user => <UserCard key={user.id} name={user.name} />)
-\`\`\`
+```
 
 #### 5. Stale Closure in Callbacks (P1)
 **Detection:** Function referencing state/props without proper dependency
 **Reference:** https://react.dev/learn/avoiding-re-renders
 
-\`\`\`tsx
+```tsx
 // WRONG — count is stale
 const handleClick = () => {
   setCount(count + 1); // May use stale value
@@ -250,13 +250,13 @@ const handleClick = () => {
 const handleClick = () => {
   setCount(prev => prev + 1);
 };
-\`\`\`
+```
 
 #### 6. Unnecessary Re-renders (P2)
 **Detection:** Component passing new object/function as prop without memoization
 **Reference:** https://react.dev/reference/react/memo
 
-\`\`\`tsx
+```tsx
 // WRONG — new function every render
 const Parent = () => {
   return <Child onClick={() => console.log(clicked)} />;
@@ -269,30 +269,30 @@ const Parent = () => {
   }, [clicked]);
   return <Child onClick={handleClick} />;
 };
-\`\`\`
+```
 
 #### 7. Missing Cleanup in useEffect (P1)
 **Detection:** Event listener or subscription without return cleanup
 **Reference:** https://react.dev/reference/react/useEffect#subscribing-to-events
 
-\`\`\`tsx
+```tsx
 // WRONG — memory leak
 useEffect(() => {
-  window.addEventListener('"'"'resize'"'"', handleResize);
+  window.addEventListener('resize', handleResize);
 }, []); // Missing cleanup
 
 // RIGHT — cleanup function
 useEffect(() => {
-  window.addEventListener('"'"'resize'"'"', handleResize);
-  return () => window.removeEventListener('"'"'resize'"'"', handleResize);
+  window.addEventListener('resize', handleResize);
+  return () => window.removeEventListener('resize', handleResize);
 }, []);
-\`\`\`
+```
 
 #### 8. Boolean State for Toggle (P3)
 **Detection:** State initialized with `true`/`false` when null/undefined is valid
 **Reference:** https://react.dev/reference/react/useState
 
-\`\`\`tsx
+```tsx
 // WRONG — three states needed
 const [isLoading, setIsLoading] = useState(true);
 if (isLoading === true) // loading
@@ -300,29 +300,29 @@ else if (isLoading === false) // loaded
 // But how to handle error?
 
 // RIGHT — use proper state machine
-const [status, setStatus] = useState<'"'"'idle'"'"' | '"'"'loading'"'"' | '"'"'success'"'"' | '"'"'error'"'"'>('"'"'idle'"'"');
-\`\`\`
+const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+```
 
 #### 9. Derived State Instead of Computed (P2)
 **Detection:** `useState` storing value that can be computed from props/state
 **Reference:** https://react.dev/learn/queueing-a-series-of-state-updates
 
-\`\`\`tsx
+```tsx
 // WRONG — redundant state
-const [fullName, setFullName] = useState('"'"'"'"');
+const [fullName, setFullName] = useState(');
 useEffect(() => {
   setFullName(`${firstName} ${lastName}`);
 }, [firstName, lastName]);
 
 // RIGHT — compute when needed
 const fullName = `${firstName} ${lastName}`;
-\`\`\`
+```
 
 #### 10. Prop Drilling (P2)
 **Detection:** Multiple components passing same prop through layers
 **Reference:** https://react.dev/learn/passing-data-deeply-with-context
 
-\`\`\`tsx
+```tsx
 // WRONG — theme passed through layers
 <GrandParent>
   <Parent theme={theme}>
@@ -338,7 +338,7 @@ const ThemeContext = createContext();
   <Child />
 </ThemeContext.Provider>
 // Then useContext(ThemeContext) in Button
-\`\`\`
+```
 
 ---
 
@@ -348,26 +348,26 @@ const ThemeContext = createContext();
 **Detection:** `props:` definition with mutation inside component
 **Reference:** https://vuejs.org/guide/components/props#prop-mutations
 
-\`\`\`vue
+```vue
 // WRONG — mutating prop
 <script setup>
 const props = defineProps<{ title: string }>();
-props.title = '"'"'New Title'"'"'; // Error!
+props.title = 'New Title'; // Error!
 </script>
 
 // RIGHT — emit event or use local state
 <script setup>
 const props = defineProps<{ title: string }>();
 const localTitle = ref(props.title);
-localTitle.value = '"'"'New Title'"'"';
+localTitle.value = 'New Title';
 </script>
-\`\`\`
+```
 
 #### 2. Mixing Composition API with Options API (P2)
 **Detection:** `setup()` function alongside `data()`, `methods`, `computed`
 **Reference:** https://vuejs.org/guide/extras/composition-api-faq#should-i-use-options-api-or-composition-api
 
-\`\`\`vue
+```vue
 // WRONG — mixing APIs
 <script>
 export default {
@@ -383,43 +383,43 @@ export default {
 const count = ref(0);
 const doubled = computed(() => count.value * 2);
 </script>
-\`\`\`
+```
 
 #### 3. Watching Objects Instead of Properties (P2)
 **Detection:** `watch(obj, ...)` instead of `watch(() => obj.prop, ...)`
 **Reference:** https://vuejs.org/guide/essentials/watchers#watching-reactive-state
 
-\`\`\`vue
+```vue
 // WRONG — watches entire object
 watch(user, (newUser) => {
-  console.log(newUser.name); // Won'"'"'t trigger on name change
+  console.log(newUser.name); // Won't trigger on name change
 });
 
 // RIGHT — watch specific property
 watch(() => user.name, (newName) => {
   console.log(newName);
 });
-\`\`\`
+```
 
 #### 4. Not Using reactive for Objects (P2)
 **Detection:** Using `ref()` for objects without `.value` access everywhere
 **Reference:** https://vuejs.org/guide/essentials/reactivity-fundamentals#reactive-objects
 
-\`\`\`vue
+```vue
 // WRONG — ref for object
-const user = ref({ name: '"'"'John'"'"' });
+const user = ref({ name: 'John' });
 console.log(user.value.name); // Verbose
 
 // RIGHT — reactive for objects
-const user = reactive({ name: '"'"'John'"'"' });
+const user = reactive({ name: 'John' });
 console.log(user.name); // Cleaner
-\`\`\`
+```
 
 #### 5. Side Effects in Computed (P1)
 **Detection:** `computed()` with mutation, async, or side effect
 **Reference:** https://vuejs.org/guide/essentials/computed#computed-properties
 
-\`\`\`vue
+```vue
 // WRONG — side effect in computed
 const fullName = computed(() => {
   fetchUser(); // Side effect!
@@ -428,13 +428,13 @@ const fullName = computed(() => {
 
 // RIGHT — use watch or method instead
 const fullName = computed(() => `${user.firstName} ${user.lastName}`);
-\`\`\`
+```
 
 #### 6. Missing Cleanup in onMounted (P1)
 **Detection:** Subscription/timer in `onMounted` without `onUnmounted`
 **Reference:** https://vuejs.org/guide/essentials/lifecycle#lifecycle-diagram
 
-\`\`\`vue
+```vue
 // WRONG
 onMounted(() => {
   interval = setInterval(fetchData, 5000);
@@ -445,32 +445,32 @@ onMounted(() => {
   interval = setInterval(fetchData, 5000);
 });
 onUnmounted(() => clearInterval(interval));
-\`\`\`
+```
 
 #### 7. Using Index as Key (P2)
 **Detection:** `:key="index"` in v-for
 **Reference:** https://vuejs.org/guide/essentials/list#maintaining-state-with-key
 
-\`\`\`vue
+```vue
 // WRONG — key changes when array order changes
 <div v-for="(item, index) in items" :key="index">
 
 // RIGHT — use stable unique id
 <div v-for="item in items" :key="item.id">
-\`\`\`
+```
 
 #### 8. Modifying Array Directly (P2)
 **Detection:** Push/splice on reactive array instead of spread/filter
 **Reference:** https://vuejs.org/guide/essentials/reactivity-fundamentals#mutating-methods
 
-\`\`\`vue
+```vue
 // WRONG — mutation
 items.push(newItem);
 
 // RIGHT — immutable pattern
 items = [...items, newItem];
 // Or: items.value.push(newItem) if using ref
-\`\`\`
+```
 
 ---
 
@@ -480,10 +480,10 @@ items = [...items, newItem];
 **Detection:** `$store` usage without understanding subscription lifecycle
 **Reference:** https://svelte.dev/docs/svelte-store#auto-subscription
 
-\`\`\`svelte
+```svelte
 // WRONG — memory leak
 <script>
-  import { count } from '"'"'./stores'"'"';
+  import { count } from './stores';
   onMount(() => {
     // Using $count but not understanding subscription
   });
@@ -491,17 +491,17 @@ items = [...items, newItem];
 
 // RIGHT — Svelte auto-subscribes with $ prefix
 <script>
-  import { count } from '"'"'./stores'"'"';
+  import { count } from './stores';
   // $count is automatically subscribed and unsubscribed
 </script>
 <p>{$count}</p>
-\`\`\`
+```
 
 #### 2. Overusing Reactive Statements (P3)
 **Detection:** Multiple `$:` that could be combined into one
 **Reference:** https://svelte.dev/docs/svelte-components#script-3-advanced-styles
 
-\`\`\`svelte
+```svelte
 // WRONG — too many reactive statements
 $: doubled = count * 2;
 $: quadrupled = doubled * 2;
@@ -509,13 +509,13 @@ $: console.log(quadrupled);
 
 // RIGHT — compute once
 $: quadrupled = count * 4;
-\`\`\`
+```
 
 #### 3. Mutating Props in Reactive Statements (P1)
 **Detection:** `export let` followed by reassignment
 **Reference:** https://svelte.dev/docs/svelte-components#script
 
-\`\`\`svelte
+```svelte
 // WRONG
 <script>
   export let name;
@@ -528,16 +528,16 @@ $: quadrupled = count * 4;
   $: displayName = name?.toUpperCase();
 </script>
 <p>{displayName}</p>
-\`\`\`
+```
 
 #### 4. Not Cleaning Up in onDestroy (P1)
 **Detection:** Subscription or timer without `onDestroy` cleanup
 **Reference:** https://svelte.dev/docs/svelte#ondestroy
 
-\`\`\`svelte
+```svelte
 // WRONG
 <script>
-  import { onMount } from '"'"'svelte'"'"';
+  import { onMount } from 'svelte';
   let timer;
   onMount(() => {
     timer = setInterval(() => count++, 1000);
@@ -546,26 +546,26 @@ $: quadrupled = count * 4;
 
 // RIGHT
 <script>
-  import { onMount, onDestroy } from '"'"'svelte'"'"';
+  import { onMount, onDestroy } from 'svelte';
   let timer;
   onMount(() => {
     timer = setInterval(() => count++, 1000);
   });
   onDestroy(() => clearInterval(timer));
 </script>
-\`\`\`
+```
 
 #### 5. Using Reassignment Instead of Store Methods (P3)
 **Detection:** `$count++` when store has update method
 **Reference:** https://svelte.dev/docs/svelte-store#writable-stores
 
-\`\`\`svelte
+```svelte
 // OK but not ideal for complex state
 count.update(n => n + 1);
 
 // RIGHT — if store exposes specific methods
 userStore.incrementAge();
-\`\`\`
+```
 
 ---
 
@@ -575,7 +575,7 @@ userStore.incrementAge();
 **Detection:** `.subscribe()` without `.unsubscribe()` or `takeUntilDestroyed`
 **Reference:** https://angular.dev/guide/subscribe#unsubscribing
 
-\`\`\`typescript
+```typescript
 // WRONG — memory leak
 @Component({...})
 export class UserComponent {
@@ -603,13 +603,13 @@ export class UserComponent implements OnDestroy {
 export class UserComponent {
   user$ = this.userService.getUser();
 }
-\`\`\`
+```
 
 #### 2. Changing Values in ngOnInit (P1)
 **Detection:** Form control or state mutation in `ngOnInit`
 **Reference:** https://angular.dev/guide/lifecycle-hooks
 
-\`\`\`typescript
+```typescript
 // WRONG — should be in constructor or ngDoCheck
 @Component({...})
 export class ProfileComponent implements OnInit {
@@ -622,16 +622,16 @@ export class ProfileComponent implements OnInit {
 @Component({...})
 export class ProfileComponent {
   form = new FormGroup({
-    name: new FormControl('"'"''"'"')
+    name: new FormControl(')
   });
 }
-\`\`\`
+```
 
 #### 3. Using ngIf with Hidden Elements (P2)
 **Detection:** `*ngIf="false"` followed by `display: none` or `[hidden]`
 **Reference:** https://angular.dev/api/common/NgIf
 
-\`\`\`html
+```html
 <!-- WRONG — double handling -->
 <div *ngIf="show" [hidden]="!show" class="content">
   Content
@@ -641,13 +641,13 @@ export class ProfileComponent {
 <div *ngIf="show" class="content">
   Content
 </div>
-\`\`\`
+```
 
 #### 4. Not Using trackBy in ngFor (P2)
 **Detection:** `*ngFor` without `trackBy` function
 **Reference:** https://angular.dev/api/common/NgFor
 
-\`\`\`html
+```html
 <!-- WRONG — expensive re-renders -->
 <div *ngFor="let item of items">
   {{ item.name }}
@@ -657,19 +657,19 @@ export class ProfileComponent {
 <div *ngFor="let item of items; trackBy: trackById">
   {{ item.name }}
 </div>
-\`\`\`
+```
 
-\`\`\`typescript
+```typescript
 trackById(index: number, item: Item): string {
   return item.id;
 }
-\`\`\`
+```
 
 #### 5. HTTP Calls in Constructor (P1)
 **Detection:** HTTP call in constructor instead of ngOnInit
 **Reference:** https://angular.dev/guide/di
 
-\`\`\`typescript
+```typescript
 // WRONG — too early, may not have all dependencies
 constructor(private http: HttpClient) {
   this.http.get('/api/user').subscribe();
@@ -681,7 +681,7 @@ constructor(private http: HttpClient) {}
 ngOnInit() {
   this.http.get('/api/user').subscribe();
 }
-\`\`\`
+```
 
 ---
 
@@ -691,28 +691,28 @@ ngOnInit() {
 **Detection:** `fetch()` inside component without checking if static possible
 **Reference:** https://docs.astro.build/en/recipes/build-time-data-fetching
 
-\`\`\`astro
+```astro
 // WRONG — fetching at runtime when build-time is possible
 ---
-const data = await fetch('"'"'https://api.example.com/data'"'"').then(r => r.json());
+const data = await fetch('https://api.example.com/data').then(r => r.json());
 ---
 <script>
 // Or in client-side script
-const data = await fetch('"'"'https://api.example.com/data'"'"').then(r => r.json());
+const data = await fetch('https://api.example.com/data').then(r => r.json());
 </script>
 
 // RIGHT — fetch at build time
 ---
 // In frontmatter (runs at build)
-const data = await fetch('"'"'https://api.example.com/data'"'"').then(r => r.json());
+const data = await fetch('https://api.example.com/data').then(r => r.json());
 ---
-\`\`\`
+```
 
 #### 2. Improper Prop Typing (P2)
 **Detection:** Missing or incorrect `Props` interface
 **Reference:** https://docs.astro.build/en/guides/typescript#component-props
 
-\`\`\`astro
+```astro
 // WRONG — no typing
 ---
 const { title, count } = Astro.props;
@@ -727,38 +727,38 @@ interface Props {
 }
 const { title, count = 0 } = Astro.props as Props;
 ---
-\`\`\`
+```
 
 #### 3. Mixing Component Types (P2)
 **Detection:** Using `.astro` component in client script without directive
 **Reference:** https://docs.astro.build/en/concepts/islands
 
-\`\`\`astro
+```astro
 // WRONG — client component without directive
-import ReactButton from '"'"'./ReactButton.jsx'"'"';
+import ReactButton from './ReactButton.jsx';
 
 // RIGHT — use client directive
-import ReactButton from '"'"'./ReactButton.jsx'"'"';
+import ReactButton from './ReactButton.jsx';
 <ReactButton client:load />
-\`\`\`
+```
 
 #### 4. Unnecessary Client Directive (P2)
 **Detection:** `client:*` on static components
 **Reference:** https://docs.astro.build/en/reference/directives-reference#client-directives
 
-\`\`\`astro
-// WRONG — static component doesn'"'"'t need client directive
+```astro
+// WRONG — static component doesn't need client directive
 <StaticHeader client:load />
 
 // RIGHT — only when interactivity needed
 <InteractiveButton client:visible />
-\`\`\`
+```
 
 #### 5. Missing Props Validation (P2)
 **Detection:** No TypeScript interface for component props
 **Reference:** https://docs.astro.build/en/guides/typescript/#component-props
 
-\`\`\`astro
+```astro
 // WRONG
 ---
 const { title, items } = Astro.props;
@@ -773,7 +773,7 @@ interface Props {
 }
 const { title, items } = Astro.props as Props;
 ---
-\`\`\`
+```
 
 ---
 
@@ -783,7 +783,7 @@ const { title, items } = Astro.props as Props;
 **Detection:** `async` function without try/catch or `.catch()`
 **Reference:** https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function
 
-\`\`\`typescript
+```typescript
 // WRONG
 async function fetchUser(id: string) {
   const response = await fetch(`/api/users/${id}`);
@@ -794,20 +794,20 @@ async function fetchUser(id: string) {
 async function fetchUser(id: string) {
   try {
     const response = await fetch(`/api/users/${id}`);
-    if (!response.ok) throw new Error('"'"'User not found'"'"');
+    if (!response.ok) throw new Error('User not found');
     return response.json();
   } catch (error) {
-    console.error('"'"'Failed to fetch user'"'"', error);
+    console.error('Failed to fetch user', error);
     throw error;
   }
 }
-\`\`\`
+```
 
 #### 2. Using `any` Instead of Proper Types (P2)
 **Detection:** Type annotation with `any`
 **Reference:** https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#any
 
-\`\`\`typescript
+```typescript
 // WRONG
 function processData(data: any) {
   return data.name; // No type safety!
@@ -821,29 +821,29 @@ interface User {
 function processData(data: User) {
   return data.name;
 }
-\`\`\`
+```
 
 #### 3. Mutating Parameters (P3)
 **Detection:** Assignment to function parameters
 **Reference:** https://www.typescriptlang.org/docs/handbook/2/functions.html#parameter-destructuring
 
-\`\`\`typescript
+```typescript
 // WRONG
 function processUser(user: User) {
-  user.name = '"'"'Modified'"'"'; // Mutates original!
+  user.name = 'Modified'; // Mutates original!
 }
 
 // RIGHT
 function processUser(user: User): User {
-  return { ...user, name: '"'"'Modified'"'"' };
+  return { ...user, name: 'Modified' };
 }
-\`\`\`
+```
 
 #### 4. Creating Objects in Render (P2)
 **Detection:** Object/array creation inside render/return
 **Reference:** https://www.typescriptlang.org/docs/handbook/2/functions.html#rest-parameters
 
-\`\`\`tsx
+```tsx
 // WRONG — new array every render
 const Child = ({ items }) => (
   items.map(item => <div key={{ id: item.id }}>{item.name}</div>)
@@ -853,25 +853,25 @@ const Child = ({ items }) => (
 const Child = ({ items }) => (
   items.map(item => <div key={item.id}>{item.name}</div>)
 );
-\`\`\`
+```
 
 #### 5. Not Using Optional Chaining (P2)
 **Detection:** Manual null check before accessing nested property
 **Reference:** https://www.typescriptlang.org/docs/handbook/2/functions.html#optional-parameters
 
-\`\`\`typescript
+```typescript
 // WRONG — verbose null checks
 const name = user && user.profile && user.profile.name;
 
 // RIGHT — optional chaining
 const name = user?.profile?.name;
-\`\`\`
+```
 
 #### 6. Null vs Undefined Confusion (P3)
 **Detection:** Inconsistent use of null and undefined
 **Reference:** https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#null-and-undefined
 
-\`\`\`typescript
+```typescript
 // WRONG — mixing null and undefined
 function createUser(name: string, age?: number | null) {
   // Confusing when to use which
@@ -881,7 +881,7 @@ function createUser(name: string, age?: number | null) {
 function createUser(name: string, age?: number) {
   // Use undefined for optional, value for required
 }
-\`\`\`
+```
 
 ---
 
@@ -898,19 +898,19 @@ function createUser(name: string, age?: number) {
 
 ### Summary Header
 
-\`\`\`
+```
 ## Argus Design Review Summary
 - Total Issues: N (P0: X | P1: X | P2: X | P3: X)
 - Files Reviewed: N
 - Technology Stack: {detected stack}
 - Documentation: {official docs URL}
-\`\`\`
+```
 
 ### Severity Groups
 
 Issues are grouped under headers in order: P0 → P1 → P2 → P3.
 
-\`\`\`
+```
 ## P0 — Blocking Issues (must fix, CI will fail)
 
 ## P1 — High Priority (must fix before merge)
@@ -918,34 +918,34 @@ Issues are grouped under headers in order: P0 → P1 → P2 → P3.
 ## P2 — Medium Priority (should fix)
 
 ## P3 — Low Priority (optional polish)
-\`\`\`
+```
 
 ### Issue Block (repeats per issue)
 
-\`\`\`
+```
 [P{severity}] {file}:{line} — {short description}
 
   Found:    {current code snippet}
   Expected: {correct code snippet}
 
   Fix:
-  \`\`\`{extension}
+  ```{extension}
   {copy-ready fix code}
-  \`\`\`
+  ```
 
   Token:    {design token to use, if applicable}
   Reference: {official docs URL for this API}
   Note:     {optional context or explanation}
-\`\`\`
+```
 
 ### Format Rules
 
-- Each issue block starts with a \`─────────────────────────────────────────────────\` separator line
+- Each issue block starts with a `─────────────────────────────────────────────────` separator line
 - Code snippets are shown inline, truncated to relevant portion (max 80 chars per line)
 - **Fix code block is mandatory** — always provide the exact fix to copy
-- Empty \`Note:\` line is omitted if not needed
-- No issue = output \`✓ No issues found\` under each severity group
-- Always include \`Reference:\` link when flagging framework API issues
+- Empty `Note:` line is omitted if not needed
+- No issue = output `✓ No issues found` under each severity group
+- Always include `Reference:` link when flagging framework API issues
 
 ## Review Workflow
 
@@ -960,7 +960,7 @@ Issues are grouped under headers in order: P0 → P1 → P2 → P3.
 9. **Generate fixes** — provide copy-ready code for every issue found
 10. Report findings grouped by severity
 
-**In automated PR review mode:** The composite action at \`.github/actions/argus-review/action.yml\` reads \`AGENTS.md\` + \`SKILL.md\` from the argus repo at runtime and injects their contents into the LLM prompt. The review is performed by the \`argus-flash\` GitHub App, which comments findings directly on the PR.
+**In automated PR review mode:** The composite action at `.github/actions/argus-review/action.yml` reads `AGENTS.md` + `SKILL.md` from the argus repo at runtime and injects their contents into the LLM prompt. The review is performed by the `argus-flash` GitHub App, which comments findings directly on the PR.
 
 ## Non-Blocking Context
 
@@ -968,5 +968,5 @@ Do NOT flag issues in:
 - Third-party resets or normalize.css
 - Generated boilerplate that will be replaced
 - Test fixtures and mock data files
-- \`node_modules/\` (ignore entirely)
-- Workflow YAML files (\`.github/workflows/\`, \`.github/actions/\`)
+- `node_modules/` (ignore entirely)
+- Workflow YAML files (`.github/workflows/`, `.github/actions/`)

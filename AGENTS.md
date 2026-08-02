@@ -36,11 +36,11 @@ argus/
 │   ├── run_fixture_tests.py           # Fixture regression test runner
 │   ├── load_config.py                 # Consumer .argus.yml loader + validator
 │   ├── bump_version.py                # Automated semver bumping
-│   └── validate_versionging.py         # VERSION / CHANGELOG consistency check
+│   └── validate_versioning.py         # VERSION / CHANGELOG consistency check
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml                     # Lint + tool validation + fixture tests
-│   │   └── review.yml                 # Argus-Flash PR review (triggers composite action)
+│   │   ├── review.yml                 # Argus-Flash PR review (triggers composite action)
 │   │   └── release.yml               # Automated release workflow (tag-push triggers)
 │   └── actions/
 │       └── argus-review/
