@@ -77,11 +77,9 @@ test: validate test-fixtures
 # ─── Release ─────────────────────────────────────────────────────
 .PHONY: release
 release: validate
-	@echo "Checking for staged changes..."
-	@git diff --quiet --cached \
-	  || { echo "Uncommitted changes found. Commit or stash first."; exit 1; }
-	@echo "Creating commit and tag for v$(VERSION)..."
-	@git commit -m "chore(release): v$(VERSION)" || { echo "Nothing to commit"; exit 0; }
+	@echo "Creating release commit (allows empty — version may already be committed via PR)..."
+	@git commit --allow-empty -m "chore(release): v$(VERSION)"
+	@echo "Creating tag v$(VERSION)..."
 	@git tag v$(VERSION)
 	@echo "Pushing main and tag..."
 	@git push origin main && git push origin tags/v$(VERSION)
