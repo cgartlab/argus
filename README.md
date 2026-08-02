@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/cgartlab/argus/actions/workflows/ci.yml/badge.svg)](https://github.com/cgartlab/argus/actions/workflows/ci.yml)
 [![Argus-Flash Review](https://github.com/cgartlab/argus/actions/workflows/review.yml/badge.svg)](https://github.com/cgartlab/argus/actions/workflows/review.yml)
+[![Release](https://github.com/cgartlab/argus/actions/workflows/release.yml/badge.svg)](https://github.com/cgartlab/argus/actions/workflows/release.yml)
 
 Code review agent for frontend design. Runs as a GitHub App — install on any repo for automated PR reviews.
 
@@ -19,6 +20,7 @@ The **argus-flash** GitHub App (`github.com/apps/argus-flash`) runs Argus as an 
 - Dark mode coverage verification
 - CSS consistency (duplicate rules, invalid BEM, empty catch blocks)
 - HTML structure validation (semantic elements, link vs button)
+- Framework API usage validation (React, Vue, Angular, Svelte, Astro)
 
 ## Architecture
 
@@ -107,7 +109,7 @@ That's it. Every PR will automatically receive a design review comment from `arg
 
 `cgartlab/argus/.github/actions/argus-review@main` references the latest version of the Argus rules. When `AGENTS.md` or `SKILL.md` are updated in the argus repo, the composite action reads them at runtime — all consumer repos get the new rules instantly with no changes needed.
 
-For a pinned version, use `@v0.2.0` instead of `@main`.
+For a pinned version, use `@v0.3.1` instead of `@main`.
 
 ## Project Structure
 
@@ -115,13 +117,20 @@ For a pinned version, use `@v0.2.0` instead of `@main`.
 argus/
 ├── AGENTS.md                    # Identity, hard rules, review dimensions
 ├── SKILL.md                     # Skill definition with trigger phrases
+├── manifest.yaml                # Structured skill metadata
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml              # YAML syntax check + required file validation
-│   │   └── review.yml          # Argus-Flash PR review workflow
+│   │   ├── review.yml          # Argus-Flash PR review workflow
+│   │   └── release.yml         # Automated release workflow (tag-push)
 │   └── actions/
 │       └── argus-review/
 │           └── action.yml      # Reusable composite action
+├── tools/
+│   ├── bump_version.py         # Automated semver bumping
+│   ├── load_config.py          # Consumer .argus.yml loader
+│   ├── run_fixture_tests.py    # Fixture regression test runner
+│   └── validate_versioning.py  # VERSION/CHANGELOG consistency check
 ├── Makefile                     # validate, release, package, clean
 ├── VERSION                      # Semantic version
 └── LICENSE                      # MIT
@@ -132,8 +141,10 @@ argus/
 ```bash
 make check-version   # Show current version
 make validate        # Run all quality checks
+make test            # validate + test-fixtures (full pre-release check)
+make package-skill   # Create skill package (argus-skill-v{VERSION}.zip)
+make package         # Create all release archives
 make release         # Tag and push a release
-make package         # Create release archive
 make clean           # Remove generated files
 ```
 

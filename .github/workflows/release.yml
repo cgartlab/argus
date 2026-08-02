@@ -3,30 +3,43 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
+
+permissions:
+  contents: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v6
 
-      - name: Extract version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-      - name: Verify VERSION matches tag
-        run: |
-          FILE_VERSION=$(cat VERSION)
-          TAG_VERSION=${{ steps.version.outputs.VERSION }}
-          if [ "$FILE_VERSION" != "$TAG_VERSION" ]; then
-            echo "VERSION ($FILE_VERSION) does not match tag ($TAG_VERSION)"
-            exit 1
-          fi
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install pyyaml
+
+      - name: Validate versioning
+        run: |
+          python3 tools/validate_versioning.py
+
+      - name: Create packages
+        run: |
+          make package-skill
+          make package
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v3
+        with:
+          body_path: CHANGELOG.md
+          draft: false
+          make_latest: true
+          files: |
+            dist/argus-skill-v*.zip
+            dist/argus-v*.tar.gz
+            dist/argus-v*.zip

@@ -1,0 +1,30 @@
+name: argus
+version: 0.3.1
+description: Frontend design code review agent — validates correctness, accessibility, security, and design token usage.
+skills:
+  - accessibility
+preferred_models: []
+required_capabilities:
+  - code_review
+  - lint
+  - type_check
+constraints:
+  never_approve_unseen: true
+  report_all_p0_p1: true
+inputs:
+  - name: prompt
+    type: string
+    description: The task or artifact to validate
+  - name: check
+    type: string
+    description: Specific check type (correctness, security, logic, accessibility)
+outputs:
+  - name: result
+    type: string
+    description: Pass or fail
+  - name: checks
+    type: array
+    description: Individual check results
+  - name: issues
+    type: array
+    description: Issues found (if any)
