@@ -37,11 +37,23 @@ cd argus
 ## Version Management
 
 ```bash
-# After changing any content
-echo "0.2.0" > VERSION
-git add -A && git commit -m "chore(release): bump to v0.2.0"
-git tag v0.2.0 && git push origin main --tags
+# Bump version (automatically updates VERSION + CHANGELOG)
+make bump-patch   # 0.3.0 → 0.3.1 (bug fixes, minor changes)
+make bump-minor   # 0.3.0 → 0.4.0 (new features)
+make bump-major   # 0.3.0 → 1.0.0 (breaking changes)
+
+# Full pre-release check
+make test
+
+# Cut a release (commit → tag → push → triggers release workflow)
+make release
 ```
+
+Pushing a `v*.*.*` tag triggers `.github/workflows/release.yml` which:
+1. Validates versioning consistency (VERSION ↔ CHANGELOG)
+2. Builds full archive (`dist/argus-v{VERSION}.tar.gz` + `.zip`)
+3. Builds skill package (`dist/argus-skill-v{VERSION}.zip`)
+4. Creates a GitHub Release with all artifacts
 
 ## Branch Naming
 

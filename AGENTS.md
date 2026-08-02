@@ -1,13 +1,15 @@
 # AGENTS.md — Argus
 
-**Version:** 0.3.0 | **Project:** https://github.com/cgartlab/argus | **License:** MIT
-**Updated:** 2026-06-25
+**Version:** 0.3.1 | **Project:** https://github.com/cgartlab/argus | **License:** MIT
+**Updated:** 2026-08-02
 
 ---
 
 ## OVERVIEW
 
-Argus is a cross-platform AI coding agent specialized in **frontend design code review** — hardcoded values, design token violations, a11y gaps, dark mode breaks. Runs standalone in any agent framework or as an automated GitHub App review gate.
+Argus is a cross-platform AI coding agent specialized in **frontend design code review** — hardcoded values, design token violations, a11y gaps, dark mode breaks, and stack-aware API usage with actionable code fixes. Runs standalone in any agent framework or as an automated GitHub App review gate.
+
+Argus detects the project's technology stack and validates code against official documentation, then provides **copy-ready code fixes** just like Codex.
 
 Consumer repositories can customize review behavior via a `.argus.yml` config file (see `docs/argus-config-schema.md`).
 
@@ -38,7 +40,8 @@ argus/
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml                     # Lint + tool validation + fixture tests
-│   │   └── review.yml                 # Argus-Flash PR review (triggers composite action)
+│   │   ├── review.yml                 # Argus-Flash PR review (triggers composite action)
+│   │   └── release.yml               # Automated release workflow (tag-push triggers)
 │   └── actions/
 │       └── argus-review/
 │           └── action.yml             # Reusable composite action for any repo
@@ -60,6 +63,7 @@ argus/
 | Fixture runner | `tools/run_fixture_tests.py` | `make test-fixtures` or directly |
 | CI pipeline | `.github/workflows/ci.yml` | Lint + tool validation + fixture tests |
 | PR review automation | `.github/workflows/review.yml` | Triggers argus-flash App |
+| Release automation | `.github/workflows/release.yml` | Tag-push → validates → packages → GitHub Release |
 | Reusable review action | `.github/actions/argus-review/action.yml` | Dynamic rule + config injection |
 | GitHub App | `github.com/apps/argus-flash` | Installed on any repo needing design review |
 | Release process | `Makefile` | `make validate`, `make release` |
@@ -74,6 +78,8 @@ argus/
 - **Context matters** — don't flag boilerplate, third-party resets, or `node_modules/`.
 - **Dynamic rule injection** — When run via composite action, AGENTS.md + SKILL.md are read at runtime and injected into the review prompt. Any update to these files is automatically picked up by all repos using the action.
 - **Consumer config respected** — `.argus.yml` in the consumer repo adjusts token prefix, severity overrides, ignore paths, and failure thresholds. Hard rules (P0 color violations, a11y) cannot be fully disabled.
+- **Stack-aware review** — detect technology stack and reference official documentation for API usage validation.
+- **Codex-style fixes** — always provide copy-ready code fixes, never just describe the problem.
 
 ---
 
@@ -84,6 +90,7 @@ argus/
 - **Approving without full review** — Argus never approves unseen PRs.
 - **Bypassing review** — Kold never bypasses Argus review gate.
 - **Skipping fixture tests** — every rule change must be accompanied by a fixture update.
+- **Describing without fixing** — never just describe the problem; always provide the fix.
 
 ---
 
@@ -93,6 +100,66 @@ argus/
 - **Code examples required** — show Found vs Expected for every issue.
 - **Token naming** — always name the design token that should be used.
 - **Group by severity** — P0 → P1 → P2 → P3.
+- **Stack-aware** — reference official docs when flagging framework API issues.
+- **Codex-style fixes** — provide copy-ready code fixes alongside every issue.
+
+---
+
+## OUTPUT FORMAT
+
+All review feedback follows this fixed structure:
+
+### Summary Header
+
+```
+## Argus Design Review Summary
+- Total Issues: N (P0: X | P1: X | P2: X | P3: X)
+- Files Reviewed: N
+- Technology Stack: {detected stack}
+- Documentation: {official docs URL}
+```
+
+### Severity Groups
+
+Issues are grouped under headers in order: P0 → P1 → P2 → P3.
+
+```
+## P0 — Blocking Issues (must fix, CI will fail)
+
+## P1 — High Priority (must fix before merge)
+
+## P2 — Medium Priority (should fix)
+
+## P3 — Low Priority (optional polish)
+```
+
+### Issue Block (repeats per issue)
+
+```
+─────────────────────────────────────────────────
+[P{severity}] {file}:{line} — {short description}
+
+  Found:    {current code snippet}
+  Expected: {correct code snippet}
+
+  Fix:
+  ```.{extension}
+  {copy-ready fix code}
+  ```
+
+  Token:    {design token to use, if applicable}
+  Reference: {official docs URL for this API}
+  Note:     {optional context or explanation}
+```
+
+### Format Rules
+
+- Each issue block starts with a `─────────────────────────────────────────────────` separator line
+- Code snippets are shown inline, truncated to relevant portion (max 80 chars per line)
+- **Fix code block is mandatory** — always provide the exact fix to copy
+- Empty `Note:` line is omitted if not needed
+- No issue = output `✓ No issues found` under each severity group
+- Always include `Reference:` link when flagging framework API issues
 
 ---
 
@@ -104,7 +171,8 @@ make validate         # Run SKILL.md trigger phrase check + CHANGELOG + AGENTS.m
 make test-fixtures    # Run fixture regression tests (static heuristic mode)
 make test             # validate + test-fixtures (full pre-release check)
 make release          # validate → git commit → tag → push
-make package          # Create dist/argus-v{VERSION}.tar.gz + .zip
+make package-skill    # Create skill package only (argus-skill-v{VERSION}.zip)
+make package          # Create all release archives (full + skill package)
 make clean            # Remove dist/
 ```
 
@@ -116,5 +184,6 @@ make clean            # Remove dist/
 - **Cross-platform** — works in any agent framework: OpenCode, Claude Code, Codex CLI, etc.
 - **argus-flash GitHub App** — installed at `github.com/apps/argus-flash`. Any repo can install it and add a minimal review.yml to get automated design reviews.
 - **Composite action** — `.github/actions/argus-review/action.yml` wraps OpenCode CLI + rule injection + config loading. Referenced as `cgartlab/argus/.github/actions/argus-review@main` from any repo.
-- **Version bumping** — update `VERSION` file, then `make release`.
+- **Version bumping** — run `make bump-patch` (or bump-minor/bump-major), then `make test && make release`.
 - **Fixture tests** — run without an API key in static heuristic mode; full LLM mode requires OpenCode CLI + a configured model.
+- **Release workflow** — pushing a `v*.*.*` tag triggers `.github/workflows/release.yml` which validates versioning, builds packages, and publishes a GitHub Release with both the full archive and the skill package (`argus-skill-v{VERSION}.zip`).

@@ -2,6 +2,33 @@
 
 All notable changes are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.1] — 2026-08-02
+
+### Added
+
+- **Fixed Output Format** — Added standardized, readable feedback format with summary header, severity groups (P0-P3), and consistent issue block structure
+- **Stack-Aware API Review** — New framework detection (React, Vue, Angular, Svelte, Astro) with official documentation references for accurate syntax validation
+- **Framework Anti-Patterns Library** — Comprehensive pattern catalog (React, Vue, Svelte, Angular, Astro, JS/TS) with detection rules, examples, and copy-ready fixes
+- **Release Automation** — New `.github/workflows/release.yml` triggered by `v*` tag pushes: validates versioning, builds packages, and publishes a GitHub Release with full archive and skill package
+- **Skill Package** — New `make package-skill` target creates `dist/argus-skill-v{VERSION}.zip` containing `SKILL.md`, `AGENTS.md`, and `manifest.yaml` for agent skill distribution
+- **GitHub Release Workflow** — Automated release publishing via `softprops/action-gh-release` with CHANGELOG body and artifact uploads
+
+### Changed
+
+- **SKILL.md** — Added Technology Stack Detection section, expanded Review Dimensions with 7th dimension (Framework API Usage), added Framework Anti-Patterns Library, updated Output Format with new fields
+- **AGENTS.md** — Added OUTPUT FORMAT section; updated STRUCTURE with release workflow, WHERE TO LOOK with release automation entry, COMMANDS with `package-skill` target, and NOTES with release workflow documentation
+- **README.md** — Updated project structure, version references, and added skill package documentation
+- **CONTRIBUTING.md** — Updated version management section with bump-patch workflow and release process
+- **DEVELOPMENT-GUIDE.md** — Updated version references, added release workflow documentation, and branch strategy for composite action
+- **manifest.yaml** — New skill metadata file (name, version 0.3.1, capabilities, inputs/outputs)
+- **Makefile** — Added `package-skill` target, updated `package` to depend on it, updated `clean`, and refreshed version comments
+- **.gitignore** — Added `dist/` exclusion pattern
+
+### Fixed
+
+- **Version consistency** — All stale 0.2.0 references in documentation updated to 0.3.0/0.3.1
+- **SKILL.md corruption** — Repaired escaped code fences and bash-quoting artifacts that broke YAML frontmatter and Markdown rendering
+
 ## [0.3.0] — 2026-06-25
 
 ### Added

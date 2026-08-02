@@ -8,14 +8,15 @@ help:
 	@echo "Argus Makefile"
 	@echo ""
 	@echo "  make check-version    — show current version"
-	@echo "  make bump-patch       — bump PATCH (e.g. 0.2.0 → 0.2.1)"
-	@echo "  make bump-minor       — bump MINOR (e.g. 0.2.0 → 0.3.0)"
-	@echo "  make bump-major       — bump MAJOR (e.g. 0.2.0 → 1.0.0)"
+	@echo "  make bump-patch       — bump PATCH (e.g. 0.3.0 → 0.3.1)"
+	@echo "  make bump-minor       — bump MINOR (e.g. 0.3.0 → 0.4.0)"
+	@echo "  make bump-major       — bump MAJOR (e.g. 0.3.0 → 1.0.0)"
 	@echo "  make validate         — run all quality checks (SKILL.md, CHANGELOG, files)"
 	@echo "  make test-fixtures    — run fixture regression tests (static heuristic mode)"
 	@echo "  make test             — validate + test-fixtures (full pre-release check)"
 	@echo "  make release          — commit, tag and push a release"
-	@echo "  make package          — create release archive"
+	@echo "  make package-skill    — create skill package (argus-skill-v{VERSION}.zip)"
+	@echo "  make package          — create all release archives"
 	@echo "  make clean            — remove generated files"
 
 .PHONY: check-version
@@ -87,13 +88,24 @@ release: validate
 	@echo ""
 	@echo "Released v$(VERSION) — GitHub Actions will create the Release page"
 
+# ─── Skill Package ───────────────────────────────────────────────
+.PHONY: package-skill
+package-skill:
+	@mkdir -p dist
+	@rm -rf dist/_skill-staging
+	@mkdir -p dist/_skill-staging
+	@cp SKILL.md AGENTS.md manifest.yaml dist/_skill-staging/
+	@cd dist/_skill-staging && zip -r ../argus-skill-v$(VERSION).zip .
+	@rm -rf dist/_skill-staging
+	@echo "Skill package: dist/argus-skill-v$(VERSION).zip"
+
 # ─── Package ─────────────────────────────────────────────────────
 .PHONY: package
-package:
+package: package-skill
 	@mkdir -p dist
 	@tar --exclude='.git' --exclude='dist' -czf dist/argus-v$(VERSION).tar.gz .
 	@zip -q dist/argus-v$(VERSION).zip . -r -x '.git/*' -x 'dist/*'
-	@echo "Packages created: dist/argus-v$(VERSION).tar.gz dist/argus-v$(VERSION).zip"
+	@echo "Packages created: dist/argus-skill-v$(VERSION).zip dist/argus-v$(VERSION).tar.gz dist/argus-v$(VERSION).zip"
 
 # ─── Clean ───────────────────────────────────────────────────────
 .PHONY: clean
