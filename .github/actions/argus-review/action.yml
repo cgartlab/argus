@@ -9,10 +9,12 @@ inputs:
     required: true
   model:
     description: LLM model to use
-    default: opencode/mimo-v2.5-free
-  fallback-model:
-    description: Fallback LLM model when primary hits 429 rate limit
-    default: opencode/north-mini-code-free
+    default: opencode/deepseek-v4-flash-free
+  fallback-models:
+    description: >
+      Comma-separated fallback model queue when primary hits 429 rate limit.
+      Each model is tried in order until one succeeds.
+    default: opencode/nemotron-3-ultra-free,opencode/longcat-2.0-free,opencode/north-mini-code-free,opencode/ling-3.0-flash-free,opencode/laguna-s-2.1-free,opencode/mimo-v2.5-free
   config-path:
     description: >
       Path to the consumer repository's .argus.yml config file, relative to
@@ -107,13 +109,13 @@ runs:
         } >> $GITHUB_ENV
       shell: bash
 
-    - name: Run OpenCode review (with fallback)
+    - name: Run OpenCode review (with fallback queue)
       if: inputs.fixture-mode == 'false'
       shell: bash
       run: |
-        run_with_fallback() {
+        run_with_fallback_queue() {
           local primary_model="$1"
-          local fallback_model="$2"
+          local fallback_models="$2"
           local exit_code=0
 
           echo "[argus] Using model: $primary_model"
@@ -129,27 +131,43 @@ runs:
           fi
 
           # Check if rate-limited (429 / too many requests)
-          if echo "$output" | grep -qiE "(429|rate limit|too many requests|limited)"; then
-            echo "[argus] ⚠ Primary model '$primary_model' rate-limited, falling back to '$fallback_model'"
+          if ! echo "$output" | grep -qiE "(429|rate limit|too many requests|limited)"; then
+            # Not a rate limit — fail as-is
             echo "$output"
-            export MODEL="$fallback_model"
-            exit_code=0
-            output=$(opencode github run 2>&1) || exit_code=$?
-            echo "$output"
-            if [ $exit_code -eq 0 ]; then
-              echo "[argus] ✓ Review completed with fallback model: $fallback_model"
-              return 0
-            fi
-            echo "[argus] ✗ Fallback model also failed (exit code $exit_code)"
             return $exit_code
           fi
 
-          # Not a rate limit — fail as-is
+          echo "[argus] ⚠ Primary model '$primary_model' rate-limited"
           echo "$output"
-          return $exit_code
+
+          # Iterate through fallback queue
+          IFS=',' read -ra queue <<< "$fallback_models"
+          for fb_model in "${queue[@]}"; do
+            fb_model=$(echo "$fb_model" | xargs)  # trim whitespace
+            [ -z "$fb_model" ] && continue
+            echo "[argus] → Trying fallback: $fb_model"
+            export MODEL="$fb_model"
+            exit_code=0
+            output=$(opencode github run 2>&1) || exit_code=$?
+            if [ $exit_code -eq 0 ]; then
+              echo "$output"
+              echo "[argus] ✓ Review completed with fallback model: $fb_model"
+              return 0
+            fi
+            if echo "$output" | grep -qiE "(429|rate limit|too many requests|limited)"; then
+              echo "[argus] ⚠ Fallback '$fb_model' also rate-limited, trying next..."
+            else
+              echo "[argus] ✗ Fallback '$fb_model' failed with non-rate-limit error"
+              echo "$output"
+              return $exit_code
+            fi
+          done
+
+          echo "[argus] ✗ All fallback models exhausted"
+          return 1
         }
 
-        run_with_fallback "${{ inputs.model }}" "${{ inputs.fallback-model }}"
+        run_with_fallback_queue "${{ inputs.model }}" "${{ inputs.fallback-models }}"
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         USE_GITHUB_TOKEN: "true"
@@ -160,7 +178,7 @@ runs:
       run: |
         python3 ${{ github.action_path }}/../../../tools/run_fixture_tests.py \
           --model "${{ inputs.model }}" \
-          --fallback-model "${{ inputs.fallback-model }}" \
+          --fallback-models "${{ inputs.fallback-models }}" \
           --json fixture-results.json
       shell: bash
       env:

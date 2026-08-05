@@ -212,14 +212,15 @@ def _run_opencode(model: str, prompt_file: Path, verbose: bool) -> str:
 
 
 def run_argus_on_fixture(fixture_path: Path, model: str, verbose: bool,
-                         fallback_model: str | None = None) -> str:
+                         fallback_models: str | None = None) -> str:
     """
     Invoke Argus (via OpenCode CLI) on a single fixture file.
     Returns the raw text output.
     Falls back to a static heuristic scan if OpenCode is not installed.
 
-    If a fallback_model is provided and the primary model fails with a
-    rate-limit error (429 / too many requests), retries with the fallback model.
+    If fallback_models is provided (comma-separated list) and the primary
+    model fails with a rate-limit error (429 / too many requests), retries
+    each fallback model in order until one succeeds or all are exhausted.
     """
     opencode = _find_opencode()
     if opencode is None:
@@ -233,11 +234,17 @@ def run_argus_on_fixture(fixture_path: Path, model: str, verbose: bool,
         # Try primary model
         output = _run_opencode(model, prompt_file, verbose)
 
-        # Retry with fallback if rate-limited
-        if fallback_model and _is_rate_limited(output):
-            print(f"  {_c('yellow', '⚠')} Primary model '{model}' rate-limited, "
-                  f"retrying with fallback '{fallback_model}' ...", flush=True)
-            output = _run_opencode(fallback_model, prompt_file, verbose)
+        # Retry with fallback queue if rate-limited
+        if fallback_models and _is_rate_limited(output):
+            queue = [m.strip() for m in fallback_models.split(",") if m.strip()]
+            for fb_model in queue:
+                print(f"  {_c('yellow', '⚠')} Primary model '{model}' rate-limited, "
+                      f"retrying with fallback '{fb_model}' ...", flush=True)
+                output = _run_opencode(fb_model, prompt_file, verbose)
+                if not _is_rate_limited(output):
+                    return output  # success, or non-rate-limit error
+                print(f"  {_c('yellow', '⚠')} Fallback '{fb_model}' also rate-limited, "
+                      f"trying next ...", flush=True)
 
         return output
     finally:
@@ -578,8 +585,8 @@ def main() -> int:
     )
     parser.add_argument("--category", metavar="NAME", help="Run only fixtures in this category subdirectory")
     parser.add_argument("--fixture", metavar="PATH", type=Path, help="Run a single fixture file")
-    parser.add_argument("--model", default="opencode/mimo-v2.5-free", help="LLM model to use (default: mimo-v2.5-free)")
-    parser.add_argument("--fallback-model", default="opencode/north-mini-code-free", help="Fallback LLM model when primary hits 429 rate limit (default: north-mini-code-free)")
+    parser.add_argument("--model", default="opencode/deepseek-v4-flash-free", help="LLM model to use (default: deepseek-v4-flash-free)")
+    parser.add_argument("--fallback-models", default="opencode/nemotron-3-ultra-free,opencode/longcat-2.0-free,opencode/north-mini-code-free,opencode/ling-3.0-flash-free,opencode/laguna-s-2.1-free,opencode/mimo-v2.5-free", help="Comma-separated fallback model queue when primary hits 429 rate limit (default: ordered by coding ability)")
     parser.add_argument("--verbose", action="store_true", help="Show full Argus output for each fixture")
     parser.add_argument("--dry-run", action="store_true", help="Parse fixtures and print plan, but do not invoke Argus")
     parser.add_argument("--json", dest="output_json", metavar="FILE", help="Write JSON results to FILE")
@@ -626,7 +633,7 @@ def main() -> int:
             continue
 
         argus_output = run_argus_on_fixture(fixture_path, model=args.model, verbose=args.verbose,
-                                            fallback_model=args.fallback_model)
+                                            fallback_models=args.fallback_models)
         result = validate_output(expected, argus_output)
         results.append(result)
 
