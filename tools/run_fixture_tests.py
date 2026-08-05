@@ -184,14 +184,14 @@ def build_argus_prompt(fixture_path: Path) -> str:
 
 def _is_rate_limited(text: str) -> bool:
     """Check if output indicates a rate limit / 429 error."""
-    return bool(re.search(r"(429|rate limit|too many requests|limited)", text, re.IGNORECASE))
+    return bool(re.search(r"\b429\b|rate\s*limit|too many requests", text, re.IGNORECASE))
 
 
 def _run_opencode(model: str, prompt_file: Path, verbose: bool) -> str:
     """Run opencode CLI with a given model and prompt file. Returns raw output."""
     opencode = _find_opencode()
     if opencode is None:
-        return "__STATIC_FALLBACK__"
+        return ""
 
     try:
         result = subprocess.run(
@@ -233,6 +233,7 @@ def run_argus_on_fixture(fixture_path: Path, model: str, verbose: bool,
 
         # Try primary model
         output = _run_opencode(model, prompt_file, verbose)
+        primary_output = output  # preserve for fallback exhaustion
 
         # Retry with fallback queue if rate-limited
         if fallback_models and _is_rate_limited(output):
@@ -245,6 +246,9 @@ def run_argus_on_fixture(fixture_path: Path, model: str, verbose: bool,
                     return output  # success, or non-rate-limit error
                 print(f"  {_c('yellow', '⚠')} Fallback '{fb_model}' also rate-limited, "
                       f"trying next ...", flush=True)
+
+            # All fallbacks exhausted — return primary output (not the weakest fallback's)
+            output = primary_output
 
         return output
     finally:

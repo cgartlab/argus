@@ -131,7 +131,7 @@ runs:
           fi
 
           # Check if rate-limited (429 / too many requests)
-          if ! echo "$output" | grep -qiE "(429|rate limit|too many requests|limited)"; then
+          if ! echo "$output" | grep -qiE "\\b429\\b|rate[[:space:]]*limit|too many requests"; then
             # Not a rate limit — fail as-is
             echo "$output"
             return $exit_code
@@ -154,7 +154,7 @@ runs:
               echo "[argus] ✓ Review completed with fallback model: $fb_model"
               return 0
             fi
-            if echo "$output" | grep -qiE "(429|rate limit|too many requests|limited)"; then
+            if echo "$output" | grep -qiE "\\b429\\b|rate[[:space:]]*limit|too many requests"; then
               echo "[argus] ⚠ Fallback '$fb_model' also rate-limited, trying next..."
             else
               echo "[argus] ✗ Fallback '$fb_model' failed with non-rate-limit error"
