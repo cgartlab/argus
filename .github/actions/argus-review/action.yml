@@ -9,7 +9,7 @@ inputs:
     required: true
   model:
     description: LLM model to use
-    default: opencode/deepseek-v4-flash-free
+    default: opencode/mimo-v2.5-free
   config-path:
     description: >
       Path to the consumer repository's .argus.yml config file, relative to

@@ -549,7 +549,7 @@ def main() -> int:
     )
     parser.add_argument("--category", metavar="NAME", help="Run only fixtures in this category subdirectory")
     parser.add_argument("--fixture", metavar="PATH", type=Path, help="Run a single fixture file")
-    parser.add_argument("--model", default="opencode/deepseek-v4-flash-free", help="LLM model to use (default: deepseek-v4-flash-free)")
+    parser.add_argument("--model", default="opencode/mimo-v2.5-free", help="LLM model to use (default: mimo-v2.5-free)")
     parser.add_argument("--verbose", action="store_true", help="Show full Argus output for each fixture")
     parser.add_argument("--dry-run", action="store_true", help="Parse fixtures and print plan, but do not invoke Argus")
     parser.add_argument("--json", dest="output_json", metavar="FILE", help="Write JSON results to FILE")
