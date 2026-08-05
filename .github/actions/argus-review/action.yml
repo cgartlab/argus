@@ -133,7 +133,7 @@ runs:
           fi
 
           # Check if rate-limited (429 / too many requests)
-          if ! echo "$primary_output" | grep -qiE "429[[:space:]]+(rate|too|exceeded|limit)|rate[[:space:]]*limit|too many requests"; then
+          if ! echo "$primary_output" | grep -qiE "429[[:space:]]+(rate|too|exceeded|limit(ed|s)?)[[:space:]]|rate[[:space:]]*limit|too many requests"; then
             # Not a rate limit — fail as-is
             echo "$primary_output"
             return $primary_exit_code
@@ -142,7 +142,11 @@ runs:
           echo "[argus] ⚠ Primary model '$primary_model' rate-limited"
           echo "$primary_output"
 
-          # Iterate through fallback queue
+          # Iterate through fallback queue.
+          # NOTE: each `opencode github run` invocation posts its own PR review
+          # comment. If the primary already posted a comment and then failed
+          # (e.g. 429), a successful fallback posts a SECOND, potentially
+          # conflicting review on the same PR. Accepted trade-off for resilience.
           local output=""
           IFS=',' read -ra queue <<< "$fallback_models"
           for fb_model in "${queue[@]}"; do
@@ -157,7 +161,7 @@ runs:
               echo "[argus] ✓ Review completed with fallback model: $fb_model"
               return 0
             fi
-            if echo "$output" | grep -qiE "429[[:space:]]+(rate|too|exceeded|limit)|rate[[:space:]]*limit|too many requests"; then
+            if echo "$output" | grep -qiE "429[[:space:]]+(rate|too|exceeded|limit(ed|s)?)[[:space:]]|rate[[:space:]]*limit|too many requests"; then
               echo "[argus] ⚠ Fallback '$fb_model' also rate-limited, trying next..."
             else
               echo "[argus] ✗ Fallback '$fb_model' failed with non-rate-limit error"

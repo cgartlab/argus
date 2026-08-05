@@ -185,21 +185,18 @@ def build_argus_prompt(fixture_path: Path) -> str:
 def _is_rate_limited(text: str) -> bool:
     """Check if output indicates a rate limit / 429 error."""
     return bool(re.search(
-        r"429\s+(rate|too|exceeded|limit)|rate\s*limit|too many requests",
+        r"429\s+(rate|too|exceeded|limit(?:ed|s)?)\b|rate\s*limit|too many requests",
         text, re.IGNORECASE,
     ))
 
 
-def _run_opencode(model: str, prompt_file: Path, verbose: bool) -> tuple[int, str]:
+def _run_opencode(opencode: str, model: str, prompt_file: Path, verbose: bool) -> tuple[int, str]:
     """Run opencode CLI with a given model and prompt file.
     Returns (returncode, raw_output).
-    """
-    opencode = _find_opencode()
-    if opencode is None:
-        # Defensive: the caller (run_argus_on_fixture) pre-checks this, but if
-        # reached, (1, "") signals failure rather than a successful empty result.
-        return 1, ""
 
+    ``opencode`` is the resolved CLI path; the caller owns the
+    is-None check (see run_argus_on_fixture).
+    """
     try:
         result = subprocess.run(
             [opencode, "run", "--model", model, "--prompt-file", str(prompt_file)],
@@ -241,17 +238,19 @@ def run_argus_on_fixture(fixture_path: Path, model: str, verbose: bool,
         prompt_file.write_text(prompt, encoding="utf-8")
 
         # Try primary model
-        exit_code, output = _run_opencode(model, prompt_file, verbose)
+        exit_code, output = _run_opencode(opencode, model, prompt_file, verbose)
         primary_output = output  # preserve for fallback exhaustion
 
-        # Retry with fallback queue: gate on non-zero exit code AND rate-limit text
+        # Retry with fallback queue: gate on non-zero exit code AND rate-limit text.
+        # NOTE: verified that the opencode CLI exits non-zero (1) on model errors,
+        # so a rate limit never produces exit 0 — the gate is reliable.
         if (fallback_models and exit_code != 0 and
                 _is_rate_limited(output)):
             queue = [m.strip() for m in fallback_models.split(",") if m.strip()]
             for fb_model in queue:
                 print(f"  {_c('yellow', '⚠')} Primary model '{model}' rate-limited, "
                       f"retrying with fallback '{fb_model}' ...", flush=True)
-                exit_code, output = _run_opencode(fb_model, prompt_file, verbose)
+                exit_code, output = _run_opencode(opencode, fb_model, prompt_file, verbose)
                 if exit_code == 0:
                     return output  # success
                 if not _is_rate_limited(output):
