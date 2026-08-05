@@ -117,30 +117,32 @@ runs:
           local primary_model="$1"
           local fallback_models="$2"
           local exit_code=0
+          local primary_output=""
 
           echo "[argus] Using model: $primary_model"
           export MODEL="$primary_model"
 
           # Try primary model
-          output=$(opencode github run 2>&1) || exit_code=$?
+          primary_output=$(opencode github run 2>&1) || exit_code=$?
 
           if [ $exit_code -eq 0 ]; then
-            echo "$output"
+            echo "$primary_output"
             echo "[argus] ✓ Review completed with model: $primary_model"
             return 0
           fi
 
           # Check if rate-limited (429 / too many requests)
-          if ! echo "$output" | grep -qiE "\\b429\\b|rate[[:space:]]*limit|too many requests"; then
+          if ! echo "$primary_output" | grep -qiE "429[[:space:]]+(rate|too|exceeded|limit)|rate[[:space:]]*limit|too many requests"; then
             # Not a rate limit — fail as-is
-            echo "$output"
+            echo "$primary_output"
             return $exit_code
           fi
 
           echo "[argus] ⚠ Primary model '$primary_model' rate-limited"
-          echo "$output"
+          echo "$primary_output"
 
           # Iterate through fallback queue
+          local output=""
           IFS=',' read -ra queue <<< "$fallback_models"
           for fb_model in "${queue[@]}"; do
             fb_model=$(echo "$fb_model" | xargs)  # trim whitespace
@@ -154,7 +156,7 @@ runs:
               echo "[argus] ✓ Review completed with fallback model: $fb_model"
               return 0
             fi
-            if echo "$output" | grep -qiE "\\b429\\b|rate[[:space:]]*limit|too many requests"; then
+            if echo "$output" | grep -qiE "429[[:space:]]+(rate|too|exceeded|limit)|rate[[:space:]]*limit|too many requests"; then
               echo "[argus] ⚠ Fallback '$fb_model' also rate-limited, trying next..."
             else
               echo "[argus] ✗ Fallback '$fb_model' failed with non-rate-limit error"
@@ -163,8 +165,10 @@ runs:
             fi
           done
 
-          echo "[argus] ✗ All fallback models exhausted"
-          return 1
+          # All fallbacks exhausted — return primary output (not the weakest fallback's)
+          echo "[argus] ✗ All fallback models exhausted; keeping primary output"
+          echo "$primary_output"
+          return $exit_code
         }
 
         run_with_fallback_queue "${{ inputs.model }}" "${{ inputs.fallback-models }}"

@@ -184,14 +184,19 @@ def build_argus_prompt(fixture_path: Path) -> str:
 
 def _is_rate_limited(text: str) -> bool:
     """Check if output indicates a rate limit / 429 error."""
-    return bool(re.search(r"\b429\b|rate\s*limit|too many requests", text, re.IGNORECASE))
+    return bool(re.search(
+        r"429\s+(rate|too|exceeded|limit)|rate\s*limit|too many requests",
+        text, re.IGNORECASE,
+    ))
 
 
-def _run_opencode(model: str, prompt_file: Path, verbose: bool) -> str:
-    """Run opencode CLI with a given model and prompt file. Returns raw output."""
+def _run_opencode(model: str, prompt_file: Path, verbose: bool) -> tuple[int, str]:
+    """Run opencode CLI with a given model and prompt file.
+    Returns (returncode, raw_output).
+    """
     opencode = _find_opencode()
     if opencode is None:
-        return ""
+        return 0, ""
 
     try:
         result = subprocess.run(
@@ -204,11 +209,11 @@ def _run_opencode(model: str, prompt_file: Path, verbose: bool) -> str:
         output = result.stdout + result.stderr
         if verbose:
             print(f"\n{_c('cyan', '── Argus raw output (model: {model}) ──')}\n{output}\n{_c('cyan', '──────────────────────────────────────')}")
-        return output
+        return result.returncode, output
     except subprocess.TimeoutExpired:
-        return "[TIMEOUT] Argus did not respond within 120 seconds."
+        return 1, "[TIMEOUT] Argus did not respond within 120 seconds."
     except Exception as exc:
-        return f"[ERROR] Failed to run OpenCode: {exc}"
+        return 1, f"[ERROR] Failed to run OpenCode: {exc}"
 
 
 def run_argus_on_fixture(fixture_path: Path, model: str, verbose: bool,
@@ -219,8 +224,9 @@ def run_argus_on_fixture(fixture_path: Path, model: str, verbose: bool,
     Falls back to a static heuristic scan if OpenCode is not installed.
 
     If fallback_models is provided (comma-separated list) and the primary
-    model fails with a rate-limit error (429 / too many requests), retries
-    each fallback model in order until one succeeds or all are exhausted.
+    model fails (non-zero exit code) AND the output indicates a rate-limit
+    error, retries each fallback model in order until one succeeds or all
+    are exhausted.
     """
     opencode = _find_opencode()
     if opencode is None:
@@ -232,22 +238,25 @@ def run_argus_on_fixture(fixture_path: Path, model: str, verbose: bool,
         prompt_file.write_text(prompt, encoding="utf-8")
 
         # Try primary model
-        output = _run_opencode(model, prompt_file, verbose)
+        exit_code, output = _run_opencode(model, prompt_file, verbose)
         primary_output = output  # preserve for fallback exhaustion
 
-        # Retry with fallback queue if rate-limited
-        if fallback_models and _is_rate_limited(output):
+        # Retry with fallback queue: gate on non-zero exit code AND rate-limit text
+        if (fallback_models and exit_code != 0 and
+                _is_rate_limited(output)):
             queue = [m.strip() for m in fallback_models.split(",") if m.strip()]
             for fb_model in queue:
                 print(f"  {_c('yellow', '⚠')} Primary model '{model}' rate-limited, "
                       f"retrying with fallback '{fb_model}' ...", flush=True)
-                output = _run_opencode(fb_model, prompt_file, verbose)
+                exit_code, output = _run_opencode(fb_model, prompt_file, verbose)
+                if exit_code == 0:
+                    return output  # success
                 if not _is_rate_limited(output):
-                    return output  # success, or non-rate-limit error
+                    return output  # non-rate-limit error — bail out
                 print(f"  {_c('yellow', '⚠')} Fallback '{fb_model}' also rate-limited, "
                       f"trying next ...", flush=True)
 
-            # All fallbacks exhausted — return primary output (not the weakest fallback's)
+            # All fallbacks exhausted — return primary output
             output = primary_output
 
         return output
