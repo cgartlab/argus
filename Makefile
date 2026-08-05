@@ -65,7 +65,7 @@ test-fixtures:
 .PHONY: test-fixtures-llm
 test-fixtures-llm:
 	@echo "── Fixture Tests (LLM mode) ──"
-	@python3 tools/run_fixture_tests.py --model $(or $(MODEL),opencode/mimo-v2.5-free)
+	@python3 tools/run_fixture_tests.py --model $(or $(MODEL),opencode/mimo-v2.5-free) --fallback-model $(or $(FALLBACK_MODEL),opencode/north-mini-code-free)
 	@echo ""
 
 # ─── Combined pre-release check ──────────────────────────────────

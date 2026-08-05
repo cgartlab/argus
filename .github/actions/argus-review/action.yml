@@ -10,6 +10,9 @@ inputs:
   model:
     description: LLM model to use
     default: opencode/mimo-v2.5-free
+  fallback-model:
+    description: Fallback LLM model when primary hits 429 rate limit
+    default: opencode/north-mini-code-free
   config-path:
     description: >
       Path to the consumer repository's .argus.yml config file, relative to
@@ -104,13 +107,51 @@ runs:
         } >> $GITHUB_ENV
       shell: bash
 
-    - name: Run OpenCode review
+    - name: Run OpenCode review (with fallback)
       if: inputs.fixture-mode == 'false'
-      run: opencode github run
       shell: bash
+      run: |
+        run_with_fallback() {
+          local primary_model="$1"
+          local fallback_model="$2"
+          local exit_code=0
+
+          echo "[argus] Using model: $primary_model"
+          export MODEL="$primary_model"
+
+          # Try primary model
+          output=$(opencode github run 2>&1) || exit_code=$?
+
+          if [ $exit_code -eq 0 ]; then
+            echo "$output"
+            echo "[argus] ✓ Review completed with model: $primary_model"
+            return 0
+          fi
+
+          # Check if rate-limited (429 / too many requests)
+          if echo "$output" | grep -qiE "(429|rate limit|too many requests|limited)"; then
+            echo "[argus] ⚠ Primary model '$primary_model' rate-limited, falling back to '$fallback_model'"
+            echo "$output"
+            export MODEL="$fallback_model"
+            exit_code=0
+            output=$(opencode github run 2>&1) || exit_code=$?
+            echo "$output"
+            if [ $exit_code -eq 0 ]; then
+              echo "[argus] ✓ Review completed with fallback model: $fallback_model"
+              return 0
+            fi
+            echo "[argus] ✗ Fallback model also failed (exit code $exit_code)"
+            return $exit_code
+          fi
+
+          # Not a rate limit — fail as-is
+          echo "$output"
+          return $exit_code
+        }
+
+        run_with_fallback "${{ inputs.model }}" "${{ inputs.fallback-model }}"
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
-        MODEL: ${{ inputs.model }}
         USE_GITHUB_TOKEN: "true"
         PROMPT: ${{ env.PROMPT }}
 
@@ -119,6 +160,7 @@ runs:
       run: |
         python3 ${{ github.action_path }}/../../../tools/run_fixture_tests.py \
           --model "${{ inputs.model }}" \
+          --fallback-model "${{ inputs.fallback-model }}" \
           --json fixture-results.json
       shell: bash
       env:

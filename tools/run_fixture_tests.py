@@ -182,20 +182,18 @@ def build_argus_prompt(fixture_path: Path) -> str:
     """)
 
 
-def run_argus_on_fixture(fixture_path: Path, model: str, verbose: bool) -> str:
-    """
-    Invoke Argus (via OpenCode CLI) on a single fixture file.
-    Returns the raw text output.
-    Falls back to a static heuristic scan if OpenCode is not installed.
-    """
+def _is_rate_limited(text: str) -> bool:
+    """Check if output indicates a rate limit / 429 error."""
+    return bool(re.search(r"(429|rate limit|too many requests|limited)", text, re.IGNORECASE))
+
+
+def _run_opencode(model: str, prompt_file: Path, verbose: bool) -> str:
+    """Run opencode CLI with a given model and prompt file. Returns raw output."""
     opencode = _find_opencode()
     if opencode is None:
-        return _static_heuristic_scan(fixture_path)
+        return "__STATIC_FALLBACK__"
 
-    prompt = build_argus_prompt(fixture_path)
-    prompt_file = fixture_path.parent / f".argus_prompt_{fixture_path.stem}.tmp"
     try:
-        prompt_file.write_text(prompt, encoding="utf-8")
         result = subprocess.run(
             [opencode, "run", "--model", model, "--prompt-file", str(prompt_file)],
             capture_output=True,
@@ -205,12 +203,43 @@ def run_argus_on_fixture(fixture_path: Path, model: str, verbose: bool) -> str:
         )
         output = result.stdout + result.stderr
         if verbose:
-            print(f"\n{_c('cyan', '── Argus raw output ──')}\n{output}\n{_c('cyan', '──────────────────────')}")
+            print(f"\n{_c('cyan', '── Argus raw output (model: {model}) ──')}\n{output}\n{_c('cyan', '──────────────────────────────────────')}")
         return output
     except subprocess.TimeoutExpired:
         return "[TIMEOUT] Argus did not respond within 120 seconds."
     except Exception as exc:
         return f"[ERROR] Failed to run OpenCode: {exc}"
+
+
+def run_argus_on_fixture(fixture_path: Path, model: str, verbose: bool,
+                         fallback_model: str | None = None) -> str:
+    """
+    Invoke Argus (via OpenCode CLI) on a single fixture file.
+    Returns the raw text output.
+    Falls back to a static heuristic scan if OpenCode is not installed.
+
+    If a fallback_model is provided and the primary model fails with a
+    rate-limit error (429 / too many requests), retries with the fallback model.
+    """
+    opencode = _find_opencode()
+    if opencode is None:
+        return _static_heuristic_scan(fixture_path)
+
+    prompt = build_argus_prompt(fixture_path)
+    prompt_file = fixture_path.parent / f".argus_prompt_{fixture_path.stem}.tmp"
+    try:
+        prompt_file.write_text(prompt, encoding="utf-8")
+
+        # Try primary model
+        output = _run_opencode(model, prompt_file, verbose)
+
+        # Retry with fallback if rate-limited
+        if fallback_model and _is_rate_limited(output):
+            print(f"  {_c('yellow', '⚠')} Primary model '{model}' rate-limited, "
+                  f"retrying with fallback '{fallback_model}' ...", flush=True)
+            output = _run_opencode(fallback_model, prompt_file, verbose)
+
+        return output
     finally:
         if prompt_file.exists():
             prompt_file.unlink()
@@ -550,6 +579,7 @@ def main() -> int:
     parser.add_argument("--category", metavar="NAME", help="Run only fixtures in this category subdirectory")
     parser.add_argument("--fixture", metavar="PATH", type=Path, help="Run a single fixture file")
     parser.add_argument("--model", default="opencode/mimo-v2.5-free", help="LLM model to use (default: mimo-v2.5-free)")
+    parser.add_argument("--fallback-model", default="opencode/north-mini-code-free", help="Fallback LLM model when primary hits 429 rate limit (default: north-mini-code-free)")
     parser.add_argument("--verbose", action="store_true", help="Show full Argus output for each fixture")
     parser.add_argument("--dry-run", action="store_true", help="Parse fixtures and print plan, but do not invoke Argus")
     parser.add_argument("--json", dest="output_json", metavar="FILE", help="Write JSON results to FILE")
@@ -595,7 +625,8 @@ def main() -> int:
             print(f" {_c('yellow', 'SKIP')} (dry-run)")
             continue
 
-        argus_output = run_argus_on_fixture(fixture_path, model=args.model, verbose=args.verbose)
+        argus_output = run_argus_on_fixture(fixture_path, model=args.model, verbose=args.verbose,
+                                            fallback_model=args.fallback_model)
         result = validate_output(expected, argus_output)
         results.append(result)
 
