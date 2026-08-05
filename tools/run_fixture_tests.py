@@ -196,7 +196,9 @@ def _run_opencode(model: str, prompt_file: Path, verbose: bool) -> tuple[int, st
     """
     opencode = _find_opencode()
     if opencode is None:
-        return 0, ""
+        # Defensive: the caller (run_argus_on_fixture) pre-checks this, but if
+        # reached, (1, "") signals failure rather than a successful empty result.
+        return 1, ""
 
     try:
         result = subprocess.run(
@@ -208,7 +210,8 @@ def _run_opencode(model: str, prompt_file: Path, verbose: bool) -> tuple[int, st
         )
         output = result.stdout + result.stderr
         if verbose:
-            print(f"\n{_c('cyan', '── Argus raw output (model: {model}) ──')}\n{output}\n{_c('cyan', '──────────────────────────────────────')}")
+            print(f"\n{_c('cyan', f'── Argus raw output (model: {model}) ──')}\n"
+                  f"{output}\n{_c('cyan', '──────────────────────────────────────')}")
         return result.returncode, output
     except subprocess.TimeoutExpired:
         return 1, "[TIMEOUT] Argus did not respond within 120 seconds."
