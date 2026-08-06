@@ -14,7 +14,7 @@ inputs:
     description: >
       Comma-separated fallback model queue when primary hits 429 rate limit.
       Each model is tried in order until one succeeds.
-    default: opencode/nemotron-3-ultra-free,opencode/longcat-2.0-free,opencode/north-mini-code-free,opencode/ling-3.0-flash-free,opencode/laguna-s-2.1-free,opencode/mimo-v2.5-free
+    default: opencode/nemotron-3-ultra-free,opencode/longcat-2.0-free,opencode/north-mini-code-free
   config-path:
     description: >
       Path to the consumer repository's .argus.yml config file, relative to
