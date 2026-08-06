@@ -65,7 +65,7 @@ test-fixtures:
 .PHONY: test-fixtures-llm
 test-fixtures-llm:
 	@echo "── Fixture Tests (LLM mode) ──"
-	@python3 tools/run_fixture_tests.py --model $(or $(MODEL),opencode/deepseek-v4-flash-free) --fallback-models $(or $(FALLBACK_MODELS),opencode/nemotron-3-ultra-free,opencode/longcat-2.0-free,opencode/north-mini-code-free,opencode/ling-3.0-flash-free,opencode/laguna-s-2.1-free,opencode/mimo-v2.5-free)
+	@python3 tools/run_fixture_tests.py --model $(or $(MODEL),opencode/deepseek-v4-flash-free) --fallback-models $(or $(FALLBACK_MODELS),opencode/nemotron-3-ultra-free,opencode/longcat-2.0-free,opencode/north-mini-code-free)
 	@echo ""
 
 # ─── Combined pre-release check ──────────────────────────────────
