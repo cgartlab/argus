@@ -1,3 +1,30 @@
+## [0.3.2] — 2026-08-06
+
+### Added
+
+- **Fallback Model Queue** — When the primary model (`opencode/deepseek-v4-flash-free`) hits a 429 rate limit, the review automatically retries a fallback queue ordered by coding ability: `nemotron-3-ultra-free` → `longcat-2.0-free` → `north-mini-code-free` → `ling-3.0-flash-free` → `laguna-s-2.1-free` → `mimo-v2.5-free`. Configurable via `fallback-models` input in the composite action.
+- **Exit-Code Gate** — Fallback only triggers on non-zero exit code AND rate-limit text, preventing false fallback on successful runs whose output happens to contain line numbers like `:429`.
+
+### Changed
+
+- **Primary Model** — Reverted to `opencode/deepseek-v4-flash-free` (best coding ability). Fallback queue replaces the previous single-fallback design.
+- **`_is_rate_limited` Regex** — Tightened to `429\s+(rate|too|exceeded|limit(?:ed|s)?)\b` with word-boundary anchors, eliminating false matches on ordinary prose (e.g. "limited to 50 findings") and review line numbers (e.g. `file.css:429`).
+- **`_run_opencode`** — Now accepts the resolved `opencode` path as a parameter, removing redundant `_find_opencode()` probes during fallback queue iteration.
+- **Composite Action** — `run_with_fallback_queue` bash function replaces the old `run_with_fallback`; `fallback-models` (comma-separated list) replaces `fallback-model` (single model).
+
+### Fixed
+
+- **PR Review Timeout (6h)** — Root cause: `review.yml` references the composite action at `@main`, so the review used the old action (no fallback queue) until the PR was merged. After merge, the fallback queue is active and prevents future 6-hour cancellations.
+- **PR Description Drift** — Title and body updated to match the final design (deepseek primary + ordered fallback queue).
+- **`.pyc` Leak** — `tools/__pycache__/run_fixture_tests.cpython-312.pyc` removed from VCS; `__pycache__/` and `*.pyc` added to `.gitignore`.
+- **Verbose f-string** — `--verbose` output now correctly interpolates the model name instead of printing literal `(model: {model})`.
+- **Fallback Exhaustion** — When all fallbacks are rate-limited, the primary model's output (and exit code) is preserved instead of returning the weakest fallback's result.
+- **Dead Code** — Removed `__STATIC_FALLBACK__` sentinel in `_run_opencode`; redundant `opencode is None` guard returns `(1, "")` instead of `(0, "")` for consistency.
+
+### Removed
+
+---
+
 # Changelog
 
 All notable changes are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/).
