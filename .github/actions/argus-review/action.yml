@@ -122,6 +122,9 @@ runs:
           local primary_output=""
           local primary_exit_code=0
 
+          # Shared regex: retryable conditions (rate-limit OR model-unavailable)
+          local retry_re="429[[:space:]]+(rate|too|exceeded|limit(ed|s)?)[[:space:]]|rate[[:space:]]*limit|too many requests|model[[:space:]]+not[[:space:]]+found|no[[:space:]]+such[[:space:]]+model|model[[:space:]]+does[[:space:]]+not[[:space:]]+exist"
+
           echo "[argus] Using model: $primary_model"
           export MODEL="$primary_model"
 
@@ -134,14 +137,14 @@ runs:
             return 0
           fi
 
-          # Check if rate-limited (429 / too many requests)
-          if ! echo "$primary_output" | grep -qiE "429[[:space:]]+(rate|too|exceeded|limit(ed|s)?)[[:space:]]|rate[[:space:]]*limit|too many requests"; then
-            # Not a rate limit — fail as-is
+          # Check if retryable (rate-limited / model unavailable)
+          if ! echo "$primary_output" | grep -qiE "$retry_re"; then
+            # Not a retryable condition — fail as-is
             echo "$primary_output"
             return $primary_exit_code
           fi
 
-          echo "[argus] ⚠ Primary model '$primary_model' rate-limited"
+          echo "[argus] ⚠ Primary model '$primary_model' retryable (rate-limited or unavailable)"
           echo "$primary_output"
 
           # Iterate through fallback queue.
@@ -163,12 +166,13 @@ runs:
               echo "[argus] ✓ Review completed with fallback model: $fb_model"
               return 0
             fi
-            if echo "$output" | grep -qiE "429[[:space:]]+(rate|too|exceeded|limit(ed|s)?)[[:space:]]|rate[[:space:]]*limit|too many requests|model[[:space:]]+not[[:space:]]+found|no[[:space:]]+such[[:space:]]+model|model[[:space:]]+does[[:space:]]+not[[:space:]]+exist"; then
+            if echo "$output" | grep -qiE "$retry_re"; then
               echo "[argus] ⚠ Fallback '$fb_model' rate-limited or unavailable, trying next..."
             else
-              # Non-rate-limit, non-model-missing error — skip gracefully and try next.
+              # Non-retryable — log diagnostic tail but continue trying next model.
               # Previously this caused the review to abort (return $exit_code).
-              echo "[argus] ⚠ Fallback '$fb_model' failed (non-retryable), trying next..."
+              echo "[argus] ⚠ Fallback '$fb_model' failed (non-retryable):"
+              echo "$output" | tail -5
             fi
           done
 

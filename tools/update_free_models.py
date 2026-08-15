@@ -8,6 +8,7 @@ Queries `opencode models opencode --refresh`, extracts all free models
   - preserves the existing order (coding ability, strongest first)
   - removes models that are no longer available on the platform
   - appends newly discovered free models at the end of the queue
+    (sorted alphabetically — we cannot auto-rank coding ability of new models)
 
 This is the writer half of the "auto-updating fallback queue" design.
 The reader half (composite action + fixture runner) consumes the same file
@@ -139,8 +140,14 @@ def _list_free_models(opencode: str) -> set[str]:
 def compute_fallback(current_fallback: list[str], live_free: set[str],
                      primary: str | None = None) -> list[str]:
     """
-    Reconcile the current queue against the live free-model set:
-    keep existing order, drop delisted models, append new ones (sorted).
+    Reconcile the current queue against the live free-model set.
+
+    Known models keep their existing order (coding ability, strongest first
+    as human-curated). Models no longer available are dropped. Newly
+    discovered free models are appended at the end in sorted order
+    (alphabetical) — we cannot auto-rank the coding ability of a model
+    we have not seen before.
+
     The primary model is never part of the fallback queue.
     """
     if primary:
@@ -216,6 +223,24 @@ def check() -> int:
         for err in errors:
             print(f"[update-free-models] ✗ {err}", file=sys.stderr)
         return 1
+
+    # Assert that built-in defaults match the committed config to prevent drift.
+    # If the config was manually changed or the auto-refresh workflow added a
+    # model without updating the built-ins, CI will catch it.
+    builtin = BUILTIN_FALLBACK
+    for idx, model in enumerate(builtin):
+        if idx >= len(fallback) or fallback[idx] != model:
+            # drift detected — warn but don't block (built-ins are last-resort
+            # and the config is the source of truth)
+            print(f"[update-free-models] ⚠ Built-in default #{idx} '{model}' "
+                  f"differs from config '{fallback[idx] if idx < len(fallback) else '(missing)'}'",
+                  file=sys.stderr)
+            break
+    if len(fallback) > len(builtin):
+        extra = ', '.join(fallback[len(builtin):])
+        print(f"[update-free-models] ⚠ Config has {len(fallback) - len(builtin)} more model(s) "
+              f"than built-in defaults: {extra}", file=sys.stderr)
+
     print(f"[update-free-models] ✓ Config valid ({len(fallback)} fallback models, primary: {primary})")
     return 0
 
