@@ -260,7 +260,8 @@ def run_argus_on_fixture(fixture_path: Path, model: str, verbose: bool,
             """Check if output indicates a retryable condition: rate limit or model unavailable."""
             return bool(re.search(
                 r"429\s+(rate|too|exceeded|limit(?:ed|s)?)\b|rate\s*limit|too many requests|"
-                r"model\s+not\s+found|no\s+such\s+model|model\s+does\s+not\s+exist",
+                r"model\s+not\s+found|no\s+such\s+model|model\s+does\s+not\s+exist|"
+                r"upstream request failed|endpoint is unavailable|unavailable",
                 text, re.IGNORECASE,
             ))
 

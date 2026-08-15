@@ -123,7 +123,7 @@ runs:
           local primary_exit_code=0
 
           # Shared regex: retryable conditions (rate-limit OR model-unavailable)
-          local retry_re="429[[:space:]]+(rate|too|exceeded|limit(ed|s)?)[[:space:]]|rate[[:space:]]*limit|too many requests|model[[:space:]]+not[[:space:]]+found|no[[:space:]]+such[[:space:]]+model|model[[:space:]]+does[[:space:]]+not[[:space:]]+exist"
+          local retry_re="429[[:space:]]+(rate|too|exceeded|limit(ed|s)?)[[:space:]]|rate[[:space:]]*limit|too many requests|model[[:space:]]+not[[:space:]]+found|no[[:space:]]+such[[:space:]]+model|model[[:space:]]+does[[:space:]]+not[[:space:]]+exist|upstream request failed|endpoint is unavailable|unavailable"
 
           echo "[argus] Using model: $primary_model"
           export MODEL="$primary_model"
