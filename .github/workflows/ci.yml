@@ -23,6 +23,7 @@ jobs:
             '.github/workflows/review.yml',
             '.github/workflows/release.yml',
             '.github/workflows/update-free-models.yml',
+            '.github/workflows/pr-automation.yml',
             '.github/actions/argus-review/action.yml',
           ]
           errors = []
@@ -60,6 +61,7 @@ jobs:
             docs/argus-config-schema.md
             .github/actions/argus-review/action.yml
             .github/workflows/update-free-models.yml
+            .github/workflows/pr-automation.yml
             tests/fixtures/README.md
           )
           missing=()

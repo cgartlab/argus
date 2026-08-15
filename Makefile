@@ -45,7 +45,8 @@ validate:
 	           config/free-models.yml \
 	           docs/argus-config-schema.md \
 	           .github/actions/argus-review/action.yml \
-	           .github/workflows/update-free-models.yml \
+.github/workflows/update-free-models.yml \
+	           .github/workflows/pr-automation.yml \
 	           tests/fixtures/README.md; do \
 	    test -f "$$f" && echo "$$f ok" || (echo "$$f missing" && exit 1); \
 	done
