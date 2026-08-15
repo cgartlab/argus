@@ -241,6 +241,20 @@ def check() -> int:
         print(f"[update-free-models] ⚠ Config has {len(fallback) - len(builtin)} more model(s) "
               f"than built-in defaults: {extra}", file=sys.stderr)
 
+    # Also verify the composite action's hardcoded last-resort default queue
+    # (action.yml) matches the committed config, so all three copies stay in sync.
+    # Match only the literal model-list assignment (value starts with "opencode/"),
+    # not the input-resolution line FALLBACK_MODELS="${{ inputs.fallback-models }}".
+    action_path = REPO_ROOT / ".github" / "actions" / "argus-review" / "action.yml"
+    if action_path.exists():
+        text = action_path.read_text(encoding="utf-8")
+        m = re.search(r'FALLBACK_MODELS="(opencode/[^"]+)"', text)
+        if m:
+            action_fallback = [x.strip() for x in m.group(1).split(",") if x.strip()]
+            if action_fallback != fallback:
+                print(f"[update-free-models] ⚠ action.yml last-resort queue differs from config: "
+                      f"{', '.join(action_fallback)}", file=sys.stderr)
+
     print(f"[update-free-models] ✓ Config valid ({len(fallback)} fallback models, primary: {primary})")
     return 0
 

@@ -156,11 +156,11 @@ def parse_expected(expected_path: Path) -> ExpectedFile:
 # Fallback queue is read from config/free-models.yml (auto-refreshed every 12h
 # by the update-free-models workflow). These are last-resort built-in defaults
 # used only when the config file is missing or unparseable.
-BUILTIN_FALLBACK_MODELS = (
-    "opencode/hy3-free,opencode/nemotron-3-ultra-free,"
-    "opencode/laguna-s-2.1-free,opencode/nemotron-3.5-lightning-free,"
-    "opencode/mimo-v2.5-free"
-)
+# Single source of truth for the built-in queue lives in
+# tools/update_free_models.py (BUILTIN_FALLBACK) — imported here to prevent drift.
+from update_free_models import BUILTIN_FALLBACK as _BUILTIN_FALLBACK
+
+BUILTIN_FALLBACK_MODELS = ",".join(_BUILTIN_FALLBACK)
 
 
 def default_fallback_models() -> str:
@@ -205,14 +205,6 @@ def build_argus_prompt(fixture_path: Path) -> str:
         For every issue show: [P#] file:line — description / Found: / Expected:
         Only output findings. No preamble, no summary.
     """)
-
-
-def _is_rate_limited(text: str) -> bool:
-    """Check if output indicates a rate limit / 429 error."""
-    return bool(re.search(
-        r"429\s+(rate|too|exceeded|limit(?:ed|s)?)\b|rate\s*limit|too many requests",
-        text, re.IGNORECASE,
-    ))
 
 
 def _run_opencode(opencode: str, model: str, prompt_file: Path, verbose: bool) -> tuple[int, str]:
