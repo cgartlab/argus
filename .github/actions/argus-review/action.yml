@@ -12,9 +12,11 @@ inputs:
     default: opencode/deepseek-v4-flash-free
   fallback-models:
     description: >
-      Comma-separated fallback model queue when primary hits 429 rate limit.
-      Each model is tried in order until one succeeds.
-    default: opencode/nemotron-3-ultra-free,opencode/longcat-2.0-free,opencode/north-mini-code-free
+      Optional comma-separated fallback model queue override. When empty
+      (default), the queue is read from config/free-models.yml in this repo,
+      which is auto-refreshed every 12 hours from the live opencode model
+      list. Set this input to pin an explicit queue for a consumer repo.
+    default: ""
   config-path:
     description: >
       Path to the consumer repository's .argus.yml config file, relative to
@@ -120,6 +122,9 @@ runs:
           local primary_output=""
           local primary_exit_code=0
 
+          # Shared regex: retryable conditions (rate-limit OR model-unavailable)
+          local retry_re="429[[:space:]]+(rate|too|exceeded|limit(ed|s)?)[[:space:]]|rate[[:space:]]*limit|too many requests|model[[:space:]]+not[[:space:]]+found|no[[:space:]]+such[[:space:]]+model|model[[:space:]]+does[[:space:]]+not[[:space:]]+exist"
+
           echo "[argus] Using model: $primary_model"
           export MODEL="$primary_model"
 
@@ -132,14 +137,14 @@ runs:
             return 0
           fi
 
-          # Check if rate-limited (429 / too many requests)
-          if ! echo "$primary_output" | grep -qiE "429[[:space:]]+(rate|too|exceeded|limit(ed|s)?)[[:space:]]|rate[[:space:]]*limit|too many requests"; then
-            # Not a rate limit — fail as-is
+          # Check if retryable (rate-limited / model unavailable)
+          if ! echo "$primary_output" | grep -qiE "$retry_re"; then
+            # Not a retryable condition — fail as-is
             echo "$primary_output"
             return $primary_exit_code
           fi
 
-          echo "[argus] ⚠ Primary model '$primary_model' rate-limited"
+          echo "[argus] ⚠ Primary model '$primary_model' retryable (rate-limited or unavailable)"
           echo "$primary_output"
 
           # Iterate through fallback queue.
@@ -161,12 +166,13 @@ runs:
               echo "[argus] ✓ Review completed with fallback model: $fb_model"
               return 0
             fi
-            if echo "$output" | grep -qiE "429[[:space:]]+(rate|too|exceeded|limit(ed|s)?)[[:space:]]|rate[[:space:]]*limit|too many requests"; then
-              echo "[argus] ⚠ Fallback '$fb_model' also rate-limited, trying next..."
+            if echo "$output" | grep -qiE "$retry_re"; then
+              echo "[argus] ⚠ Fallback '$fb_model' rate-limited or unavailable, trying next..."
             else
-              echo "[argus] ✗ Fallback '$fb_model' failed with non-rate-limit error"
-              echo "$output"
-              return $exit_code
+              # Non-retryable — log diagnostic tail but continue trying next model.
+              # Previously this caused the review to abort (return $exit_code).
+              echo "[argus] ⚠ Fallback '$fb_model' failed (non-retryable):"
+              echo "$output" | tail -5
             fi
           done
 
@@ -176,7 +182,23 @@ runs:
           return $primary_exit_code
         }
 
-        run_with_fallback_queue "${{ inputs.model }}" "${{ inputs.fallback-models }}"
+        # Resolve fallback queue: explicit input wins, otherwise read from the
+        # auto-refreshed config/free-models.yml (updated every 12h by the
+        # update-free-models workflow), falling back to last-known-good defaults.
+        FALLBACK_MODELS="${{ inputs.fallback-models }}"
+        if [ -z "$FALLBACK_MODELS" ]; then
+          MODELS_FILE="${{ github.action_path }}/../../../config/free-models.yml"
+          if [ -f "$MODELS_FILE" ]; then
+            FALLBACK_MODELS=$(grep -E '^fallback_models:' "$MODELS_FILE" | head -1 | cut -d: -f2- | xargs)
+          fi
+        fi
+        if [ -z "$FALLBACK_MODELS" ]; then
+          echo "[argus] ⚠ No fallback models configured; using last-known-good defaults"
+          FALLBACK_MODELS="opencode/hy3-free,opencode/nemotron-3-ultra-free,opencode/laguna-s-2.1-free,opencode/nemotron-3.5-lightning-free,opencode/mimo-v2.5-free"
+        fi
+        echo "[argus] Fallback queue: $FALLBACK_MODELS"
+
+        run_with_fallback_queue "${{ inputs.model }}" "$FALLBACK_MODELS"
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         USE_GITHUB_TOKEN: "true"
@@ -187,7 +209,7 @@ runs:
       run: |
         python3 ${{ github.action_path }}/../../../tools/run_fixture_tests.py \
           --model "${{ inputs.model }}" \
-          --fallback-models "${{ inputs.fallback-models }}" \
+          $([ -n "${{ inputs.fallback-models }}" ] && echo --fallback-models "${{ inputs.fallback-models }}") \
           --json fixture-results.json
       shell: bash
       env:

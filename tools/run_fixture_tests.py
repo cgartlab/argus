@@ -153,6 +153,29 @@ def parse_expected(expected_path: Path) -> ExpectedFile:
 
 # ── Argus invocation (heuristic/static mode) ──────────────────────────────────
 
+# Fallback queue is read from config/free-models.yml (auto-refreshed every 12h
+# by the update-free-models workflow). These are last-resort built-in defaults
+# used only when the config file is missing or unparseable.
+# Single source of truth for the built-in queue lives in
+# tools/update_free_models.py (BUILTIN_FALLBACK, _parse_config) — imported
+# here to prevent drift between the two Python tools.
+from update_free_models import BUILTIN_FALLBACK as _BUILTIN_FALLBACK
+from update_free_models import _parse_config as _parse_free_models_config
+
+BUILTIN_FALLBACK_MODELS = ",".join(_BUILTIN_FALLBACK)
+
+
+def default_fallback_models() -> str:
+    """Return the fallback queue from config/free-models.yml (or built-in defaults).
+
+    Mirrors the composite action's runtime resolution so local LLM-mode
+    fixture runs use exactly the same queue as cloud reviews.
+    """
+    config_path = REPO_ROOT / "config" / "free-models.yml"
+    data = _parse_free_models_config(config_path)
+    val = data.get("fallback_models", "")
+    return val if val else BUILTIN_FALLBACK_MODELS
+
 def build_argus_prompt(fixture_path: Path) -> str:
     """Build the same prompt the composite action uses, injecting AGENTS.md + SKILL.md."""
     agents = AGENTS_MD.read_text(encoding="utf-8")
@@ -180,14 +203,6 @@ def build_argus_prompt(fixture_path: Path) -> str:
         For every issue show: [P#] file:line — description / Found: / Expected:
         Only output findings. No preamble, no summary.
     """)
-
-
-def _is_rate_limited(text: str) -> bool:
-    """Check if output indicates a rate limit / 429 error."""
-    return bool(re.search(
-        r"429\s+(rate|too|exceeded|limit(?:ed|s)?)\b|rate\s*limit|too many requests",
-        text, re.IGNORECASE,
-    ))
 
 
 def _run_opencode(opencode: str, model: str, prompt_file: Path, verbose: bool) -> tuple[int, str]:
@@ -241,23 +256,32 @@ def run_argus_on_fixture(fixture_path: Path, model: str, verbose: bool,
         exit_code, output = _run_opencode(opencode, model, prompt_file, verbose)
         primary_output = output  # preserve for fallback exhaustion
 
-        # Retry with fallback queue: gate on non-zero exit code AND rate-limit text.
+        def _is_retryable(text: str) -> bool:
+            """Check if output indicates a retryable condition: rate limit or model unavailable."""
+            return bool(re.search(
+                r"429\s+(rate|too|exceeded|limit(?:ed|s)?)\b|rate\s*limit|too many requests|"
+                r"model\s+not\s+found|no\s+such\s+model|model\s+does\s+not\s+exist",
+                text, re.IGNORECASE,
+            ))
+
+        # Retry with fallback queue: gate on non-zero exit code AND retryable text.
         # NOTE: verified that the opencode CLI exits non-zero (1) on model errors,
         # so a rate limit never produces exit 0 — the gate is reliable.
         if (fallback_models and exit_code != 0 and
-                _is_rate_limited(output)):
+                _is_retryable(output)):
             queue = [m.strip() for m in fallback_models.split(",") if m.strip()]
             for fb_model in queue:
-                print(f"  {_c('yellow', '⚠')} Primary model '{model}' rate-limited, "
+                print(f"  {_c('yellow', '⚠')} Primary model '{model}' rate-limited or unavailable, "
                       f"retrying with fallback '{fb_model}' ...", flush=True)
                 exit_code, output = _run_opencode(opencode, fb_model, prompt_file, verbose)
                 if exit_code == 0:
                     return output  # success
-                if not _is_rate_limited(output):
-                    return output  # non-rate-limit error — bail out
-                print(f"  {_c('yellow', '⚠')} Fallback '{fb_model}' also rate-limited, "
-                      f"trying next ...", flush=True)
-
+                if _is_retryable(output):
+                    print(f"  {_c('yellow', '⚠')} Fallback '{fb_model}' also retryable, "
+                          f"trying next ...", flush=True)
+                else:
+                    print(f"  {_c('yellow', '⚠')} Fallback '{fb_model}' failed (non-retryable), "
+                          f"trying next ...", flush=True)
             # All fallbacks exhausted — return primary output
             output = primary_output
 
@@ -601,11 +625,15 @@ def main() -> int:
     parser.add_argument("--category", metavar="NAME", help="Run only fixtures in this category subdirectory")
     parser.add_argument("--fixture", metavar="PATH", type=Path, help="Run a single fixture file")
     parser.add_argument("--model", default="opencode/deepseek-v4-flash-free", help="LLM model to use (default: deepseek-v4-flash-free)")
-    parser.add_argument("--fallback-models", default="opencode/nemotron-3-ultra-free,opencode/longcat-2.0-free,opencode/north-mini-code-free", help="Comma-separated fallback model queue when primary hits 429 rate limit (default: ordered by coding ability)")
+    parser.add_argument("--fallback-models", default=None, help="Comma-separated fallback model queue (ordered by coding ability) when primary fails. Defaults to config/free-models.yml (auto-refreshed every 12h).")
     parser.add_argument("--verbose", action="store_true", help="Show full Argus output for each fixture")
     parser.add_argument("--dry-run", action="store_true", help="Parse fixtures and print plan, but do not invoke Argus")
     parser.add_argument("--json", dest="output_json", metavar="FILE", help="Write JSON results to FILE")
     args = parser.parse_args()
+
+    # Resolve fallback queue: explicit --fallback-models wins; otherwise read
+    # from config/free-models.yml (auto-refreshed every 12h).
+    fallback_models = args.fallback_models or default_fallback_models()
 
     pairs = discover_fixtures(
         category=args.category,
@@ -648,7 +676,7 @@ def main() -> int:
             continue
 
         argus_output = run_argus_on_fixture(fixture_path, model=args.model, verbose=args.verbose,
-                                            fallback_models=args.fallback_models)
+                                            fallback_models=fallback_models)
         result = validate_output(expected, argus_output)
         results.append(result)
 

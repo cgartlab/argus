@@ -21,6 +21,8 @@ jobs:
           targets = [
             '.github/workflows/ci.yml',
             '.github/workflows/review.yml',
+            '.github/workflows/release.yml',
+            '.github/workflows/update-free-models.yml',
             '.github/actions/argus-review/action.yml',
           ]
           errors = []
@@ -51,10 +53,13 @@ jobs:
             Makefile
             tools/run_fixture_tests.py
             tools/load_config.py
+            tools/update_free_models.py
             tools/bump_version.py
             tools/validate_versioning.py
+            config/free-models.yml
             docs/argus-config-schema.md
             .github/actions/argus-review/action.yml
+            .github/workflows/update-free-models.yml
             tests/fixtures/README.md
           )
           missing=()
@@ -79,8 +84,14 @@ jobs:
         run: |
           python3 -m py_compile tools/run_fixture_tests.py && echo "run_fixture_tests.py: ok"
           python3 -m py_compile tools/load_config.py       && echo "load_config.py: ok"
+          python3 -m py_compile tools/update_free_models.py && echo "update_free_models.py: ok"
           python3 -m py_compile tools/bump_version.py      && echo "bump_version.py: ok"
           python3 -m py_compile tools/validate_versioning.py && echo "validate_versioning.py: ok"
+
+      - name: Validate free model list (config/free-models.yml)
+        run: |
+          python3 tools/update_free_models.py --check
+          echo "free model list validation: ok"
 
       - name: Validate load_config.py defaults (no .argus.yml)
         run: |

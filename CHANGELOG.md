@@ -2,7 +2,7 @@
 
 ### Added
 
-- **Fallback Model Queue** — When the primary model (`opencode/deepseek-v4-flash-free`) hits a 429 rate limit, the review automatically retries a fallback queue ordered by coding ability: `nemotron-3-ultra-free` → `longcat-2.0-free` → `north-mini-code-free` → `ling-3.0-flash-free` → `laguna-s-2.1-free` → `mimo-v2.5-free`. Configurable via `fallback-models` input in the composite action.
+- **Fallback Model Queue** — When the primary model (`opencode/deepseek-v4-flash-free`) hits a 429 rate limit or is unavailable, the review automatically retries a fallback queue ordered by coding ability: `hy3-free` → `nemotron-3-ultra-free` → `laguna-s-2.1-free` → `nemotron-3.5-lightning-free` → `mimo-v2.5-free`. Configurable via `fallback-models` input in the composite action; the default queue is auto-refreshed from the live opencode model list every 12 hours (see `config/free-models.yml`).
 - **Exit-Code Gate** — Fallback only triggers on non-zero exit code AND rate-limit text, preventing false fallback on successful runs whose output happens to contain line numbers like `:429`.
 
 ### Changed
