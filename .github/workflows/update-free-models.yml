@@ -1,0 +1,40 @@
+name: Update Free Models
+
+# Refreshes config/free-models.yml from the live opencode model list every
+# 12 hours so the Argus review action always falls back to currently
+# available free models — no manual fixes when models are added/delisted.
+
+on:
+  schedule:
+    - cron: "0 */12 * * *"   # every 12 hours
+  workflow_dispatch: {}       # manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OpenCode CLI
+        run: curl -fsSL https://opencode.ai/install | bash
+
+      - name: Refresh free model list
+        run: python3 tools/update_free_models.py
+        shell: bash
+
+      - name: Commit and push if changed
+        run: |
+          if git diff --quiet -- config/free-models.yml; then
+            echo "Free model list unchanged — nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add config/free-models.yml
+          git commit -m "chore(models): refresh free model list from opencode"
+          git push origin main
+          echo "Pushed updated free model list."
+        shell: bash

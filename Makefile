@@ -41,14 +41,20 @@ validate:
 	@echo "── Validate: required files ──"
 	@for f in AGENTS.md SKILL.md README.md VERSION CHANGELOG.md \
 	           tools/run_fixture_tests.py tools/load_config.py \
+	           tools/update_free_models.py \
+	           config/free-models.yml \
 	           docs/argus-config-schema.md \
 	           .github/actions/argus-review/action.yml \
+	           .github/workflows/update-free-models.yml \
 	           tests/fixtures/README.md; do \
 	    test -f "$$f" && echo "$$f ok" || (echo "$$f missing" && exit 1); \
 	done
 	@echo "── Validate: Python tool syntax ──"
 	@python3 -m py_compile tools/run_fixture_tests.py && echo "run_fixture_tests.py ok"
 	@python3 -m py_compile tools/load_config.py && echo "load_config.py ok"
+	@python3 -m py_compile tools/update_free_models.py && echo "update_free_models.py ok"
+	@echo "── Validate: free model list ──"
+	@python3 tools/update_free_models.py --check
 	@echo "── Validate: load_config defaults ──"
 	@python3 tools/load_config.py --validate-only
 	@echo ""
@@ -65,7 +71,7 @@ test-fixtures:
 .PHONY: test-fixtures-llm
 test-fixtures-llm:
 	@echo "── Fixture Tests (LLM mode) ──"
-	@python3 tools/run_fixture_tests.py --model $(or $(MODEL),opencode/deepseek-v4-flash-free) --fallback-models $(or $(FALLBACK_MODELS),opencode/nemotron-3-ultra-free,opencode/longcat-2.0-free,opencode/north-mini-code-free)
+	@python3 tools/run_fixture_tests.py --model $(or $(MODEL),opencode/deepseek-v4-flash-free) $(if $(FALLBACK_MODELS),--fallback-models "$(FALLBACK_MODELS)")
 	@echo ""
 
 # ─── Combined pre-release check ──────────────────────────────────
