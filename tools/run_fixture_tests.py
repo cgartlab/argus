@@ -157,8 +157,10 @@ def parse_expected(expected_path: Path) -> ExpectedFile:
 # by the update-free-models workflow). These are last-resort built-in defaults
 # used only when the config file is missing or unparseable.
 # Single source of truth for the built-in queue lives in
-# tools/update_free_models.py (BUILTIN_FALLBACK) — imported here to prevent drift.
+# tools/update_free_models.py (BUILTIN_FALLBACK, _parse_config) — imported
+# here to prevent drift between the two Python tools.
 from update_free_models import BUILTIN_FALLBACK as _BUILTIN_FALLBACK
+from update_free_models import _parse_config as _parse_free_models_config
 
 BUILTIN_FALLBACK_MODELS = ",".join(_BUILTIN_FALLBACK)
 
@@ -169,14 +171,10 @@ def default_fallback_models() -> str:
     Mirrors the composite action's runtime resolution so local LLM-mode
     fixture runs use exactly the same queue as cloud reviews.
     """
-    config = REPO_ROOT / "config" / "free-models.yml"
-    if config.exists():
-        for line in config.read_text(encoding="utf-8").splitlines():
-            if line.strip().startswith("fallback_models:"):
-                val = line.split(":", 1)[1].strip()
-                if val:
-                    return val
-    return BUILTIN_FALLBACK_MODELS
+    config_path = REPO_ROOT / "config" / "free-models.yml"
+    data = _parse_free_models_config(config_path)
+    val = data.get("fallback_models", "")
+    return val if val else BUILTIN_FALLBACK_MODELS
 
 def build_argus_prompt(fixture_path: Path) -> str:
     """Build the same prompt the composite action uses, injecting AGENTS.md + SKILL.md."""

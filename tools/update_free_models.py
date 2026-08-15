@@ -129,6 +129,10 @@ def _list_free_models(opencode: str) -> set[str]:
 
     models: set[str] = set()
     for line in output.splitlines():
+        # Skip lines that look like error messages to avoid false positives.
+        stripped = line.strip()
+        if not stripped or stripped.startswith("["):
+            continue
         m = re.search(r"\bopencode/[A-Za-z0-9._-]+-free\b", line)
         if m:
             models.add(m.group(0))
@@ -212,6 +216,8 @@ def check() -> int:
     fallback = [m.strip() for m in data.get("fallback_models", "").split(",") if m.strip()]
     if not primary:
         errors.append("missing 'primary'")
+    elif not primary.startswith("opencode/") or not primary.endswith("-free"):
+        errors.append(f"invalid primary model id: '{primary}'")
     if not fallback:
         errors.append("empty 'fallback_models'")
     for m in fallback:
@@ -248,8 +254,11 @@ def check() -> int:
     action_path = REPO_ROOT / ".github" / "actions" / "argus-review" / "action.yml"
     if action_path.exists():
         text = action_path.read_text(encoding="utf-8")
-        m = re.search(r'FALLBACK_MODELS="(opencode/[^"]+)"', text)
-        if m:
+        m = re.search(r'^[ \t]*FALLBACK_MODELS=["\'](opencode/[^"\']+)["\']', text, re.M)
+        if not m:
+            print("[update-free-models] ⚠ action.yml fallback literal not found "
+                  "— drift check skipped", file=sys.stderr)
+        else:
             action_fallback = [x.strip() for x in m.group(1).split(",") if x.strip()]
             if action_fallback != fallback:
                 print(f"[update-free-models] ⚠ action.yml last-resort queue differs from config: "
@@ -269,9 +278,13 @@ def main() -> int:
                         help="Validate the existing config file only (no network)")
     args = parser.parse_args()
 
-    if args.check:
-        return check()
-    return refresh()
+    try:
+        if args.check:
+            return check()
+        return refresh()
+    except Exception as exc:
+        print(f"[update-free-models] ✗ Unexpected error: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

@@ -31,6 +31,11 @@ jobs:
           python3 tools/update_free_models.py || [ $? -eq 1 ]
         shell: bash
 
+      - name: Validate refreshed list before committing
+        run: |
+          python3 tools/update_free_models.py --check
+        shell: bash
+
       - name: Commit and push if changed
         run: |
           if git diff --quiet -- config/free-models.yml; then
