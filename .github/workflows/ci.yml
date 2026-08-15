@@ -21,7 +21,7 @@ jobs:
           targets = [
             '.github/workflows/ci.yml',
             '.github/workflows/review.yml',
-'.github/workflows/release.yml',
+            '.github/workflows/release.yml',
             '.github/workflows/update-free-models.yml',
             '.github/workflows/pr-automation.yml',
             '.github/actions/argus-review/action.yml',
@@ -60,7 +60,7 @@ jobs:
             config/free-models.yml
             docs/argus-config-schema.md
             .github/actions/argus-review/action.yml
-.github/workflows/update-free-models.yml
+            .github/workflows/update-free-models.yml
             .github/workflows/pr-automation.yml
             tests/fixtures/README.md
           )

@@ -28,7 +28,7 @@ jobs:
           esac
           if [ -n "$LABEL" ]; then
             echo "[pr-automation] Adding label: $LABEL"
-            gh pr edit "${{ github.event.pull_request.number }}" --add-label "$LABEL"
+            gh pr edit "${{ github.event.pull_request.number }}" --add-label "$LABEL" || true
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -41,7 +41,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Add to PC Automatic project
-        uses: actions/add-to-project@v1
+        uses: actions/add-to-project@v2
         with:
           project-url: https://github.com/users/cgartlab/projects/2
           github-token: ${{ secrets.PROJECT_TOKEN }}
