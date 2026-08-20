@@ -127,6 +127,11 @@ jobs:
           python3 tools/run_fixture_tests.py --dry-run
           echo "Fixture .expected files: all parsed successfully"
 
+      - name: Run fixture tests (static heuristic mode)
+        run: |
+          python3 tools/run_fixture_tests.py
+          echo "Fixture static scanner: all findings validated"
+
       - name: Verify fixture directory structure
         run: |
           python3 - << 'EOF'
