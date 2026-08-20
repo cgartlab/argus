@@ -211,10 +211,15 @@ def _run_opencode(opencode: str, model: str, prompt_file: Path, verbose: bool) -
 
     ``opencode`` is the resolved CLI path; the caller owns the
     is-None check (see run_argus_on_fixture).
+
+    The prompt is read from the file and passed as the positional
+    ``message`` argument to ``opencode run`` (the CLI has no
+    ``--prompt-file`` flag).
     """
     try:
+        prompt_text = prompt_file.read_text(encoding="utf-8")
         result = subprocess.run(
-            [opencode, "run", "--model", model, "--prompt-file", str(prompt_file)],
+            [opencode, "run", "--model", model, prompt_text],
             capture_output=True,
             text=True,
             timeout=120,
