@@ -1,3 +1,23 @@
+## [0.3.3] — 2026-08-21
+
+### Changed
+
+- **CI Fixture Tests** — Added static heuristic scanner run to `fixture-tests` job in `ci.yml`, validating actual review logic against expected finding counts (no API key required)
+- **Release Notes** — `release.yml` now extracts only the current version's section from CHANGELOG instead of dumping the entire file
+- **PR Automation** — `pr-automation.yml` now checks out the repo before running `gh` commands, fixing `fatal: not a git repository` error on every PR; `add-to-project` step made resilient with `continue-on-error`
+- **AGENTS.md** — Updated STRUCTURE with manifest.yaml, CLAUDE.md, src/, config/, and new workflows; WHERE TO LOOK with free model config/updater/PR automation; COMMANDS with bump/test-fixtures-llm/package-skill
+
+### Fixed
+
+- **Fixture runner LLM mode** — Replaced invalid `--prompt-file` flag (non-existent in OpenCode CLI) with positional `message` argument in `run_fixture_tests.py`
+- **Version sync** — Updated version references in AGENTS.md, SKILL.md, and manifest.yaml to match VERSION=0.3.2
+- **Fallback model drift** — Synced hardcoded fallback queue in `action.yml` and `BUILTIN_FALLBACK` in `update_free_models.py` with `config/free-models.yml` (replaced delisted `laguna-s-2.1-free` with `muse-spark-1.2-contributor-free`)
+- **SKILL.md syntax** — Fixed unclosed string literal in React `useState` example (`useState(')` → `useState('')`)
+- **Review trigger** — Added `reopened` to `pull_request` trigger types in `review.yml` so reopened PRs get reviewed
+- **Duplicate PR reviews** — Added stale review dismissal via GitHub API before fallback model retry in `action.yml`, preventing conflicting reviews on the same PR
+
+---
+
 ## [0.3.2] — 2026-08-06
 
 ### Added
