@@ -33,10 +33,23 @@ jobs:
           make package-skill
           make package
 
+      - name: Extract release notes for current version
+        id: release-notes
+        run: |
+          VERSION=$(cat VERSION)
+          awk -v ver="[${VERSION}]" '
+            $0 ~ "^## "ver { found=1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > /tmp/release-notes.md
+          echo "notes_path=/tmp/release-notes.md" >> $GITHUB_OUTPUT
+          echo "Extracted release notes for v${VERSION}:"
+          cat /tmp/release-notes.md
+
       - name: Publish Release
         uses: softprops/action-gh-release@v3
         with:
-          body_path: CHANGELOG.md
+          body_path: ${{ steps.release-notes.outputs.notes_path }}
           draft: false
           make_latest: true
           files: |
