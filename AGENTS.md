@@ -1,7 +1,7 @@
 # AGENTS.md — Argus
 
 **Version:** 0.3.2 | **Project:** https://github.com/cgartlab/argus | **License:** MIT
-**Updated:** 2026-08-02
+**Updated:** 2026-08-21
 
 ---
 
@@ -23,6 +23,8 @@ Consumer repositories can customize review behavior via a `.argus.yml` config fi
 argus/
 ├── AGENTS.md                          # Identity, hard rules, review dimensions
 ├── SKILL.md                           # Skill trigger phrases, execution rules (detailed)
+├── manifest.yaml                      # Agent manifest (name, version, capabilities)
+├── CLAUDE.md                          # Claude Code integration (references AGENTS.md)
 ├── docs/
 │   └── argus-config-schema.md         # .argus.yml consumer config reference
 ├── tests/
@@ -32,16 +34,23 @@ argus/
 │       ├── accessibility/             # ARIA, alt, semantic HTML violations
 │       ├── hardcoded-values/          # Magic number spacing/radii/font-size
 │       └── css-quality/               # Duplicate rules, BEM violations
+├── src/
+│   └── components/                    # Test components for review validation
 ├── tools/
 │   ├── run_fixture_tests.py           # Fixture regression test runner
 │   ├── load_config.py                 # Consumer .argus.yml loader + validator
+│   ├── update_free_models.py          # Refresh config/free-models.yml from live opencode list
 │   ├── bump_version.py                # Automated semver bumping
 │   └── validate_versioning.py         # VERSION / CHANGELOG consistency check
+├── config/
+│   └── free-models.yml                # Auto-refreshed fallback model queue (every 12h)
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml                     # Lint + tool validation + fixture tests
 │   │   ├── review.yml                 # Argus-Flash PR review (triggers composite action)
-│   │   └── release.yml               # Automated release workflow (tag-push triggers)
+│   │   ├── release.yml                # Automated release workflow (tag-push triggers)
+│   │   ├── update-free-models.yml     # 12h scheduled refresh of fallback model list
+│   │   └── pr-automation.yml          # Auto-label/assign/project on PR open
 │   └── actions/
 │       └── argus-review/
 │           └── action.yml             # Reusable composite action for any repo
@@ -57,6 +66,7 @@ argus/
 |------|----------|-------|
 | Agent identity & rules | `AGENTS.md` | Hard rules + output format |
 | Skill execution | `SKILL.md` | Trigger phrases, review dimensions |
+| Agent manifest | `manifest.yaml` | Name, version, capabilities, inputs/outputs |
 | Consumer configuration | `docs/argus-config-schema.md` | Full `.argus.yml` field reference |
 | Config loader | `tools/load_config.py` | Merges defaults + consumer `.argus.yml` |
 | Fixture test suite | `tests/fixtures/` | Regression tests for review rules |
@@ -65,6 +75,10 @@ argus/
 | PR review automation | `.github/workflows/review.yml` | Triggers argus-flash App |
 | Release automation | `.github/workflows/release.yml` | Tag-push → validates → packages → GitHub Release |
 | Reusable review action | `.github/actions/argus-review/action.yml` | Dynamic rule + config injection |
+| Free model config | `config/free-models.yml` | Single source of truth for fallback model queue |
+| Free model updater | `tools/update_free_models.py` | Refreshes config from live opencode list |
+| Model refresh workflow | `.github/workflows/update-free-models.yml` | 12h scheduled refresh of fallback models |
+| PR automation | `.github/workflows/pr-automation.yml` | Auto-label/assign/project on PR open |
 | GitHub App | `github.com/apps/argus-flash` | Installed on any repo needing design review |
 | Release process | `Makefile` | `make validate`, `make release` |
 
@@ -167,10 +181,17 @@ Issues are grouped under headers in order: P0 → P1 → P2 → P3.
 
 ```bash
 make check-version    # Show current version
+make bump-patch       # Bump PATCH version (0.3.0 → 0.3.1)
+make bump-minor       # Bump MINOR version (0.3.0 → 0.4.0)
+make bump-major       # Bump MAJOR version (0.3.0 → 1.0.0)
 make validate         # Run SKILL.md trigger phrase check + CHANGELOG + AGENTS.md + action.yml
 make test-fixtures    # Run fixture regression tests (static heuristic mode)
+make test-fixtures-llm # Run fixture tests in LLM mode (requires OpenCode CLI + model)
 make test             # validate + test-fixtures (full pre-release check)
 make release          # validate → git commit → tag → push
+make package-skill    # Create skill package only (argus-skill-v{VERSION}.zip)
+make package          # Create all release archives (full + skill package)
+make clean            # Remove dist/
 make package-skill    # Create skill package only (argus-skill-v{VERSION}.zip)
 make package          # Create all release archives (full + skill package)
 make clean            # Remove dist/
