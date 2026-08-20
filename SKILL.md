@@ -309,7 +309,7 @@ const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('
 
 ```tsx
 // WRONG — redundant state
-const [fullName, setFullName] = useState(');
+const [fullName, setFullName] = useState('');
 useEffect(() => {
   setFullName(`${firstName} ${lastName}`);
 }, [firstName, lastName]);
