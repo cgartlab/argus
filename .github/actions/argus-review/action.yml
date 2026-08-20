@@ -147,11 +147,28 @@ runs:
           echo "[argus] ⚠ Primary model '$primary_model' retryable (rate-limited or unavailable)"
           echo "$primary_output"
 
+          # Dismiss any pending or stale review the primary model may have
+          # posted before failing, so the fallback doesn't create a duplicate
+          # conflicting review on the same PR.
+          dismiss_stale_reviews() {
+            local pr_number="${{ github.event.pull_request.number }}"
+            [ -z "$pr_number" ] && return 0
+            echo "[argus] Dismissing stale/pending reviews from failed primary run..."
+            reviews=$(gh api repos/${{ github.repository }}/pulls/${pr_number}/reviews \
+                        --jq '.[] | select(.state == "PENDING" or .state == "COMMENTED") | .id' 2>/dev/null || true)
+            for rid in $reviews; do
+              gh api repos/${{ github.repository }}/pulls/${pr_number}/reviews/${rid}/dismissals \
+                -X PUT -f event=DISMISS \
+                -f message="Dismissed incomplete review before fallback retry" 2>/dev/null \
+                && echo "[argus]   Dismissed review #${rid}" \
+                || true
+            done
+          }
+          dismiss_stale_reviews
+
           # Iterate through fallback queue.
-          # NOTE: each `opencode github run` invocation posts its own PR review
-          # comment. If the primary already posted a comment and then failed
-          # (e.g. 429), a successful fallback posts a SECOND, potentially
-          # conflicting review on the same PR. Accepted trade-off for resilience.
+          # Each `opencode github run` may post a PR review comment. Stale
+          # reviews from the failed primary run have been dismissed above.
           local output=""
           IFS=',' read -ra queue <<< "$fallback_models"
           for fb_model in "${queue[@]}"; do
