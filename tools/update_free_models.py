@@ -46,9 +46,9 @@ CONFIG_PATH = REPO_ROOT / "config" / "free-models.yml"
 BUILTIN_FALLBACK = [
     "opencode/hy3-free",
     "opencode/nemotron-3-ultra-free",
-    "opencode/laguna-s-2.1-free",
     "opencode/nemotron-3.5-lightning-free",
     "opencode/mimo-v2.5-free",
+    "opencode/muse-spark-1.2-contributor-free",
 ]
 BUILTIN_PRIMARY = "opencode/deepseek-v4-flash-free"
 
