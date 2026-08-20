@@ -7,6 +7,6 @@
 #
 # Order = coding ability, strongest first. Newly available models are
 # appended at the end; models no longer available are removed.
-generated_at: 2026-08-15T13:58:13Z
+generated_at: 2026-08-20T12:52:46Z
 primary: opencode/deepseek-v4-flash-free
-fallback_models: opencode/hy3-free,opencode/nemotron-3-ultra-free,opencode/laguna-s-2.1-free,opencode/nemotron-3.5-lightning-free,opencode/mimo-v2.5-free
+fallback_models: opencode/hy3-free,opencode/nemotron-3-ultra-free,opencode/nemotron-3.5-lightning-free,opencode/mimo-v2.5-free,opencode/muse-spark-1.2-contributor-free
