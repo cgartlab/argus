@@ -211,7 +211,7 @@ runs:
         fi
         if [ -z "$FALLBACK_MODELS" ]; then
           echo "[argus] ⚠ No fallback models configured; using last-known-good defaults"
-          FALLBACK_MODELS="opencode/nemotron-3-ultra-free,opencode/nemotron-3.5-lightning-free,opencode/mimo-v2.5-free,opencode/muse-spark-1.2-contributor-free"
+          FALLBACK_MODELS="opencode/nemotron-3-ultra-free,opencode/nemotron-3.5-lightning-free,opencode/muse-spark-1.2-contributor-free,opencode/mimo-v2.5-free,opencode/x-preview-f-free"
         fi
         echo "[argus] Fallback queue: $FALLBACK_MODELS"
 

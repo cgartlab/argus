@@ -29,6 +29,8 @@ jobs:
           # must accept exit 1 here — otherwise the commit step below would
           # never run exactly when the list changes.
           python3 tools/update_free_models.py || [ $? -eq 1 ]
+          # Print the current ranking for audit trail in the workflow log.
+          python3 tools/update_free_models.py --rank
         shell: bash
 
       - name: Validate refreshed list before committing
