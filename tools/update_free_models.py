@@ -44,13 +44,12 @@ CONFIG_PATH = REPO_ROOT / "config" / "free-models.yml"
 # NOTE: opencode/deepseek-v4-flash-free is the PRIMARY model and lives in
 # the `primary` field, not in this list.
 BUILTIN_FALLBACK = [
-    "opencode/hy3-free",
     "opencode/nemotron-3-ultra-free",
     "opencode/nemotron-3.5-lightning-free",
     "opencode/mimo-v2.5-free",
     "opencode/muse-spark-1.2-contributor-free",
 ]
-BUILTIN_PRIMARY = "opencode/deepseek-v4-flash-free"
+BUILTIN_PRIMARY = "opencode/hy3-free"
 
 HEADER = """\
 # Argus free model list — single source of truth for the fallback queue.
