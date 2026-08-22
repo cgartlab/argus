@@ -1,5 +1,5 @@
 name: argus
-version: 0.3.2
+version: 0.3.3
 description: Frontend design code review agent — validates correctness, accessibility, security, and design token usage.
 skills:
   - accessibility

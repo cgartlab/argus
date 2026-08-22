@@ -10,7 +10,7 @@
 ### Fixed
 
 - **Fixture runner LLM mode** — Replaced invalid `--prompt-file` flag (non-existent in OpenCode CLI) with positional `message` argument in `run_fixture_tests.py`
-- **Version sync** — Updated version references in AGENTS.md, SKILL.md, and manifest.yaml to match VERSION=0.3.2
+- **Version sync** — Updated version references in AGENTS.md, SKILL.md, and manifest.yaml to match VERSION=0.3.3
 - **Fallback model drift** — Synced hardcoded fallback queue in `action.yml` and `BUILTIN_FALLBACK` in `update_free_models.py` with `config/free-models.yml` (replaced delisted `laguna-s-2.1-free` with `muse-spark-1.2-contributor-free`)
 - **SKILL.md syntax** — Fixed unclosed string literal in React `useState` example (`useState(')` → `useState('')`)
 - **Review trigger** — Added `reopened` to `pull_request` trigger types in `review.yml` so reopened PRs get reviewed
