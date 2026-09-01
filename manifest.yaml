@@ -1,5 +1,5 @@
 name: argus
-version: 0.3.3
+version: 0.4.0
 description: Frontend design code review agent — validates correctness, accessibility, security, and design token usage.
 skills:
   - accessibility
@@ -8,6 +8,8 @@ required_capabilities:
   - code_review
   - lint
   - type_check
+optional_capabilities:
+  - men-integration   # can be invoked by the cgartlab/men team; standalone runs are unaffected
 constraints:
   never_approve_unseen: true
   report_all_p0_p1: true

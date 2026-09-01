@@ -233,7 +233,7 @@ export const site = {
   name: 'Argus',
   title: 'Argus — Frontend Design Code Review Agent',
   description: 'Cross-platform AI coding agent specialized in frontend design review: hardcoded values, design tokens, a11y, dark mode, framework API misuse.',
-  version: '0.3.2',            // 同步 argus 根 VERSION（当前 0.3.2）
+  version: '0.4.0',            // 同步 argus 根 VERSION（当前 0.4.0）
   url: 'https://argus.cgartlab.com',
   github: 'https://github.com/cgartlab/argus',
   appUrl: 'https://github.com/apps/argus-flash',

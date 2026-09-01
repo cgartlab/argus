@@ -75,7 +75,7 @@ Step by step:
 
 The composite action **does not contain a hardcoded prompt**. Every review run:
 
-1. Reads `AGENTS.md` and `SKILL.md` from the Argus repository, at the exact ref you referenced (`@main` or `@v0.3.2`).
+1. Reads `AGENTS.md` and `SKILL.md` from the Argus repository, at the exact ref you referenced (`@main` or `@v0.4.0`).
 2. Injects them into the prompt.
 3. Runs the review with those rules.
 
@@ -126,6 +126,6 @@ You don't need to memorize this — it's the map for the rest of the docs. The t
 | Ref | Behavior | Recommendation |
 |---|---|---|
 | `@main` | Latest rules at time of review run | Development / internal repos |
-| `@v0.3.2` | Pinned to a release | Production / external consumer repos |
+| `@v0.4.0` | Pinned to a release | Production / external consumer repos |
 
 See [Getting Started](/docs/getting-started) for how to switch.

@@ -1,3 +1,26 @@
+## [0.4.0] — 2026-09-02
+
+### Added
+
+- **Marketing Site** — New `site/` (Astro 7 + UnoCSS) with a 60fps digital-water hero, frosted-glass header, 7 beginner-friendly docs, `/legal` pages, and a custom 404 page
+- **Site Deployment** — New `.github/workflows/deploy-site.yml` builds and deploys `site/` to GitHub Pages on push to `main` (path-filtered on `site/**`); `site/public/CNAME` points to `argus.cgartlab.com`
+- **Third-Party Notices** — Added `NOTICE` declaring OpenCode, GitHub, and other third-party trademarks; Argus remains independent and unaffiliated
+- **Model Ranking** — `update_free_models.py` now ranks free models by composite coding ability (SWE-bench et al.) via `MODEL_SCORES` + `rank_models()`, replacing the hardcoded `BUILTIN_FALLBACK` constant
+
+### Changed
+
+- **Primary Model** — Default review model switched from `opencode/deepseek-v4-flash-free` to `opencode/hy3-free` (deepseek deprecated)
+- **Fallback Refresh** — `config/free-models.yml` fallback queue is now auto-refreshed every 12h, ordered by the coding-ability ranking
+- **Release Notes Extraction** — `release.yml` now extracts the current version's CHANGELOG section with `index()` instead of a regex, making version-header matching more robust
+
+### Fixed
+
+- **Fixture CI ImportError** — `run_fixture_tests.py` imports aligned with `update_free_models.py`'s new API (`MODEL_SCORES`, `rank_models`, `_parse_config`), fixing the `ImportError` in the `fixture-tests` CI job
+
+### Removed
+
+---
+
 ## [0.3.3] — 2026-08-21
 
 ### Changed

@@ -26,7 +26,7 @@ PR opened → GitHub Actions triggers review.yml
              5. argus-flash bot comments review on the PR
 ```
 
-The composite action dynamically loads rules from the argus repo at the referenced ref (`@main` or `@v0.3.1`). There is no hardcoded prompt — the review behavior is always driven by `AGENTS.md` + `SKILL.md`.
+The composite action dynamically loads rules from the argus repo at the referenced ref (`@main` or `@v0.4.0`). There is no hardcoded prompt — the review behavior is always driven by `AGENTS.md` + `SKILL.md`.
 
 ## AGENTS.md Structure
 
@@ -117,7 +117,7 @@ Prerequisites:
 | Ref | Behavior | Recommendation |
 |---|---|---|
 | `@main` | Latest rules at time of review run | Development / internal repos |
-| `@v0.3.1` | Pinned to a release | Production / external consumer repos |
+| `@v0.4.0` | Pinned to a release | Production / external consumer repos |
 
 ## Cross-Platform Compatibility
 
@@ -133,7 +133,7 @@ Argus runs in any framework that reads Markdown instructions:
 ## Version Bumping
 
 ```bash
-make bump-patch   # e.g. 0.3.0 → 0.3.1
+make bump-patch   # e.g. 0.4.0 → 0.4.1
 make test         # validate + fixture tests
 make release      # commit → tag → push → triggers release workflow
 ```

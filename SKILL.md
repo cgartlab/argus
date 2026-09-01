@@ -1,12 +1,45 @@
 ---
 name: argus-design-review
 description: "Use when reviewing frontend code for design quality — checking design token usage, hardcoded values, dark mode coverage, accessibility compliance, CSS consistency, semantic HTML, or framework API usage. Use when auditing a component, page, or design system for issues. Trigger phrases: '帮我 review 这段代码'、'检查一下这个组件的设计问题'、'看看有没有 hardcoded values'、'dark mode 有没有遗漏'、'无障碍有没有问题'、'帮我做个 design audit'、'让 Argus-Flash 审一下'"
-version: 0.3.2
+version: 0.4.0
 ---
 
 # Argus Design Review Skill
 
 When this skill is active, every line of frontend code is audited against the same standards: design tokens used correctly, no hardcoded values, dark mode fully covered, accessibility baseline met, correct API usage per technology stack, and **copy-ready code fixes** provided for every issue.
+
+## Men Agent Team Invocation (Optional)
+
+Argus **can be invoked** by the men agent team (cgartlab/men) as an optional review capability. This does not change standalone behavior — Argus runs identically with or without men, in any agent framework or as the argus-flash GitHub App.
+
+### Men-Specific Trigger Phrases
+
+The standard triggers above already cover review requests. Additional men-specific phrases:
+
+- "design review for men"
+- "Argus review"
+- "前端审查"
+- "run Argus on this PR"
+- "让 Argus 审一下这段前端代码"
+
+When invoked from a men context (via `--men-context` flag or `MEN_CONTEXT=1` env), Argus MAY frame its report for men's four-part summary template. See `docs/men-integration.md`.
+
+### Report Format for Men
+
+- The machine-readable `[P#] file:line` prefix is preserved **verbatim** — men parsers rely on it.
+- Severity grouping (P0 → P3) and mandatory copy-ready fixes remain unchanged.
+- Men's four-part summary is mapped from the standard Argus output:
+
+| Men template slot | Argus output section |
+|-------------------|----------------------|
+| conclusion | Summary header (totals, stack, documentation) |
+| key issues | Issue blocks grouped by severity |
+| evidence | Found / Expected snippets + Reference links |
+| open questions | Unresolved items (see Confidence rule) |
+
+### Confidence Rule
+
+If the technology stack or the target file is not clearly identifiable, **do not guess**. List the item as **unresolved** in the open-questions section instead of flagging it with a fabricated severity or stack. This mirrors the men team's "clarify before acting" rule: unclear context is reported, never assumed.
 
 ## Technology Stack Detection
 

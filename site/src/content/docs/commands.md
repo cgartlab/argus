@@ -30,7 +30,7 @@ A note on `make`: `make` is a common build tool that runs commands defined in a 
 These are safe to run any time from the repository root:
 
 ```bash
-make check-version    # Show current version — e.g. "Current version: 0.3.2"
+make check-version    # Show current version — e.g. "Current version: 0.4.0"
 make clean            # Remove generated files (the dist/ folder)
 ```
 
@@ -53,9 +53,9 @@ make test             # Everything: validate + test-fixtures (the full pre-relea
 These update the version number and the changelog for you:
 
 ```bash
-make bump-patch   # e.g. 0.3.0 → 0.3.1 (bug fixes, minor changes)
-make bump-minor   # e.g. 0.3.0 → 0.4.0 (new features)
-make bump-major   # e.g. 0.3.0 → 1.0.0 (breaking changes)
+make bump-patch   # e.g. 0.4.0 → 0.4.1 (bug fixes, minor changes)
+make bump-minor   # e.g. 0.4.0 → 0.5.0 (new features)
+make bump-major   # e.g. 0.4.0 → 1.0.0 (breaking changes)
 ```
 
 **Why it matters:** bump targets automatically update `VERSION` and `CHANGELOG.md` and stage the changes. You then review, run `make test`, and release.

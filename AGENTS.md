@@ -1,7 +1,7 @@
 # AGENTS.md — Argus
 
-**Version:** 0.3.2 | **Project:** https://github.com/cgartlab/argus | **License:** MIT
-**Updated:** 2026-08-21
+**Version:** 0.4.0 | **Project:** https://github.com/cgartlab/argus | **License:** MIT
+**Updated:** 2026-09-02
 
 ---
 
@@ -25,6 +25,8 @@ argus/
 ├── SKILL.md                           # Skill trigger phrases, execution rules (detailed)
 ├── manifest.yaml                      # Agent manifest (name, version, capabilities)
 ├── CLAUDE.md                          # Claude Code integration (references AGENTS.md)
+├── NOTICE                             # Third-party trademark declarations
+├── site/                              # Astro marketing site (docs, legal, 404)
 ├── docs/
 │   └── argus-config-schema.md         # .argus.yml consumer config reference
 ├── tests/
@@ -50,7 +52,8 @@ argus/
 │   │   ├── review.yml                 # Argus-Flash PR review (triggers composite action)
 │   │   ├── release.yml                # Automated release workflow (tag-push triggers)
 │   │   ├── update-free-models.yml     # 12h scheduled refresh of fallback model list
-│   │   └── pr-automation.yml          # Auto-label/assign/project on PR open
+│   │   ├── pr-automation.yml          # Auto-label/assign/project on PR open
+│   │   └── deploy-site.yml            # Build + deploy site/ to GitHub Pages
 │   └── actions/
 │       └── argus-review/
 │           └── action.yml             # Reusable composite action for any repo
@@ -80,7 +83,48 @@ argus/
 | Model refresh workflow | `.github/workflows/update-free-models.yml` | 12h scheduled refresh of fallback models |
 | PR automation | `.github/workflows/pr-automation.yml` | Auto-label/assign/project on PR open |
 | GitHub App | `github.com/apps/argus-flash` | Installed on any repo needing design review |
+| Marketing site | `site/` | Astro marketing site (docs, legal, 404); deployed to https://argus.cgartlab.com |
+| Site deployment | `.github/workflows/deploy-site.yml` | Build + deploy `site/` to GitHub Pages |
+| Trademark notices | `NOTICE` | Third-party trademark declarations (OpenCode, GitHub, etc.) |
 | Release process | `Makefile` | `make validate`, `make release` |
+
+---
+
+## MEN TEAM COLLABORATION (OPTIONAL)
+
+Argus **can be invoked** by the men agent team (cgartlab/men) as an optional frontend design review capability. This integration is **entirely optional**: Argus runs standalone in any agent framework, as a GitHub App review gate, or as a direct CLI review — none of these require men.
+
+### Roles & Boundaries
+
+| Role | Responsibility |
+|------|----------------|
+| **Argus** | Frontend design code review (this agent). Detects design issues and provides copy-ready fixes. |
+| **men** | Optional orchestrating team that may route frontend design review tasks to Argus. |
+
+- Argus does not depend on men; men does not modify Argus core rules.
+- Integration is opt-in: men activates it by explicit invocation (see `docs/men-integration.md`).
+- All men-facing behavior is additive — it never gates, alters, or replaces standalone review.
+
+### Output Contract
+
+When invoked from a men context, Argus keeps its canonical output format **verbatim**: `[P#] file:line` prefixes, severity grouping P0 → P3, mandatory copy-ready fixes, and token naming. For men's four-part summary template, Argus maps its standard output as follows:
+
+| Men template slot | Argus output |
+|-------------------|--------------|
+| conclusion | Summary header (totals, stack, documentation) |
+| key issues | Issue blocks grouped by severity |
+| evidence | Found / Expected snippets + Reference links |
+| open questions | Unresolved items (see Confidence rule in `SKILL.md`) |
+
+### Optional Enhancements
+
+- `--men-context` flag or `MEN_CONTEXT=1` env — enables men-compatible summary framing. Standalone runs are unaffected.
+- `--events-json` — best-effort event logging for learning loops (see `docs/men-integration.md`).
+- Chi judge verification — optional independent re-check of Argus output in a men pipeline (PASS / REGRESSED).
+
+### Independence Statement
+
+Argus is fully self-contained: standalone agent runs, the argus-flash GitHub App PR gate, and consumer `.argus.yml` configuration all work without men. The men integration adds optional conveniences only — it never changes Argus severity rules, output format, or fixture regression guarantees.
 
 ---
 
@@ -195,6 +239,7 @@ make clean            # Remove dist/
 make package-skill    # Create skill package only (argus-skill-v{VERSION}.zip)
 make package          # Create all release archives (full + skill package)
 make clean            # Remove dist/
+cd site && npm run build  # Build marketing site (site/ subproject)
 ```
 
 ---

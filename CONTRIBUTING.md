@@ -38,9 +38,9 @@ cd argus
 
 ```bash
 # Bump version (automatically updates VERSION + CHANGELOG)
-make bump-patch   # 0.3.0 → 0.3.1 (bug fixes, minor changes)
-make bump-minor   # 0.3.0 → 0.4.0 (new features)
-make bump-major   # 0.3.0 → 1.0.0 (breaking changes)
+make bump-patch   # 0.4.0 → 0.4.1 (bug fixes, minor changes)
+make bump-minor   # 0.4.0 → 0.5.0 (new features)
+make bump-major   # 0.4.0 → 1.0.0 (breaking changes)
 
 # Full pre-release check
 make test

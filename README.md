@@ -4,7 +4,7 @@
 [![Argus-Flash Review](https://github.com/cgartlab/argus/actions/workflows/review.yml/badge.svg)](https://github.com/cgartlab/argus/actions/workflows/review.yml)
 [![Release](https://github.com/cgartlab/argus/actions/workflows/release.yml/badge.svg)](https://github.com/cgartlab/argus/actions/workflows/release.yml)
 
-Code review agent for frontend design. Runs as a GitHub App — install on any repo for automated PR reviews.
+Code review agent for frontend design. Runs as a GitHub App — install on any repo for automated PR reviews. Official site: https://argus.cgartlab.com
 
 ## What is Argus?
 
@@ -109,7 +109,7 @@ That's it. Every PR will automatically receive a design review comment from `arg
 
 `cgartlab/argus/.github/actions/argus-review@main` references the latest version of the Argus rules. When `AGENTS.md` or `SKILL.md` are updated in the argus repo, the composite action reads them at runtime — all consumer repos get the new rules instantly with no changes needed.
 
-For a pinned version, use `@v0.3.1` instead of `@main`.
+For a pinned version, use `@v0.4.0` instead of `@main`.
 
 ## Project Structure
 
@@ -147,6 +147,12 @@ make package         # Create all release archives
 make release         # Tag and push a release
 make clean           # Remove generated files
 ```
+
+## Men Agent Team Integration (Optional)
+
+Argus can be invoked by the **men agent team** (cgartlab/men) as an optional frontend design review capability. This integration is purely additive — Argus runs standalone in any agent framework or as the argus-flash GitHub App with **no men dependency**.
+
+See [docs/men-integration.md](docs/men-integration.md) for the full reference: context detection, routing, the men output contract, chi judge verification, and protocol versioning.
 
 ## Relationship with Kold
 
