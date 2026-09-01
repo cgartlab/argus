@@ -22,10 +22,12 @@
     'Helvetica Neue', Arial, sans-serif;
 
   /* ── Spacing / text scale (dimension tokens, no dark override needed) ── */
-  --ds-space-5: 1.25rem; /* spacing scale — 代码块(CodeBlock)垂直内边距 */
-  --ds-space-6: 1.5rem;  /* spacing scale — 代码块(CodeBlock)水平内边距 */
-  --ds-text-sm: 0.8125rem; /* type scale — 13px 代码块字号，保持紧凑；Argus: tokenize, not resize */
-  --ds-leading-relaxed: 1.65; /* type scale — 代码块行高（CodeBlock） */
+  /* Spacing scale — base 4px grid. --ds-space-5 = 20px, --ds-space-6 = 24px. */
+  --ds-space-5: 1.25rem; /* CodeBlock 代码区垂直内边距（.code-card .astro-code padding top/bottom） */
+  --ds-space-6: 1.5rem;  /* CodeBlock 代码区水平内边距（.code-card .astro-code padding left/right） */
+  /* Type scale — 代码块排版字号/行高。只用于 Shiki 代码容器，正文走 --font-family-sans。 */
+  --ds-text-sm: 0.8125rem; /* 13px 代码块字号，保持紧凑；Argus: tokenize, not resize */
+  --ds-leading-relaxed: 1.65; /* 代码块行高（1.65 宽松，缓解 Shiki 紧凑行距的拥挤感） */
 
   /* presetTypography overrides (prose) */
   --un-prose-body: var(--color-fg);

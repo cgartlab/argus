@@ -15,17 +15,84 @@
 
 <script>
   // ── 从全局 CSS token 读取颜色（返回 [r, g, b]；缺失/无法解析时回退 fallback）──
-  // 支持格式：#rrggbb、rgb(r, g, b)、rgba(r, g, b, a)（alpha 忽略，取前三位）。
-  // oklch()/hsl() 等暂不支持（当前 token 均为 hex，后续如需再扩展）。
+  // 支持格式：
+  //   · #rrggbb
+  //   · rgb(r, g, b) / rgba(r, g, b, a)（alpha 忽略，取前三位）
+  //   · hsl(h, s%, l%) / hsla(...)（hsl→rgb 标准公式，s/l 支持 0-100 或 0-1）
+  //   · oklch(L C H)（oklch→rgb 标准公式；L 支持 0-1 或 0-100%）
+  // 任何解析失败均返回 fallback，绝不抛错。
+
+  // hsl(h, s, l) → [r, g, b]。h∈[0,360)，s/l∈[0,1]（调用方先归一化）。
+  function hslToRgb(h, s, l) {
+    const c = (1 - Math.abs(2 * l - 1)) * s
+    const hp = (((h % 360) + 360) % 360) / 60
+    const x = c * (1 - Math.abs((hp % 2) - 1))
+    let r = 0, g = 0, b = 0
+    if (hp < 1) { r = c; g = x }
+    else if (hp < 2) { r = x; g = c }
+    else if (hp < 3) { g = c; b = x }
+    else if (hp < 4) { g = x; b = c }
+    else if (hp < 5) { r = x; b = c }
+    else { r = c; b = x }
+    const m = l - c / 2
+    return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)]
+  }
+
+  // oklch(L, C, H) → [r, g, b]（标准 CSS Color 4 逆变换，含 sRGB 裁剪）。
+  // L/C/H 分别归一化到 [0,1]/[0,0.4]/[0,360)。近似值足够显示用途。
+  function oklchToRgb(L, C, H) {
+    // oklch → oklab（h 弧度制）
+    const hr = (H / 360) * 2 * Math.PI
+    const a = C * Math.cos(hr)
+    const b = C * Math.sin(hr)
+    // oklab → LMS（逆混合矩阵）
+    const l_ = L + 0.3963377774 * a + 0.2158037573 * b
+    const m_ = L - 0.1055613458 * a - 0.0638541728 * b
+    const s_ = L - 0.0894841775 * a - 1.291485548 * b
+    // LMS 非线性（cube）
+    const l = l_ ** 3, m = m_ ** 3, s = s_ ** 3
+    // LMS → linear sRGB
+    let rl = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s
+    let gl = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s
+    let bl = -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s
+    // linear → gamma（sRGB 传递函数），并裁剪到 [0,1]
+    const g = (v) => {
+      v = v > 1 ? 1 : v < 0 ? 0 : v
+      return v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055
+    }
+    return [Math.round(g(rl) * 255), Math.round(g(gl) * 255), Math.round(g(bl) * 255)]
+  }
+
   function readColorToken(name, fallback) {
     const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+    // #rrggbb
     const hex = /^#([0-9a-f]{6})$/i.exec(value)
     if (hex) {
       const n = parseInt(hex[1], 16)
       return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff]
     }
+    // rgb() / rgba()
     const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(value)
     if (rgb) return [+rgb[1], +rgb[2], +rgb[3]]
+    // hsl() / hsla()
+    const hsl = /^hsla?\(\s*([\d.]+)\s*,\s*([\d.]+)%?\s*,\s*([\d.]+)%?/i.exec(value)
+    if (hsl) {
+      const h = parseFloat(hsl[1])
+      let s = parseFloat(hsl[2])
+      let l = parseFloat(hsl[3])
+      if (s > 1) s /= 100
+      if (l > 1) l /= 100
+      return hslToRgb(h, s, l)
+    }
+    // oklch()
+    const oklch = /^oklch\(\s*([\d.]+)%?\s+([\d.]+)\s+([\d.]+)/i.exec(value)
+    if (oklch) {
+      let L = parseFloat(oklch[1])
+      if (L > 1) L /= 100
+      const C = parseFloat(oklch[2])
+      const H = parseFloat(oklch[3])
+      return oklchToRgb(L, C, H)
+    }
     return fallback
   }
 
