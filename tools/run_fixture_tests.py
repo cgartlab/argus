@@ -157,12 +157,14 @@ def parse_expected(expected_path: Path) -> ExpectedFile:
 # by the update-free-models workflow). These are last-resort built-in defaults
 # used only when the config file is missing or unparseable.
 # Single source of truth for the built-in queue lives in
-# tools/update_free_models.py (BUILTIN_FALLBACK, _parse_config) — imported
-# here to prevent drift between the two Python tools.
-from update_free_models import BUILTIN_FALLBACK as _BUILTIN_FALLBACK
+# tools/update_free_models.py (MODEL_SCORES, rank_models, _parse_config) —
+# imported here to prevent drift between the two Python tools.
+from update_free_models import MODEL_SCORES as _MODEL_SCORES
+from update_free_models import rank_models as _rank_models
 from update_free_models import _parse_config as _parse_free_models_config
 
-BUILTIN_FALLBACK_MODELS = ",".join(_BUILTIN_FALLBACK)
+# Last-resort built-in queue = known free models ranked by coding ability.
+BUILTIN_FALLBACK_MODELS = ",".join(_rank_models(list(_MODEL_SCORES.keys())))
 
 
 def default_fallback_models() -> str:
