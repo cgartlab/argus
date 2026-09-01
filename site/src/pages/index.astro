@@ -1,0 +1,99 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+import Hero from '../components/Hero.astro'
+import CapabilityList from '../components/CapabilityList.astro'
+import ArchitectureDiagram from '../components/ArchitectureDiagram.astro'
+import QuickStart from '../components/QuickStart.astro'
+import CodeBlock from '../components/CodeBlock.astro'
+import { site } from '../data/site'
+import { capabilities, quickstartSteps, architectureNodes } from '../data/content'
+
+const workflowYaml = `name: Argus-Flash Review
+on: [pull_request]
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+
+      - name: Generate argus-flash token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: \${{ secrets.ARGUS_FLASH_APP_ID }}
+          private-key: \${{ secrets.ARGUS_FLASH_PRIVATE_KEY }}
+
+      - uses: cgartlab/argus/.github/actions/argus-review@main
+        with:
+          github-token: \${{ steps.app-token.outputs.token }}`
+---
+
+<BaseLayout>
+  <Hero />
+
+  <CapabilityList capabilities={capabilities} />
+
+  <ArchitectureDiagram nodes={architectureNodes} />
+
+  <QuickStart steps={quickstartSteps} />
+
+  <section class="border-t border-border bg-surface py-20 sm:py-24">
+    <div class="container-site grid items-start gap-12 lg:grid-cols-2">
+      <div>
+        <h2 class="text-3xl font-bold tracking-tight text-fg">One workflow file</h2>
+        <p class="mt-3 max-w-xl text-fg-muted">
+          This is the entire workflow. Copy it into your repository, install
+          the app, and every pull request receives a design review from
+          <code class="rounded bg-surface-2 px-1.5 py-0.5 text-sm text-fg">argus-flash[bot]</code>.
+        </p>
+        <a href="/docs/getting-started" class="btn-secondary mt-6 no-underline">
+          See the full guide
+        </a>
+      </div>
+      <CodeBlock code={workflowYaml} lang="yaml" title=".github/workflows/argus-review.yml" />
+    </div>
+  </section>
+
+  <section id="links" class="py-20 sm:py-24">
+    <div class="container-site">
+      <h2 class="text-3xl font-bold tracking-tight text-fg">Explore Argus</h2>
+      <p class="mt-3 max-w-2xl text-fg-muted">
+        Documentation, source code, and the GitHub App — everything you need to
+        put Argus in front of your codebase.
+      </p>
+      <ul class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <li class="card">
+          <h3 class="text-lg font-semibold text-fg">Documentation</h3>
+          <p class="mt-2 text-sm text-fg-muted">
+            Overview, capabilities, configuration, and development guides.
+          </p>
+          <a href="/docs" class="mt-4 inline-block text-sm font-medium text-accent no-underline hover:text-accent-strong">
+            Read the docs →
+          </a>
+        </li>
+        <li class="card">
+          <h3 class="text-lg font-semibold text-fg">GitHub</h3>
+          <p class="mt-2 text-sm text-fg-muted">
+            Source code, issues, and releases under the MIT license.
+          </p>
+          <a href={site.github} class="mt-4 inline-block text-sm font-medium text-accent no-underline hover:text-accent-strong">
+            github.com/cgartlab/argus →
+          </a>
+        </li>
+        <li class="card">
+          <h3 class="text-lg font-semibold text-fg">argus-flash App</h3>
+          <p class="mt-2 text-sm text-fg-muted">
+            Install the GitHub App to automate design reviews on every PR.
+          </p>
+          <a href={site.appUrl} class="mt-4 inline-block text-sm font-medium text-accent no-underline hover:text-accent-strong">
+            Install the app →
+          </a>
+        </li>
+      </ul>
+    </div>
+  </section>
+</BaseLayout>

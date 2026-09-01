@@ -1,0 +1,126 @@
+/* ── Design tokens (light default) ────────────────────────────────────── */
+:root {
+  --color-bg: #ffffff;
+  --color-surface: #f8fafc;
+  --color-surface-2: #f1f5f9;
+  --color-fg: #0f172a;
+  --color-fg-muted: #475569;
+  --color-fg-invert: #ffffff;
+  /* RGB triplet for rgba() interpolation (light) — must mirror --color-fg-invert */
+  --color-fg-invert-rgb: 255, 255, 255;
+  --color-border: #e2e8f0;
+  /* Argus brand accent — amber (flash / vigilance, warm-aligned with logo) */
+  --color-accent: #d97706;
+  --color-accent-strong: #b45309;
+  --color-accent-soft: #fef3c7;
+  /* DigitalWater flow colors — green (check) / red (issue) */
+  --color-green: #65a30d;
+  --color-red: #b91c1c;
+
+  /* ── Typography ── */
+  --font-family-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+
+  /* ── Spacing / text scale (dimension tokens, no dark override needed) ── */
+  /* Spacing scale — base 4px grid. --ds-space-5 = 20px, --ds-space-6 = 24px. */
+  --ds-space-5: 1.25rem; /* CodeBlock 代码区垂直内边距（.code-card .astro-code padding top/bottom） */
+  --ds-space-6: 1.5rem;  /* CodeBlock 代码区水平内边距（.code-card .astro-code padding left/right） */
+  /* Type scale — 代码块排版字号/行高。只用于 Shiki 代码容器，正文走 --font-family-sans。 */
+  --ds-text-sm: 0.8125rem; /* 13px 代码块字号，保持紧凑；Argus: tokenize, not resize */
+  --ds-leading-relaxed: 1.65; /* 代码块行高（1.65 宽松，缓解 Shiki 紧凑行距的拥挤感） */
+
+  /* presetTypography overrides (prose) */
+  --un-prose-body: var(--color-fg);
+  --un-prose-headings: var(--color-fg);
+  --un-prose-links: var(--color-accent);
+  --un-prose-bold: var(--color-fg);
+  --un-prose-bullets: var(--color-border);
+  --un-prose-borders: var(--color-border);
+  --un-prose-quotes: var(--color-fg-muted);
+  --un-prose-code: var(--color-accent-strong);
+  --un-prose-th-borders: var(--color-border);
+  --un-prose-td-borders: var(--color-border);
+}
+
+/* ── Design tokens (dark override — every token must have one) ───────── */
+[data-theme='dark'] {
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-surface-2: #334155;
+  --color-fg: #e2e8f0;
+  --color-fg-muted: #94a3b8;
+  --color-fg-invert: #0f172a;
+  /* RGB triplet for rgba() interpolation (dark) — must mirror --color-fg-invert */
+  --color-fg-invert-rgb: 15, 23, 42;
+  --color-border: #334155;
+  --color-accent: #fbbf24;
+  --color-accent-strong: #fcd34d;
+  --color-accent-soft: #78350f;
+  /* DigitalWater flow colors (dark) */
+  --color-green: #84cc16;
+  --color-red: #f87171;
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-family-sans);
+  color: var(--color-fg);
+  background-color: var(--color-bg);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background-color: var(--color-accent-soft);
+}
+
+/* ── Accessibility: visible focus ─────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Skip link ────────────────────────────────────────────────────────── */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  background-color: var(--color-accent);
+  color: var(--color-fg-invert);
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 0 0 8px 0;
+}
+
+.skip-link:focus {
+  left: 0;
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Prose refinement ─────────────────────────────────────────────────── */
+/* NOTE: prose typography overrides (.prose) now live in uno.config.ts via
+   presetTypography({ cssExtend }). They were moved there to keep prose rules
+   with the typography preset. Removing them here must not change the rendered
+   output — if a regression is seen in /docs pages, restore the .prose block
+   here (with a comment noting the duplication) and report to men. */

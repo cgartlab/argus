@@ -1,0 +1,27 @@
+---
+import { getCollection } from 'astro:content'
+import DocsLayout from '../../layouts/DocsLayout.astro'
+
+export async function getStaticPaths() {
+  const entries = (await getCollection('docs')).sort(
+    (a, b) => a.data.order - b.data.order,
+  )
+  return entries.map((entry) => {
+    // index.md renders at /docs/overview; /docs is the docs index page.
+    const slug = entry.id.replace(/\.md$/, '') === 'index' ? 'overview' : entry.id.replace(/\.md$/, '')
+    return {
+      params: { slug },
+      props: { entry, sidebar: entries },
+    }
+  })
+}
+
+interface Props {
+  entry: import('astro:content').CollectionEntry<'docs'>
+  sidebar: import('astro:content').CollectionEntry<'docs'>[]
+}
+
+const { entry, sidebar } = Astro.props
+---
+
+<DocsLayout entry={entry} sidebar={sidebar} />

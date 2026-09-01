@@ -1,0 +1,59 @@
+---
+import type { CollectionEntry } from 'astro:content'
+
+interface Props {
+  entries: CollectionEntry<'docs'>[]
+  currentSlug?: string
+}
+const { entries, currentSlug } = Astro.props
+
+// Group by sidebarGroup, preserving group order and per-group order.
+const groups: { name: string; items: CollectionEntry<'docs'>[] }[] = []
+for (const entry of entries) {
+  const group = entry.data.sidebarGroup
+  let bucket = groups.find((g) => g.name === group)
+  if (!bucket) {
+    bucket = { name: group, items: [] }
+    groups.push(bucket)
+  }
+  bucket.items.push(entry)
+}
+---
+
+<nav aria-label="Docs" class="w-full shrink-0 lg:w-60">
+  <ul class="space-y-6">
+    {
+      groups.map((group) => (
+        <li>
+          <p class="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-fg-muted">
+            {group.name}
+          </p>
+          <ul class="space-y-1">
+            {group.items.map((entry) => {
+              const slug = entry.id.replace(/\.md$/, '')
+              // index.md renders at /docs/overview; /docs is the docs index page.
+              const href = slug === 'index' ? '/docs/overview' : `/docs/${slug}`
+              const isActive = currentSlug === slug
+              return (
+                <li>
+                  <a
+                    href={href}
+                    aria-current={isActive ? 'page' : undefined}
+                    class:list={[
+                      'block rounded-lg px-3 py-2 text-sm no-underline transition-colors',
+                      isActive
+                        ? 'bg-accent-soft font-medium text-accent'
+                        : 'text-fg-muted hover:bg-surface-2 hover:text-fg',
+                    ]}
+                  >
+                    {entry.data.title}
+                  </a>
+                </li>
+              )
+            })}
+          </ul>
+        </li>
+      ))
+    }
+  </ul>
+</nav>

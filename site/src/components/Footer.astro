@@ -1,0 +1,38 @@
+---
+import { site } from '../data/site'
+
+interface Props {
+  version?: string
+}
+
+const { version = site.version } = Astro.props
+const year = new Date().getFullYear()
+---
+
+<footer class="border-t border-border bg-surface">
+  <div class="container-site flex flex-col gap-4 py-10 sm:flex-row sm:items-center sm:justify-between">
+    <div class="text-sm text-fg-muted">
+      <p>
+        © {year} {site.name} · Crafted by{' '}
+        <a href={site.creatorUrl} class="no-underline text-fg-muted hover:text-fg">CGArtLab</a> · {site.license} License
+      </p>
+      <p class="mt-1">Version {version}</p>
+    </div>
+    <nav aria-label="Footer">
+      <ul class="flex flex-wrap items-center gap-4 text-sm">
+        <li>
+          <a href="/docs" class="no-underline text-fg-muted hover:text-fg">Documentation</a>
+        </li>
+        <li>
+          <a href={site.github} class="no-underline text-fg-muted hover:text-fg">GitHub</a>
+        </li>
+        <li>
+          <a href={site.appUrl} class="no-underline text-fg-muted hover:text-fg">Install the App</a>
+        </li>
+        <li>
+          <a href="/legal" class="no-underline text-fg-muted hover:text-fg">Legal</a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+</footer>

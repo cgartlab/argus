@@ -12,3 +12,12 @@ __pycache__/
 
 # 构建产物
 dist/
+
+# 网站构建产物（site/）
+site/node_modules/
+site/dist/
+site/.astro/
+
+# dev 服务器日志（site/）
+site/dev.log
+site/dev.err

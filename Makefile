@@ -108,8 +108,12 @@ package-skill:
 .PHONY: package
 package: package-skill
 	@mkdir -p dist
-	@tar --exclude='.git' --exclude='dist' -czf dist/argus-v$(VERSION).tar.gz .
-	@zip -q dist/argus-v$(VERSION).zip . -r -x '.git/*' -x 'dist/*'
+	@tar --exclude='.git' --exclude='dist' \
+	     --exclude='site/node_modules' --exclude='site/dist' --exclude='site/.astro' \
+	     -czf dist/argus-v$(VERSION).tar.gz .
+	@zip -q dist/argus-v$(VERSION).zip . -r \
+	     -x '.git/*' -x 'dist/*' \
+	     -x 'site/node_modules/*' -x 'site/dist/*' -x 'site/.astro/*'
 	@echo "Packages created: dist/argus-skill-v$(VERSION).zip dist/argus-v$(VERSION).tar.gz dist/argus-v$(VERSION).zip"
 
 # ─── Clean ───────────────────────────────────────────────────────

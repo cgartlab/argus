@@ -1,0 +1,23 @@
+Argus
+Copyright (c) CGArtLab
+
+This product includes software and services that are the property of
+their respective owners. Argus is an independent project and is not
+affiliated with, sponsored by, or endorsed by any of the following
+parties.
+
+  - OpenCode CLI — a project of Anomaly Innovations, Inc. (opencode.ai).
+    Argus invokes the OpenCode CLI at runtime to perform AI code reviews.
+    Brand guidelines: https://opencode.ai/brand
+    Terms of Use:      https://opencode.ai/legal/terms-of-service
+    Source repository: https://github.com/anomalyco/opencode
+    OpenCode is a trademark of Anomaly Innovations, Inc.
+
+  - GitHub App and GitHub Actions — operated by GitHub, Inc.
+    Argus runs as the "argus-flash" GitHub App and uses GitHub Actions
+    to trigger reviews on pull requests.
+    GitHub and the GitHub logo are trademarks of GitHub, Inc.
+
+All other trademarks are the property of their respective owners.
+
+Argus itself is licensed under the MIT License — see the LICENSE file.

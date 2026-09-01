@@ -1,0 +1,42 @@
+---
+import type { QuickStartStep } from '../data/content'
+
+interface Props {
+  steps: QuickStartStep[]
+}
+const { steps } = Astro.props
+---
+
+<section id="quickstart" class="py-20 sm:py-24">
+  <div class="container-site">
+    <h2 class="text-3xl font-bold tracking-tight text-fg">Up and running in three steps</h2>
+    <p class="mt-3 max-w-2xl text-fg-muted">
+      Install the app, add two secrets, create one workflow — every PR from
+      then on gets a full design review.
+    </p>
+
+    <ol class="mt-12 grid gap-6 md:grid-cols-3">
+      {
+        steps.map((step, i) => (
+          <li class="card relative">
+            <span
+              class="absolute -top-4 left-6 grid size-8 place-items-center rounded-full bg-accent text-sm font-bold text-fg-invert"
+              aria-hidden="true"
+            >
+              {i + 1}
+            </span>
+            <h3 class="mt-2 text-lg font-semibold text-fg">{step.title}</h3>
+            <p class="mt-2 text-sm text-fg-muted">{step.desc}</p>
+            {
+              step.code && (
+                <code class="mt-4 block overflow-x-auto rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs text-fg break-words">
+                  {step.code}
+                </code>
+              )
+            }
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</section>
