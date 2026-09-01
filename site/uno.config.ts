@@ -6,7 +6,35 @@ import { defineConfig, presetUno, presetTypography } from 'unocss'
 export default defineConfig({
   presets: [
     presetUno(),
-    presetTypography(),
+    // Prose refinement: previously defined in src/styles/global.css (.prose
+    // rules), now moved here via cssExtend so they live with the typography
+    // preset. Values unchanged — visual output identical. See the not-prose
+    // handling below: cssExtend selectors automatically get the :not([not-prose])
+    // guard, matching the old global.css rules.
+    presetTypography({
+      cssExtend: {
+        'max-width': '72ch',
+        'h1,h2,h3,h4': {
+          'scroll-margin-top': '5rem',
+        },
+        code: {
+          'font-size': '0.9em',
+          'font-weight': '600',
+        },
+        pre: {
+          'background-color': 'var(--color-surface)',
+          border: '1px solid var(--color-border)',
+          'border-radius': '8px',
+        },
+        blockquote: {
+          'border-left-color': 'var(--color-accent)',
+        },
+        a: {
+          'text-decoration-color': 'var(--color-accent)',
+          'text-underline-offset': '2px',
+        },
+      },
+    }),
   ],
   content: {
     filesystem: ['src/**/*.{astro,md,ts,html}'],
@@ -30,6 +58,11 @@ export default defineConfig({
       accent: 'var(--color-accent)',
       'accent-strong': 'var(--color-accent-strong)',
       'accent-soft': 'var(--color-accent-soft)',
+      // macOS-style window traffic light dots (CodeBlock). amber reuses the
+      // accent token (same hue family) so the dot tracks the brand amber.
+      red: 'var(--color-red)',
+      amber: 'var(--color-accent)',
+      green: 'var(--color-green)',
     },
   },
 })

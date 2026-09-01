@@ -14,7 +14,7 @@ import DigitalWater from './DigitalWater.astro'
     <p class="text-sm text-fg-muted">
       Crafted by <a href={site.creatorUrl} class="no-underline text-fg-muted hover:text-fg">CGArtLab</a>
     </p>
-    <h1 id="hero-title" class="relative max-w-4xl text-4xl font-bold tracking-tight text-fg sm:text-5xl" style="text-wrap: balance">
+    <h1 id="hero-title" class="text-balance relative max-w-4xl text-4xl font-bold tracking-tight text-fg sm:text-5xl">
       Frontend design code review, done right.
       <span class="title-highlight" aria-hidden="true"></span>
     </h1>
@@ -42,6 +42,11 @@ import DigitalWater from './DigitalWater.astro'
 </section>
 
 <style>
+  /* 主标题平衡换行（替代 inline style，观感不变） */
+  .text-balance {
+    text-wrap: balance;
+  }
+
   /* Hero 白 shadow 发光 — 浅色模式 = fg-invert 白（dark 下自动反转为深色） */
   .hero-content {
     text-shadow:

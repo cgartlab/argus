@@ -22,10 +22,10 @@
     'Helvetica Neue', Arial, sans-serif;
 
   /* ── Spacing / text scale (dimension tokens, no dark override needed) ── */
-  --ds-space-5: 1.25rem;
-  --ds-space-6: 1.5rem;
-  --ds-text-sm: 0.8125rem; /* 13px — keep code-block compactness; Argus: tokenize, not resize */
-  --ds-leading-relaxed: 1.65;
+  --ds-space-5: 1.25rem; /* spacing scale — 代码块(CodeBlock)垂直内边距 */
+  --ds-space-6: 1.5rem;  /* spacing scale — 代码块(CodeBlock)水平内边距 */
+  --ds-text-sm: 0.8125rem; /* type scale — 13px 代码块字号，保持紧凑；Argus: tokenize, not resize */
+  --ds-leading-relaxed: 1.65; /* type scale — 代码块行高（CodeBlock） */
 
   /* presetTypography overrides (prose) */
   --un-prose-body: var(--color-fg);
@@ -117,33 +117,8 @@ body {
 }
 
 /* ── Prose refinement ─────────────────────────────────────────────────── */
-.prose {
-  max-width: 72ch;
-}
-
-.prose h1,
-.prose h2,
-.prose h3,
-.prose h4 {
-  scroll-margin-top: 5rem;
-}
-
-.prose :where(code):not(:where([class~='not-prose'] *)) {
-  font-size: 0.9em;
-  font-weight: 600;
-}
-
-.prose :where(pre):not(:where([class~='not-prose'] *)) {
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-}
-
-.prose :where(blockquote):not(:where([class~='not-prose'] *)) {
-  border-left-color: var(--color-accent);
-}
-
-.prose :where(a):not(:where([class~='not-prose'] *)) {
-  text-decoration-color: var(--color-accent);
-  text-underline-offset: 2px;
-}
+/* NOTE: prose typography overrides (.prose) now live in uno.config.ts via
+   presetTypography({ cssExtend }). They were moved there to keep prose rules
+   with the typography preset. Removing them here must not change the rendered
+   output — if a regression is seen in /docs pages, restore the .prose block
+   here (with a comment noting the duplication) and report to men. */

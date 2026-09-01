@@ -14,48 +14,66 @@
 ></canvas>
 
 <script>
-  // ── 从全局 CSS token 读取颜色（返回 [r, g, b]；缺失/非 6 位 hex 时回退 fallback）──
+  // ── 从全局 CSS token 读取颜色（返回 [r, g, b]；缺失/无法解析时回退 fallback）──
+  // 支持格式：#rrggbb、rgb(r, g, b)、rgba(r, g, b, a)（alpha 忽略，取前三位）。
+  // oklch()/hsl() 等暂不支持（当前 token 均为 hex，后续如需再扩展）。
   function readColorToken(name, fallback) {
     const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-    const m = /^#([0-9a-f]{6})$/i.exec(value)
-    if (!m) return fallback
-    const hex = parseInt(m[1], 16)
-    return [(hex >> 16) & 0xff, (hex >> 8) & 0xff, hex & 0xff]
+    const hex = /^#([0-9a-f]{6})$/i.exec(value)
+    if (hex) {
+      const n = parseInt(hex[1], 16)
+      return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff]
+    }
+    const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(value)
+    if (rgb) return [+rgb[1], +rgb[2], +rgb[3]]
+    return fallback
   }
 
   // ── 参数（集中在顶部，便于 Wave 5 抽成 props）───────────────
+  // 分组说明：按语义分四组。保持扁平结构（不重构成嵌套对象，
+  // 避免破坏下方大量 CONFIG.x 引用）。各组仅注释标注，不改任何值。
   const CONFIG = {
+    // ── grid（internal）：字符网格密度 ──
     cellSize: 18,           // 网格单元尺寸（px）—— 超密版（约 1700 粒子铺满 hero）
     maxParticles: 5000,     // 粒子数上限（cap）
+
+    // ── wave（internal）：双层 sin 波浪 ──
     amplitude1: 30,         // 第一层波浪振幅
     amplitude2: 15,         // 第二层波浪振幅
     frequency1: 0.02,       // 第一层波浪空间频率
     frequency2: 0.045,      // 第二层波浪空间频率（反向）
     speed1: 0.9,            // 第一层波浪传播速度
     speed2: -1.4,           // 第二层波浪传播速度（反向）
+
+    // ── type（internal）：字号分档 ──
     // 字号 3 档（红块 +1.5px 一档：9.5 / 11 / 12.5）
     fontTiers: [8, 9.5, 11],
     redFontOffset: 1.5,     // 红块字号 +1.5px → 9.5 / 11 / 12.5
+
+    // ── color（design-relevant）：三色 + 琥珀 alpha 分档 ──
     // 5 个色块：琥珀 A/B/C（alpha 0.05/0.09/0.13 预渲染）+ 绿 + 红（alpha 1.0）
     amber: readColorToken('--color-accent', [217, 119, 6]), // #d97706 琥珀 —— 全局 token --color-accent
     green: readColorToken('--color-green', [101, 163, 13]), // #65a30d 柔和橄榄绿（低饱和，暖调，与琥珀和谐）
     red: readColorToken('--color-red', [185, 28, 28]),      // #b91c1c 暗砖红（低亮低刺眼，柔和对比）
     amberAlphas: [0.05, 0.09, 0.13],
     amberBands: [1 / 3, 2 / 3], // 粒子 y 比例分段选琥珀档
-    // ── 流体物理 ──
+
+    // ── physics（internal）：流体弹簧/阻尼/速度 ──
     pushRadius: 180,       // 鼠标推动基础范围（px）—— 沿轨迹从小变大
     pushStrength: 0.8,     // 推动力度（翻倍：0.4→0.8，字符更强跟随箭头）
     springK: 0.015,        // 弹簧系数（减弱果冻：0.006→0.015，回弹更快）
     damping: 0.955,        // 粘性阻尼（减弱果冻：0.965→0.955，降低粘稠感）
     maxSpeed: 5,           // 速度上限
-    // ── 状态时序（慢节奏）──
+
+    // ── timing（design-relevant）：绿→红→琥珀 状态时序 ──
     greenInMs: 150,        // 绿淡入
     greenMs: 600,          // 绿保持（was 350，大幅放慢）
     redInMs: 800,          // 红淡入
     redMs: 1200,           // 红保持（was 700）
     fadeMs: 2200,          // 淡出完成（was 1100，大幅放慢）
     greenAlpha: 0.7,       // 绿红 alpha
-    // ── 模糊淡出（修复闪烁）──
+
+    // ── blur（internal）：模糊淡出（修复闪烁）──
     blurAlpha: 0.7,        // 预渲染 alpha（was 0.16 太低→闪烁，现提至 0.7 让模糊可见）
     blurPx: 1.5,           // 模糊程度
     fontStack: 'ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace',
