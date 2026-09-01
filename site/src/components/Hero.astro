@@ -1,0 +1,41 @@
+---
+import { site } from '../data/site'
+import DigitalWater from './DigitalWater.astro'
+---
+
+<section id="hero" class="relative overflow-hidden border-b border-border">
+  <DigitalWater />
+  <div class="container-site relative z-10 flex flex-col items-center gap-8 py-20 text-center sm:py-28">
+    <img src="/argus-flash.png" alt="Argus logo" class="size-24" width="96" height="96" />
+    <p class="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 text-sm font-medium text-fg-muted">
+      <span class="size-2 rounded-full bg-accent" aria-hidden="true"></span>
+      v{site.version} — MIT licensed
+    </p>
+    <p class="text-sm text-fg-muted">
+      Crafted by <a href={site.creatorUrl} class="no-underline text-fg-muted hover:text-fg">CGArtLab</a>
+    </p>
+    <h1 class="max-w-3xl text-4xl font-bold tracking-tight text-fg sm:text-5xl">
+      Frontend design code review, done right.
+    </h1>
+    <p class="max-w-2xl text-lg text-fg-muted">
+      Argus is a cross-platform AI coding agent specialized in frontend design
+      code review — it catches hardcoded values, design token violations,
+      accessibility gaps, dark mode breaks, and framework API misuse, then
+      hands you copy-ready fixes.
+    </p>
+    <div class="flex flex-wrap items-center justify-center gap-4">
+      <a href={site.appUrl} class="btn-primary no-underline">
+        Install the App
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4" aria-hidden="true">
+          <path d="M5 12h14" />
+          <path d="m12 5 7 7-7 7" />
+        </svg>
+      </a>
+      <a href="/docs" class="btn-secondary no-underline">Read the docs</a>
+    </div>
+    <p class="text-sm text-fg-muted">
+      Runs standalone in any agent framework, or as an automated GitHub App
+      review gate.
+    </p>
+  </div>
+</section>

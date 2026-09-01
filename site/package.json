@@ -1,0 +1,26 @@
+{
+  "name": "argus-site",
+  "version": "0.3.2",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "^3.7.3",
+    "@iconify-json/lucide": "^1.2.127",
+    "astro": "^7.2.9",
+    "astro-icon": "^1.2.0"
+  },
+  "devDependencies": {
+    "@unocss/astro": "^66.8.1",
+    "@unocss/reset": "^66.8.1",
+    "unocss": "^66.8.1"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}

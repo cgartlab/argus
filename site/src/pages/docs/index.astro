@@ -1,0 +1,53 @@
+---
+import { getCollection } from 'astro:content'
+import BaseLayout from '../../layouts/BaseLayout.astro'
+import DocsSidebar from '../../components/DocsSidebar.astro'
+import { site } from '../../data/site'
+
+const entries = (await getCollection('docs')).sort(
+  (a, b) => a.data.order - b.data.order,
+)
+
+const groups = [...new Set(entries.map((e) => e.data.sidebarGroup))]
+---
+
+<BaseLayout title={`Docs — ${site.name}`} description="Argus documentation: overview, capabilities, configuration, and development guides.">
+  <div class="container-site py-12 lg:flex lg:gap-12">
+    <aside class="mb-10 lg:mb-0">
+      <DocsSidebar entries={entries} />
+    </aside>
+
+    <div class="min-w-0 flex-1">
+      <header class="mb-10">
+        <h1 class="text-3xl font-bold tracking-tight text-fg">Documentation</h1>
+        <p class="mt-2 text-fg-muted">Everything you need to install, configure, and extend Argus.</p>
+      </header>
+
+      <div class="space-y-10">
+        {
+          groups.map((group) => (
+            <section>
+              <h2 class="mb-4 text-xl font-semibold text-fg">{group}</h2>
+              <ul class="grid gap-4 sm:grid-cols-2">
+                {entries
+                  .filter((e) => e.data.sidebarGroup === group)
+                  .map((entry) => {
+                    const slug = entry.id.replace(/\.md$/, '')
+                    const href = slug === 'index' ? '/docs/overview' : `/docs/${slug}`
+                    return (
+                      <li>
+                        <a href={href} class="card block h-full no-underline transition-colors hover:border-accent">
+                          <h3 class="font-semibold text-fg">{entry.data.title}</h3>
+                          <p class="mt-2 text-sm text-fg-muted">{entry.data.description}</p>
+                        </a>
+                      </li>
+                    )
+                  })}
+              </ul>
+            </section>
+          ))
+        }
+      </div>
+    </div>
+  </div>
+</BaseLayout>

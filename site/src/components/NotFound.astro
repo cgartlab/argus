@@ -1,0 +1,15 @@
+---
+import { site } from '../data/site'
+---
+
+<section class="container-site flex flex-col items-center gap-6 py-28 text-center">
+  <p class="text-6xl font-bold text-accent" aria-hidden="true">404</p>
+  <h1 class="text-3xl font-bold tracking-tight text-fg">Page not found</h1>
+  <p class="max-w-md text-fg-muted">
+    The page you are looking for does not exist or has moved.
+  </p>
+  <div class="flex flex-wrap items-center justify-center gap-4">
+    <a href="/" class="btn-primary no-underline">Back to home</a>
+    <a href={site.docsPrefix} class="btn-secondary no-underline">Browse the docs</a>
+  </div>
+</section>

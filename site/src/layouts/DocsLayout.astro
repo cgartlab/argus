@@ -1,0 +1,71 @@
+---
+import type { CollectionEntry } from 'astro:content'
+import { render } from 'astro:content'
+import BaseLayout from './BaseLayout.astro'
+import DocsSidebar from '../components/DocsSidebar.astro'
+import { site } from '../data/site'
+
+interface Props {
+  entry: CollectionEntry<'docs'>
+  sidebar: CollectionEntry<'docs'>[]
+}
+
+const { entry, sidebar } = Astro.props
+const slug = entry.id.replace(/\.md$/, '')
+const currentIndex = sidebar.findIndex((e) => e.id === entry.id)
+const prev = currentIndex > 0 ? sidebar[currentIndex - 1] : undefined
+const next = currentIndex < sidebar.length - 1 ? sidebar[currentIndex + 1] : undefined
+
+function docHref(id: string): string {
+  const s = id.replace(/\.md$/, '')
+  // index.md renders at /docs/overview; /docs is the docs index page.
+  return s === 'index' ? `${site.docsPrefix}/overview` : `${site.docsPrefix}/${s}`
+}
+
+const { Content } = await render(entry)
+---
+
+<BaseLayout title={`${entry.data.title} — ${site.name}`} description={entry.data.description}>
+  <div class="container-site py-12 lg:flex lg:gap-12">
+    <aside class="mb-10 lg:mb-0">
+      <DocsSidebar entries={sidebar} currentSlug={slug} />
+    </aside>
+
+    <div class="min-w-0 flex-1">
+      <article class="prose">
+        <header class="mb-8 not-prose">
+          <h1 class="text-3xl font-bold tracking-tight text-fg">{entry.data.title}</h1>
+          <p class="mt-2 text-fg-muted">{entry.data.description}</p>
+        </header>
+        <Content />
+      </article>
+
+      <p class="mt-8 text-sm text-fg-muted">
+        Maintained by <a href={site.creatorUrl} class="no-underline text-fg-muted hover:text-fg">CGArtLab</a> — Argus is open source
+      </p>
+
+      <nav aria-label="Documentation pagination" class="mt-12 flex items-center justify-between gap-4 border-t border-border pt-6">
+        {
+          prev ? (
+            <a href={docHref(prev.id)} class="no-underline group">
+              <span class="block text-xs text-fg-muted">Previous</span>
+              <span class="block font-medium text-fg group-hover:text-accent">{prev.data.title}</span>
+            </a>
+          ) : (
+            <span></span>
+          )
+        }
+        {
+          next ? (
+            <a href={docHref(next.id)} class="no-underline text-right group">
+              <span class="block text-xs text-fg-muted">Next</span>
+              <span class="block font-medium text-fg group-hover:text-accent">{next.data.title}</span>
+            </a>
+          ) : (
+            <span></span>
+          )
+        }
+      </nav>
+    </div>
+  </div>
+</BaseLayout>

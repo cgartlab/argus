@@ -1,0 +1,99 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+import { site } from '../data/site'
+
+const licenseUrl = `${site.github}/blob/main/LICENSE`
+---
+
+<BaseLayout
+  title="Legal — Argus"
+  description="Legal and third-party notices for Argus: its relationship to GitHub and OpenCode, trademark notices, and license terms."
+>
+  <div class="container-site py-12">
+    <article class="prose">
+      <header class="mb-8 not-prose">
+        <h1 class="text-3xl font-bold tracking-tight text-fg">Legal &amp; Third-Party Notices</h1>
+        <p class="mt-2 text-fg-muted">
+          How Argus relates to GitHub and OpenCode, trademark notices, and license terms.
+        </p>
+      </header>
+
+      <h2>Argus Project</h2>
+      <p>
+        Argus is an open source project released under the{' '}
+        <a href={licenseUrl}>MIT License</a>, crafted and maintained by{' '}
+        <a href={site.creatorUrl}>CGArtLab</a>. The source code is available at{' '}
+        <a href={site.github}>github.com/cgartlab/argus</a>.
+      </p>
+
+      <h2>Independent Project</h2>
+      <p>
+        Argus is an independent project. It is <strong>not</strong> affiliated with, sponsored
+        by, or endorsed by <strong>GitHub, Inc.</strong> or{' '}
+        <strong>Anomaly Innovations, Inc. (OpenCode)</strong>.
+      </p>
+      <p>
+        Argus is <em>built on</em> GitHub's App and Actions infrastructure and uses the OpenCode
+        CLI to run reviews. Using these services does not imply any official association with,
+        or endorsement by, their owners.
+      </p>
+
+      <h2>Third-Party Trademarks</h2>
+      <h3>GitHub</h3>
+      <p>
+        GitHub, the GitHub logo, GitHub Actions, and GitHub Apps are trademarks or registered
+        trademarks of <a href="https://github.com">GitHub, Inc.</a> Argus operates as the
+        "argus-flash" GitHub App and uses GitHub Actions, but is not affiliated with GitHub, Inc.
+      </p>
+      <h3>OpenCode</h3>
+      <p>
+        OpenCode is a project of{' '}
+        <a href="https://anoma.ly">Anomaly Innovations, Inc.</a> (opencode.ai), with source code
+        available at{' '}
+        <a href="https://github.com/anomalyco/opencode">github.com/anomalyco/opencode</a>. Argus
+        uses the OpenCode CLI to run code reviews. We acknowledge OpenCode's{' '}
+        <a href="https://opencode.ai/brand">brand guidelines</a> and its{' '}
+        <a href="https://opencode.ai/legal/terms-of-service">Terms of Use</a>. OpenCode is a
+        trademark of Anomaly Innovations, Inc.
+      </p>
+      <p>
+        All other trademarks, service marks, and company names are the property of their
+        respective owners.
+      </p>
+
+      <h2>How Argus Uses Third-Party Services</h2>
+      <ul>
+        <li>
+          <strong>GitHub App (argus-flash):</strong> authenticates with the GitHub API and posts
+          review comments on pull requests.
+        </li>
+        <li>
+          <strong>GitHub Actions:</strong> runs the review workflow that invokes the Argus
+          composite action on each pull request.
+        </li>
+        <li>
+          <strong>OpenCode CLI:</strong> executes the actual AI review against Argus rules
+          (<code>AGENTS.md</code> + <code>SKILL.md</code>).
+        </li>
+      </ul>
+      <p>
+        These services are used in compliance with their respective terms. Argus does not
+        redistribute OpenCode source code — it invokes the OpenCode CLI at runtime. Per
+        OpenCode's Terms of Use, OpenCode retains all right, title and interest in its Services,
+        and its open source software remains subject to the license terms on the applicable
+        repository.
+      </p>
+
+      <h2>No Warranty</h2>
+      <p>
+        Argus is provided "as-is" under the MIT License, without warranty of any kind, express or
+        implied. See the <a href={licenseUrl}>LICENSE</a> file for the full license text.
+      </p>
+
+      <p class="not-prose mt-10 border-t border-border pt-4 text-sm text-fg-muted">
+        Last updated: 2026-08-31 ·{' '}
+        <a href={licenseUrl} class="no-underline text-fg-muted hover:text-fg">LICENSE</a>
+      </p>
+    </article>
+  </div>
+</BaseLayout>

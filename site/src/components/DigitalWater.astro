@@ -1,0 +1,302 @@
+---
+// DigitalWater — 数字水面动态背景
+// Wave 3：字符网格粒子 + 双层 sin 波浪 + 鼠标斥力涟漪。
+// 超密版：cellSize=18 / maxParticles=5000 / 24fps 限帧 / 单色琥珀。
+// 纯 canvas 实现，无框架依赖。Wave 3 将把关键参数抽成组件 props。
+---
+
+<canvas
+  id="digital-water"
+  class="absolute inset-0 z-0 size-full pointer-events-none"
+  aria-hidden="true"
+  role="presentation"
+></canvas>
+
+<script>
+  // ── 参数（集中在顶部，便于 Wave 3 抽成 props）───────────────
+  const CONFIG = {
+    cellSize: 18,           // 网格单元尺寸（px）—— 超密版（约 3× 粒子）
+    maxParticles: 5000,     // 粒子数上限（cap）—— 约 1700 粒子铺满 hero
+    fontSizeMin: 8,
+    fontSizeMax: 11,
+    amplitude1: 30,         // 第一层波浪振幅（3× 默认 noise）
+    amplitude2: 15,         // 第二层波浪振幅（3× 默认 noise）
+    frequency1: 0.02,       // 第一层波浪空间频率
+    frequency2: 0.045,      // 第二层波浪空间频率（反向）
+    speed1: 0.9,            // 第一层波浪传播速度
+    speed2: -1.4,           // 第二层波浪传播速度（反向）
+    alphaTop: 0.05,         // 顶部透明度（单色琥珀，超密平衡）
+    alphaBottom: 0.13,      // 底部透明度（单色琥珀，超密平衡）
+    colorVar: '--color-accent',        // 单色：琥珀 #d97706
+    frameInterval: 41,      // 限帧 24fps（1000/24 ≈ 41.7ms）
+    rippleRadius: 120,      // 鼠标涟漪影响半径（px）
+    repulseStrength: 1.6,   // 斥力强度（克制）
+    spring: 0.04,           // 弹簧回归系数
+    damping: 0.92,          // 速度阻尼
+    fontStack: 'ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace',
+    chars: [
+      '@', '#', '$', '%', '^', '&', '+', '=', '*', '?',
+      '<', '>', '{', '}', '[', ']', '(', ')',
+      '/', '\\', '|', '_', '-', '.', ',', ';', ':',
+      '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+      'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
+      'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
+      'u', 'v', 'w', 'x', 'y', 'z',
+    ],
+  }
+
+  const canvas = document.getElementById('digital-water')
+  const ctx = canvas.getContext('2d')
+  const hero = document.getElementById('hero') || canvas.closest('#hero')
+
+  // ── 读取设计 Token 颜色（canvas 无法直接用 CSS var，运行时读取一次）──
+  function readColorToken(name, fallback) {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+    const m = raw.match(/^#([0-9a-f]{6})$/i)
+    if (!m) return fallback
+    return [
+      parseInt(m[1].slice(0, 2), 16),
+      parseInt(m[1].slice(2, 4), 16),
+      parseInt(m[1].slice(4, 6), 16),
+    ]
+  }
+
+  const color = readColorToken(CONFIG.colorVar, [217, 119, 6]) // #d97706 琥珀
+
+  // ── 状态 ────────────────────────────────────────────────
+  let dpr = 1
+  let width = 0
+  let height = 0
+  let cellSize = CONFIG.cellSize
+  let particles = []
+  let t = 0
+  let lastTs = 0
+  let rafId = null
+  const mouse = { active: false, x: 0, y: 0 }
+
+  // ── fps 统计：1 秒窗口滚动更新（验收用）──────────────────
+  let frameCount = 0
+  let fps = 0
+  let fpsWindowStart = 0
+
+  // ── 字符网格粒子构建 ────────────────────────────────────
+  function buildParticles() {
+    let cols = Math.ceil(width / CONFIG.cellSize)
+    let rows = Math.ceil(height / CONFIG.cellSize)
+    cellSize = CONFIG.cellSize
+    if (cols * rows > CONFIG.maxParticles) {
+      // 粒子数超上限：等比放大 cellSize 收紧网格（保持铺满）
+      cellSize = Math.max(CONFIG.cellSize, Math.ceil(Math.sqrt((width * height) / CONFIG.maxParticles)))
+      cols = Math.ceil(width / cellSize)
+      rows = Math.ceil(height / cellSize)
+    }
+
+    const next = []
+    for (let row = 0; row < rows; row++) {
+      const y = row * cellSize + cellSize / 2
+      for (let col = 0; col < cols; col++) {
+        const x = col * cellSize + cellSize / 2
+        const char = CONFIG.chars[Math.floor(Math.random() * CONFIG.chars.length)]
+        const fontSize = CONFIG.fontSizeMin + Math.random() * (CONFIG.fontSizeMax - CONFIG.fontSizeMin)
+
+        // 长度归一化：按实际字符宽度测量，居中绘制
+        ctx.font = fontSize + 'px ' + CONFIG.fontStack
+        const charWidth = ctx.measureText(char).width
+
+        next.push({
+          x,
+          y,
+          baseX: x,           // 弹簧回归基线（静网格 x）
+          baseY: y,           // 弹簧回归基线（静网格 y）
+          vx: 0,              // 速度（鼠标斥力 + 弹簧）
+          vy: 0,
+          char,
+          fontSize,
+          charWidth,
+          phase1: Math.random() * Math.PI * 2,
+          phase2: Math.random() * Math.PI * 2,
+        })
+      }
+    }
+    particles = next
+  }
+
+  // ── 尺寸重建（DPR 保持锐利，不做低分辨率缩放）────────────
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2)
+    width = canvas.clientWidth
+    height = canvas.clientHeight
+    if (width === 0 || height === 0) return
+    canvas.width = Math.round(width * dpr)
+    canvas.height = Math.round(height * dpr)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    buildParticles()
+  }
+
+  // ── 物理：鼠标斥力涟漪 + 弹簧回归（每帧每粒子）──────────
+  function updatePhysics() {
+    const r2 = CONFIG.rippleRadius * CONFIG.rippleRadius
+    const minD2 = 0.0001 // 对应 d > 0.01，避免除零
+    for (const p of particles) {
+      if (mouse.active) {
+        const dx = mouse.x - p.x
+        const dy = mouse.y - p.y
+        const d2 = dx * dx + dy * dy
+        if (d2 < r2 && d2 > minD2) {
+          const d = Math.sqrt(d2)
+          const strength = (1 - d / CONFIG.rippleRadius) * CONFIG.repulseStrength
+          p.vx += (dx / d) * strength
+          p.vy += (dy / d) * strength
+        }
+      }
+      // 弹簧回归（目标：静网格位置）
+      p.vx += (p.baseX - p.x) * CONFIG.spring
+      p.vy += (p.baseY - p.y) * CONFIG.spring
+      p.vx *= CONFIG.damping
+      p.vy *= CONFIG.damping
+      p.x += p.vx
+      p.y += p.vy
+    }
+  }
+
+  // ── 单帧绘制 ───────────────────────────────────────────
+  function draw() {
+    ctx.clearRect(0, 0, width, height)
+    ctx.textBaseline = 'middle'
+    ctx.textAlign = 'left'
+
+    let currentFont = ''
+    for (const p of particles) {
+      // 双层 sin 波浪（第二层反向传播），叠加在弹簧位置之上
+      const wave =
+        CONFIG.amplitude1 * Math.sin(p.x * CONFIG.frequency1 + t * CONFIG.speed1 + p.phase1) +
+        CONFIG.amplitude2 * Math.sin(p.x * CONFIG.frequency2 - t * CONFIG.speed2 + p.phase2)
+      const drawY = p.y + wave
+
+      // 单色琥珀：近深远浅（顶 alpha 0.08 → 底 alpha 0.22，按 y 比例线性插值）
+      const tY = Math.min(Math.max(drawY / height, 0), 1)
+      ctx.fillStyle = 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')'
+      ctx.globalAlpha = CONFIG.alphaTop + (CONFIG.alphaBottom - CONFIG.alphaTop) * tY
+
+      const font = p.fontSize + 'px ' + CONFIG.fontStack
+      if (font !== currentFont) {
+        ctx.font = font
+        currentFont = font
+      }
+      ctx.fillText(p.char, p.x + (cellSize - p.charWidth) / 2, drawY)
+    }
+    ctx.globalAlpha = 1
+  }
+
+  function frame(ts) {
+    // 限帧 24fps：距上次绘制不足 41ms 则跳帧（rAF 仍续，只跳过绘制）
+    if (ts - lastTs < CONFIG.frameInterval) {
+      rafId = requestAnimationFrame(frame)
+      return
+    }
+    if (!lastTs) lastTs = ts
+    const dt = Math.min((ts - lastTs) / 1000, 0.05)
+    lastTs = ts
+    t += dt
+
+    updatePhysics()
+    draw()
+
+    // fps 统计：1 秒窗口滚动更新（只计实际绘制帧）
+    frameCount++
+    if (ts - fpsWindowStart >= 1000) {
+      fps = frameCount
+      frameCount = 0
+      fpsWindowStart = ts
+    }
+
+    rafId = requestAnimationFrame(frame)
+  }
+
+  function stopRaf() {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId)
+      rafId = null
+      fps = 0
+      frameCount = 0
+    }
+  }
+
+  function startRaf() {
+    if (rafId === null) {
+      lastTs = 0
+      rafId = requestAnimationFrame(frame)
+    }
+  }
+
+  // ── 暂停：标签页不可见时停跑 rAF ─────────────────────────
+  function onVisibility() {
+    if (document.visibilityState === 'visible') {
+      startRaf()
+    } else {
+      stopRaf()
+    }
+  }
+
+  // ── 视口暂停 + 鼠标交互：挂在 hero 上 ────────────────────
+  // 找不到 #hero 时降级为只在 visibilitychange 暂停（不报错）
+  if (hero) {
+    const io = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        startRaf()
+      } else {
+        stopRaf()
+      }
+    })
+    io.observe(hero)
+
+    // 鼠标交互：pointer 事件挂在 hero（canvas pointer-events:none 不挡按钮）
+    hero.addEventListener('pointermove', (e) => {
+      const rect = hero.getBoundingClientRect()
+      mouse.x = e.clientX - rect.left // CSS 像素，与粒子坐标同基准
+      mouse.y = e.clientY - rect.top
+      mouse.active = true
+    })
+    hero.addEventListener('pointerleave', () => {
+      mouse.active = false // 弹簧自然回归平静
+    })
+  }
+
+  // ── 启动 ───────────────────────────────────────────────
+  resize()
+  if (width > 0 && height > 0) {
+    startRaf()
+  }
+
+  const ro = new ResizeObserver(() => {
+    resize()
+  })
+  ro.observe(canvas)
+
+  document.addEventListener('visibilitychange', onVisibility)
+
+  // ── debug hook（验收用，可留生产，不耗性能）──────────────
+  window.__digitalWater = {
+    get particles() {
+      return particles.length
+    },
+    get frameRate() {
+      return fps
+    },
+    sampleDisplacement(mx, my, radius) {
+      const r = radius || CONFIG.rippleRadius
+      let total = 0
+      let max = 0
+      let count = 0
+      for (const p of particles) {
+        if (Math.hypot(p.x - mx, p.y - my) < r) {
+          const disp = Math.hypot(p.x - p.baseX, p.y - p.baseY)
+          total += disp
+          if (disp > max) max = disp
+          count++
+        }
+      }
+      return { count, avg: count ? total / count : 0, max }
+    },
+  }
+</script>
