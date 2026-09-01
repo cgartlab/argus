@@ -14,6 +14,15 @@
 ></canvas>
 
 <script>
+  // ── 从全局 CSS token 读取颜色（返回 [r, g, b]；缺失/非 6 位 hex 时回退 fallback）──
+  function readColorToken(name, fallback) {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+    const m = /^#([0-9a-f]{6})$/i.exec(value)
+    if (!m) return fallback
+    const hex = parseInt(m[1], 16)
+    return [(hex >> 16) & 0xff, (hex >> 8) & 0xff, hex & 0xff]
+  }
+
   // ── 参数（集中在顶部，便于 Wave 5 抽成 props）───────────────
   const CONFIG = {
     cellSize: 18,           // 网格单元尺寸（px）—— 超密版（约 1700 粒子铺满 hero）
@@ -28,9 +37,9 @@
     fontTiers: [8, 9.5, 11],
     redFontOffset: 1.5,     // 红块字号 +1.5px → 9.5 / 11 / 12.5
     // 5 个色块：琥珀 A/B/C（alpha 0.05/0.09/0.13 预渲染）+ 绿 + 红（alpha 1.0）
-    amber: [217, 119, 6],    // #d97706 琥珀 —— 对应全局 token --color-accent
-    green: [101, 163, 13],   // #65a30d 柔和橄榄绿（低饱和，暖调，与琥珀和谐）
-    red: [185, 28, 28],      // #b91c1c 暗砖红（低亮低刺眼，柔和对比）
+    amber: readColorToken('--color-accent', [217, 119, 6]), // #d97706 琥珀 —— 全局 token --color-accent
+    green: readColorToken('--color-green', [101, 163, 13]), // #65a30d 柔和橄榄绿（低饱和，暖调，与琥珀和谐）
+    red: readColorToken('--color-red', [185, 28, 28]),      // #b91c1c 暗砖红（低亮低刺眼，柔和对比）
     amberAlphas: [0.05, 0.09, 0.13],
     amberBands: [1 / 3, 2 / 3], // 粒子 y 比例分段选琥珀档
     // ── 流体物理 ──

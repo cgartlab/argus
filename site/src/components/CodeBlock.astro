@@ -16,9 +16,9 @@ const langLabel = lang && lang !== 'text' ? lang.toUpperCase() : null
     title && (
       <div class="flex items-center gap-3 border-b border-border bg-surface-2 px-4 py-2.5">
         <div class="flex items-center gap-1.5" aria-hidden="true">
-          <span class="size-3 rounded-full" style="background-color:#ff5f57" />
-          <span class="size-3 rounded-full" style="background-color:#febc2e" />
-          <span class="size-3 rounded-full" style="background-color:#28c840" />
+          <span class="size-3 rounded-full bg-red-500" />
+          <span class="size-3 rounded-full bg-yellow-500" />
+          <span class="size-3 rounded-full bg-green-500" />
         </div>
         <span class="font-mono text-xs font-medium text-fg-muted">{title}</span>
         {langLabel && (
@@ -79,9 +79,9 @@ const langLabel = lang && lang !== 'text' ? lang.toUpperCase() : null
      owns the rounded corners; the pre stays flush. */
   .code-card :global(.astro-code) {
     margin: 0 !important;
-    padding: 1.25rem 1.5rem !important;
-    font-size: 13px !important;
-    line-height: 1.65 !important;
+    padding: var(--ds-space-5) var(--ds-space-6) !important;
+    font-size: var(--ds-text-sm) !important;
+    line-height: var(--ds-leading-relaxed) !important;
     background-color: transparent !important;
     border-radius: 0 !important;
   }
