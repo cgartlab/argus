@@ -1,8 +1,9 @@
 ---
 // DigitalWater — 数字水面动态背景
-// Wave 3：字符网格粒子 + 双层 sin 波浪 + 鼠标斥力涟漪。
-// 超密版：cellSize=18 / maxParticles=5000 / 24fps 限帧 / 单色琥珀。
-// 纯 canvas 实现，无框架依赖。Wave 3 将把关键参数抽成组件 props。
+// Wave 4：字符网格粒子 + 双层 sin 波浪 + 绿红流动状态机。
+// 60fps 三色 sprite drawImage：主循环 0 fillText / 0 fillStyle / 0 font。
+// 视觉表达 Argus 代码审查流程：检查(绿) → 发现问题(红) → 修复回归(琥珀)。
+// 纯 canvas 实现，无框架依赖。
 ---
 
 <canvas
@@ -13,26 +14,41 @@
 ></canvas>
 
 <script>
-  // ── 参数（集中在顶部，便于 Wave 3 抽成 props）───────────────
+  // ── 参数（集中在顶部，便于 Wave 5 抽成 props）───────────────
   const CONFIG = {
-    cellSize: 18,           // 网格单元尺寸（px）—— 超密版（约 3× 粒子）
-    maxParticles: 5000,     // 粒子数上限（cap）—— 约 1700 粒子铺满 hero
-    fontSizeMin: 8,
-    fontSizeMax: 11,
-    amplitude1: 30,         // 第一层波浪振幅（3× 默认 noise）
-    amplitude2: 15,         // 第二层波浪振幅（3× 默认 noise）
+    cellSize: 18,           // 网格单元尺寸（px）—— 超密版（约 1700 粒子铺满 hero）
+    maxParticles: 5000,     // 粒子数上限（cap）
+    amplitude1: 30,         // 第一层波浪振幅
+    amplitude2: 15,         // 第二层波浪振幅
     frequency1: 0.02,       // 第一层波浪空间频率
     frequency2: 0.045,      // 第二层波浪空间频率（反向）
     speed1: 0.9,            // 第一层波浪传播速度
     speed2: -1.4,           // 第二层波浪传播速度（反向）
-    alphaTop: 0.05,         // 顶部透明度（单色琥珀，超密平衡）
-    alphaBottom: 0.13,      // 底部透明度（单色琥珀，超密平衡）
-    colorVar: '--color-accent',        // 单色：琥珀 #d97706
-    frameInterval: 41,      // 限帧 24fps（1000/24 ≈ 41.7ms）
-    rippleRadius: 120,      // 鼠标涟漪影响半径（px）
-    repulseStrength: 1.6,   // 斥力强度（克制）
-    spring: 0.04,           // 弹簧回归系数
-    damping: 0.92,          // 速度阻尼
+    // 字号 3 档（红块 +1.5px 一档：9.5 / 11 / 12.5）
+    fontTiers: [8, 9.5, 11],
+    redFontOffset: 1.5,     // 红块字号 +1.5px → 9.5 / 11 / 12.5
+    // 5 个色块：琥珀 A/B/C（alpha 0.05/0.09/0.13 预渲染）+ 绿 + 红（alpha 1.0）
+    amber: [217, 119, 6],    // #d97706 琥珀 —— 对应全局 token --color-accent
+    green: [101, 163, 13],   // #65a30d 柔和橄榄绿（低饱和，暖调，与琥珀和谐）
+    red: [185, 28, 28],      // #b91c1c 暗砖红（低亮低刺眼，柔和对比）
+    amberAlphas: [0.05, 0.09, 0.13],
+    amberBands: [1 / 3, 2 / 3], // 粒子 y 比例分段选琥珀档
+    // ── 流体物理 ──
+    pushRadius: 180,       // 鼠标推动基础范围（px）—— 沿轨迹从小变大
+    pushStrength: 0.8,     // 推动力度（翻倍：0.4→0.8，字符更强跟随箭头）
+    springK: 0.015,        // 弹簧系数（减弱果冻：0.006→0.015，回弹更快）
+    damping: 0.955,        // 粘性阻尼（减弱果冻：0.965→0.955，降低粘稠感）
+    maxSpeed: 5,           // 速度上限
+    // ── 状态时序（慢节奏）──
+    greenInMs: 150,        // 绿淡入
+    greenMs: 600,          // 绿保持（was 350，大幅放慢）
+    redInMs: 800,          // 红淡入
+    redMs: 1200,           // 红保持（was 700）
+    fadeMs: 2200,          // 淡出完成（was 1100，大幅放慢）
+    greenAlpha: 0.7,       // 绿红 alpha
+    // ── 模糊淡出（修复闪烁）──
+    blurAlpha: 0.7,        // 预渲染 alpha（was 0.16 太低→闪烁，现提至 0.7 让模糊可见）
+    blurPx: 1.5,           // 模糊程度
     fontStack: 'ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace',
     chars: [
       '@', '#', '$', '%', '^', '&', '+', '=', '*', '?',
@@ -45,23 +61,33 @@
     ],
   }
 
-  const canvas = document.getElementById('digital-water')
-  const ctx = canvas.getContext('2d')
-  const hero = document.getElementById('hero') || canvas.closest('#hero')
-
-  // ── 读取设计 Token 颜色（canvas 无法直接用 CSS var，运行时读取一次）──
-  function readColorToken(name, fallback) {
-    const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-    const m = raw.match(/^#([0-9a-f]{6})$/i)
-    if (!m) return fallback
-    return [
-      parseInt(m[1].slice(0, 2), 16),
-      parseInt(m[1].slice(2, 4), 16),
-      parseInt(m[1].slice(4, 6), 16),
-    ]
+  // ── 缓动函数（非线性动画核心）──────────────────
+  function easeInOutCubic(t) {
+    t = Math.max(0, Math.min(1, t))
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+  }
+  function easeOutQuad(t) {
+    t = Math.max(0, Math.min(1, t))
+    return 1 - (1 - t) * (1 - t)
+  }
+  function easeInQuad(t) {
+    t = Math.max(0, Math.min(1, t))
+    return t * t
   }
 
-  const color = readColorToken(CONFIG.colorVar, [217, 119, 6]) // #d97706 琥珀
+  // 色块索引：0 琥珀A / 1 琥珀B / 2 琥珀C / 3 绿 / 4 红
+  const BLOCK_AMBER_A = 0
+  const BLOCK_AMBER_B = 1
+  const BLOCK_AMBER_C = 2
+  const BLOCK_GREEN = 3
+  const BLOCK_RED = 4
+  const BLOCK_BLUR = 5 // 模糊琥珀（预渲染 blur，用于字符消失时的模糊淡出）
+
+  const canvas = document.getElementById('digital-water')
+  // 注意：必须保持透明通道（alpha:true）——琥珀字符 alpha 仅 0.05-0.13，
+  // 若用 { alpha:false } 会得到不透明黑底，盖住 hero 浅色背景，背景变黑。
+  const ctx = canvas.getContext('2d')
+  const hero = document.getElementById('hero') || canvas.closest('#hero')
 
   // ── 状态 ────────────────────────────────────────────────
   let dpr = 1
@@ -72,12 +98,35 @@
   let t = 0
   let lastTs = 0
   let rafId = null
-  const mouse = { active: false, x: 0, y: 0 }
+  const mouse = {
+    active: false, x: 0, y: 0,
+    prevX: 0, prevY: 0,  // 上一帧位置（计算鼠标速度→方向性推动）
+    vx: 0, vy: 0,        // 鼠标速度（CSS px/帧）
+  }
 
-  // ── fps 统计：1 秒窗口滚动更新（验收用）──────────────────
+  // ── 鼠标轨迹（影响范围沿轨迹从小变大）──
+  const TRAIL_LEN = 5
+  const TRAIL_MAX_AGE = 400 // ms（轨迹点最大存活时间）
+  const trail = [] // { x, y, birth }
+
+  // ── fps 统计：1 秒窗口滚动更新（rAF 实际帧，不再限帧）────
   let frameCount = 0
   let fps = 0
   let fpsWindowStart = 0
+  let avgFrameMs = 0 // 每帧耗时滚动平均（EMA）
+
+  // ── sprite sheet 元数据（buildSpriteSheet 时填充）─────────
+  let sheet = null
+  let sheetCtx = null
+  let tilesPerBlock = 0 // = chars.length * 3
+  let tilesPerRow = 0 // = tilesPerBlock
+  let tileSize = 0
+
+  // ── 自动触发（画布随机选点触发动效，不产生位移）──
+  let lastAutoTrigger = 0
+  let autoTriggerInterval = 1500 // ms（首次触发间隔）
+  const AUTO_TRIGGER_RADIUS_MIN = 50 // 触发半径最小（当前值）
+  const AUTO_TRIGGER_RADIUS_MAX = 150 // 触发半径最大（3× 当前）
 
   // ── 字符网格粒子构建 ────────────────────────────────────
   function buildParticles() {
@@ -96,29 +145,94 @@
       const y = row * cellSize + cellSize / 2
       for (let col = 0; col < cols; col++) {
         const x = col * cellSize + cellSize / 2
-        const char = CONFIG.chars[Math.floor(Math.random() * CONFIG.chars.length)]
-        const fontSize = CONFIG.fontSizeMin + Math.random() * (CONFIG.fontSizeMax - CONFIG.fontSizeMin)
-
-        // 长度归一化：按实际字符宽度测量，居中绘制
-        ctx.font = fontSize + 'px ' + CONFIG.fontStack
-        const charWidth = ctx.measureText(char).width
+        const charIdx = Math.floor(Math.random() * CONFIG.chars.length)
+        const sizeTier = Math.floor(Math.random() * 3) // 3 档字号
 
         next.push({
-          x,
-          y,
-          baseX: x,           // 弹簧回归基线（静网格 x）
-          baseY: y,           // 弹簧回归基线（静网格 y）
-          vx: 0,              // 速度（鼠标斥力 + 弹簧）
-          vy: 0,
-          char,
-          fontSize,
-          charWidth,
+          baseX: x,           // 静网格 x
+          baseY: y,           // 静网格 y
+          physX: 0, physY: 0, // 流体位移（被鼠标推开后的位置偏移）
+          vx: 0, vy: 0,       // 流体速度
+          charIdx,
+          sizeTier,
           phase1: Math.random() * Math.PI * 2,
           phase2: Math.random() * Math.PI * 2,
+          inRadius: false,    // 鼠标影响圈内标记（边缘触发用）
+          lastActivate: -1e12, // 最近激活时间戳（很负 = 从未激活 → NORMAL）
+          newCharIdx: null,   // FADE 时抽的新字符（消失→随机换字符→浮现）
+          // 「空气动力」随机因子（build 时静态生成，帧内仅几次算术，保持 60fps）
+          sens: 0.75 + Math.random() * 0.5,  // 灵敏度 0.75-1.25 → 有效半径随机，圆边变不规则锯齿
+          delay: Math.random() * 90,         // 0-90ms 激活延迟 → 字符错落激活，像流体逐点反应
+          jitter: (Math.random() - 0.5) * 90, // -45~+45ms 绿保持期抖动 → 斑驳自然，像湍流
         })
       }
     }
     particles = next
+  }
+
+  // ── 预渲染 sprite sheet（主循环 0 fillText / 0 fillStyle / 0 font）──
+  function buildSpriteSheet() {
+    const n = CONFIG.chars.length
+    tilesPerBlock = n * 3 // 63 字符 × 3 字号
+    tilesPerRow = tilesPerBlock
+
+    // 临时 context 用于测量最大字宽（最大字号 12.5 = 红块 tier2）
+    const meas = document.createElement('canvas').getContext('2d')
+    const maxFont = CONFIG.fontTiers[2] + CONFIG.redFontOffset // 12.5
+    meas.font = maxFont + 'px ' + CONFIG.fontStack
+    let maxW = 0
+    for (const c of CONFIG.chars) {
+      maxW = Math.max(maxW, meas.measureText(c).width)
+    }
+    // tileSize：最大字宽 + 边距，至少 12px
+    tileSize = Math.max(12, Math.ceil(maxW) + 3)
+
+    const totalTiles = 6 * tilesPerBlock // 6 色块：琥珀A/B/C + 绿 + 红 + 模糊琥珀
+    const rows = Math.ceil(totalTiles / tilesPerRow) // = 5
+    const sheetW = tilesPerRow * tileSize
+    const sheetH = rows * tileSize
+
+    sheet = document.createElement('canvas')
+    sheet.width = sheetW
+    sheet.height = sheetH
+    sheetCtx = sheet.getContext('2d')
+
+    sheetCtx.textBaseline = 'middle'
+    sheetCtx.textAlign = 'center'
+
+    // 每个色块：颜色 + 预渲染 alpha（琥珀 3 档 baked alpha，绿红 alpha 1.0）
+    // 第 6 块：模糊琥珀（blur:true → 渲染时一次性 ctx.filter blur，用于字符消失淡出）
+    const blockDefs = [
+      { color: CONFIG.amber, alpha: CONFIG.amberAlphas[0] }, // 0 琥珀A
+      { color: CONFIG.amber, alpha: CONFIG.amberAlphas[1] }, // 1 琥珀B
+      { color: CONFIG.amber, alpha: CONFIG.amberAlphas[2] }, // 2 琥珀C
+      { color: CONFIG.green, alpha: 1 },                      // 3 绿
+      { color: CONFIG.red, alpha: 1 },                        // 4 红
+      { color: CONFIG.amber, alpha: CONFIG.blurAlpha, blur: true }, // 5 模糊琥珀
+    ]
+
+    for (let block = 0; block < blockDefs.length; block++) {
+      const { color, alpha, blur } = blockDefs[block]
+      // 模糊块：预渲染时一次性 blur（主循环零 blur 成本）
+      if (blur) sheetCtx.filter = 'blur(' + CONFIG.blurPx + 'px)'
+      sheetCtx.fillStyle = 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')'
+      sheetCtx.globalAlpha = alpha
+      for (let charIdx = 0; charIdx < n; charIdx++) {
+        const c = CONFIG.chars[charIdx]
+        for (let tier = 0; tier < 3; tier++) {
+          const fontSize = CONFIG.fontTiers[tier] + (block === BLOCK_RED ? CONFIG.redFontOffset : 0)
+          const charTileIdx = charIdx * 3 + tier
+          const spriteIdx = block * tilesPerBlock + charTileIdx
+          const sx = (spriteIdx % tilesPerRow) * tileSize
+          const sy = Math.floor(spriteIdx / tilesPerRow) * tileSize
+
+          sheetCtx.font = fontSize + 'px ' + CONFIG.fontStack
+          sheetCtx.fillText(c, sx + tileSize / 2, sy + tileSize / 2)
+        }
+      }
+      if (blur) sheetCtx.filter = 'none'
+    }
+    sheetCtx.globalAlpha = 1
   }
 
   // ── 尺寸重建（DPR 保持锐利，不做低分辨率缩放）────────────
@@ -133,76 +247,134 @@
     buildParticles()
   }
 
-  // ── 物理：鼠标斥力涟漪 + 弹簧回归（每帧每粒子）──────────
-  function updatePhysics() {
-    const r2 = CONFIG.rippleRadius * CONFIG.rippleRadius
-    const minD2 = 0.0001 // 对应 d > 0.01，避免除零
-    for (const p of particles) {
-      if (mouse.active) {
-        const dx = mouse.x - p.x
-        const dy = mouse.y - p.y
-        const d2 = dx * dx + dy * dy
-        if (d2 < r2 && d2 > minD2) {
-          const d = Math.sqrt(d2)
-          const strength = (1 - d / CONFIG.rippleRadius) * CONFIG.repulseStrength
-          p.vx += (dx / d) * strength
-          p.vy += (dy / d) * strength
-        }
+  // ── 从 sprite sheet 画一个 tile（主循环唯一绘制路径）──────
+  function drawTile(block, charIdx, tier, dx, dy) {
+    const charTileIdx = charIdx * 3 + tier
+    const spriteIdx = block * tilesPerBlock + charTileIdx
+    const sx = (spriteIdx % tilesPerRow) * tileSize
+    const sy = Math.floor(spriteIdx / tilesPerRow) * tileSize
+    ctx.drawImage(sheet, sx, sy, tileSize, tileSize, dx, dy, tileSize, tileSize)
+  }
+
+  // ── 状态机：给定粒子 + 当前时间 → 'normal' | 'green' | 'red' | 'fade' ──
+  function getState(p, now) {
+    const dt = now - p.lastActivate
+    if (dt < 0) return 'normal' // 未到激活时刻（延迟期，仍显琥珀）
+    const green = CONFIG.greenMs + p.jitter
+    const red = green + (CONFIG.redMs - CONFIG.greenMs)
+    const fade = green + (CONFIG.fadeMs - CONFIG.greenMs)
+    if (dt < green) return 'green'
+    if (dt < red) return 'red'
+    if (dt < fade) return 'fade'
+    return 'normal'
+  }
+
+  // ── 按 y 比例选琥珀档色块（消灭主循环 globalAlpha）────────
+  function amberBlockFor(drawY) {
+    const tY = Math.min(Math.max(drawY / height, 0), 1)
+    if (tY < CONFIG.amberBands[0]) return BLOCK_AMBER_A
+    if (tY < CONFIG.amberBands[1]) return BLOCK_AMBER_B
+    return BLOCK_AMBER_C
+  }
+
+  // ── 单粒子绘制（7 阶段状态机 + 缓动 + 颜色混合过渡）──────
+  function drawParticle(p, drawX, drawY, ts) {
+    const dx = Math.floor(drawX)
+    const dy = Math.floor(drawY)
+    const dt = ts - p.lastActivate
+
+    if (dt < 0) {
+      // 延迟期：琥珀（空气动力错落感）
+      ctx.globalAlpha = 1
+      drawTile(amberBlockFor(drawY), p.charIdx, p.sizeTier, dx, dy)
+      return
+    }
+
+    // 7 阶段时间边界（含 jitter ±45ms）
+    const j = p.jitter
+    const greenIn = CONFIG.greenInMs + j
+    const green = CONFIG.greenMs + j
+    const redIn = green + 200   // 绿→红混合 200ms
+    const red = green + 600     // 红保持
+    const blurIn = red + 200    // 红→模糊混合 200ms
+    const fade = green + 1600   // 模糊→新字符 1000ms（总 ~2.2s）
+
+    if (dt >= fade) {
+      // NORMAL：若刚完成换字符（FADE 抽了 newCharIdx），永久替换后显示新琥珀字符
+      if (p.newCharIdx !== null) {
+        p.charIdx = p.newCharIdx
+        p.newCharIdx = null
       }
-      // 弹簧回归（目标：静网格位置）
-      p.vx += (p.baseX - p.x) * CONFIG.spring
-      p.vy += (p.baseY - p.y) * CONFIG.spring
-      p.vx *= CONFIG.damping
-      p.vy *= CONFIG.damping
-      p.x += p.vx
-      p.y += p.vy
+      ctx.globalAlpha = 1
+      drawTile(amberBlockFor(drawY), p.charIdx, p.sizeTier, dx, dy)
+      return
+    }
+
+    if (dt < greenIn) {
+      // 1. GREEN_IN：绿淡入（ease-in，从慢到快）
+      const k = easeInQuad(dt / greenIn)
+      ctx.globalAlpha = CONFIG.greenAlpha * k
+      drawTile(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy)
+
+    } else if (dt < green) {
+      // 2. GREEN：绿稳定
+      ctx.globalAlpha = CONFIG.greenAlpha
+      drawTile(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy)
+
+    } else if (dt < redIn) {
+      // 3. GREEN_TO_RED：颜色混合（绿渐隐 + 红渐显，ease-in-out 叠加）
+      const blend = easeInOutCubic((dt - green) / (redIn - green))
+      ctx.globalAlpha = CONFIG.greenAlpha * (1 - blend)
+      drawTile(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy) // 绿渐隐
+      ctx.globalAlpha = CONFIG.greenAlpha * blend
+      drawTile(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy) // 红渐显
+
+    } else if (dt < red) {
+      // 4. RED：红稳定
+      ctx.globalAlpha = CONFIG.greenAlpha
+      drawTile(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy)
+
+    } else if (dt < blurIn) {
+      // 5. RED_TO_BLUR：红渐隐 + 模糊渐显（ease-out）
+      const blend = easeOutQuad((dt - red) / (blurIn - red))
+      ctx.globalAlpha = CONFIG.greenAlpha * (1 - blend)
+      drawTile(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy) // 红渐隐
+      ctx.globalAlpha = CONFIG.greenAlpha * 0.7 * blend
+      drawTile(BLOCK_BLUR, p.charIdx, p.sizeTier, dx, dy) // 模糊渐显
+
+    } else {
+      // 6. FADE：模糊渐隐 + 新字符渐显（ease-in-out）
+      if (p.newCharIdx === null) p.newCharIdx = Math.floor(Math.random() * CONFIG.chars.length)
+      const k = easeInOutCubic((dt - blurIn) / (fade - blurIn))
+      ctx.globalAlpha = CONFIG.greenAlpha * 0.7 * (1 - k)
+      drawTile(BLOCK_BLUR, p.charIdx, p.sizeTier, dx, dy) // 模糊渐隐
+      ctx.globalAlpha = k * 0.6 // 新字符略淡入（0.6 max，柔和浮现）
+      drawTile(amberBlockFor(drawY), p.newCharIdx, p.sizeTier, dx, dy) // 新字符渐显
     }
   }
 
   // ── 单帧绘制 ───────────────────────────────────────────
-  function draw() {
+  function draw(ts) {
     ctx.clearRect(0, 0, width, height)
-    ctx.textBaseline = 'middle'
-    ctx.textAlign = 'left'
+    ctx.globalAlpha = 1
 
-    let currentFont = ''
     for (const p of particles) {
-      // 双层 sin 波浪（第二层反向传播），叠加在弹簧位置之上
+      // 双层 sin 波浪（第二层反向传播），叠加在静网格之上
       const wave =
-        CONFIG.amplitude1 * Math.sin(p.x * CONFIG.frequency1 + t * CONFIG.speed1 + p.phase1) +
-        CONFIG.amplitude2 * Math.sin(p.x * CONFIG.frequency2 - t * CONFIG.speed2 + p.phase2)
-      const drawY = p.y + wave
-
-      // 单色琥珀：近深远浅（顶 alpha 0.08 → 底 alpha 0.22，按 y 比例线性插值）
-      const tY = Math.min(Math.max(drawY / height, 0), 1)
-      ctx.fillStyle = 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')'
-      ctx.globalAlpha = CONFIG.alphaTop + (CONFIG.alphaBottom - CONFIG.alphaTop) * tY
-
-      const font = p.fontSize + 'px ' + CONFIG.fontStack
-      if (font !== currentFont) {
-        ctx.font = font
-        currentFont = font
-      }
-      ctx.fillText(p.char, p.x + (cellSize - p.charWidth) / 2, drawY)
+        CONFIG.amplitude1 * Math.sin(p.baseX * CONFIG.frequency1 + t * CONFIG.speed1 + p.phase1) +
+        CONFIG.amplitude2 * Math.sin(p.baseX * CONFIG.frequency2 - t * CONFIG.speed2 + p.phase2)
+      const drawX = p.baseX + p.physX // 流体水平位移
+      const drawY = p.baseY + wave + p.physY // 波浪 + 流体垂直位移
+      drawParticle(p, drawX, drawY, ts)
     }
     ctx.globalAlpha = 1
   }
 
   function frame(ts) {
-    // 限帧 24fps：距上次绘制不足 41ms 则跳帧（rAF 仍续，只跳过绘制）
-    if (ts - lastTs < CONFIG.frameInterval) {
-      rafId = requestAnimationFrame(frame)
-      return
-    }
-    if (!lastTs) lastTs = ts
-    const dt = Math.min((ts - lastTs) / 1000, 0.05)
-    lastTs = ts
-    t += dt
+    rafId = requestAnimationFrame(frame)
+    const frameStart = performance.now()
 
-    updatePhysics()
-    draw()
-
-    // fps 统计：1 秒窗口滚动更新（只计实际绘制帧）
+    // fps 统计：rAF 实际帧（不再限帧，应趋近 60）
     frameCount++
     if (ts - fpsWindowStart >= 1000) {
       fps = frameCount
@@ -210,7 +382,121 @@
       fpsWindowStart = ts
     }
 
-    rafId = requestAnimationFrame(frame)
+    // 时间推进
+    if (!lastTs) lastTs = ts
+    const dt = Math.min((ts - lastTs) / 1000, 0.05)
+    lastTs = ts
+    t += dt
+
+    // 鼠标速度追踪
+    if (mouse.active) {
+      mouse.vx = mouse.x - mouse.prevX
+      mouse.vy = mouse.y - mouse.prevY
+    }
+    mouse.prevX = mouse.x
+    mouse.prevY = mouse.y
+
+    // 更新轨迹（移除过期点）
+    const now = performance.now()
+    while (trail.length > 0 && now - trail[0].birth > TRAIL_MAX_AGE) trail.shift()
+
+    // ── 自动触发：画布随机选点触发动效（不产生位移，纯颜色变化）──
+    if (ts - lastAutoTrigger > autoTriggerInterval) {
+      lastAutoTrigger = ts
+      autoTriggerInterval = 1000 + Math.random() * 2000 // 1-3s 随机间隔
+      // 随机位置
+      const rx = Math.random() * width
+      const ry = Math.random() * height
+      // 随机触发半径（50~150px：既有点触发也有大片触发，更自然）
+      const triggerRadius = AUTO_TRIGGER_RADIUS_MIN + Math.random() * (AUTO_TRIGGER_RADIUS_MAX - AUTO_TRIGGER_RADIUS_MIN)
+      const r2 = triggerRadius * triggerRadius
+      // 激活附近 NORMAL 态粒子（小簇/大簇随机，无物理推动）
+      for (const p of particles) {
+        const dx = p.baseX - rx
+        const dy = p.baseY - ry
+        if (dx * dx + dy * dy < r2 && getState(p, now) === 'normal') {
+          p.lastActivate = ts + p.delay
+        }
+      }
+    }
+
+    // 流体物理 + 边缘触发（轨迹增长 + 非线性动画）
+    for (const p of particles) {
+      // 当前流体位置
+      const curX = p.baseX + p.physX
+      const curY = p.baseY + p.physY
+
+      // ── 轨迹影响检查（沿轨迹从小变大：头部 30% → 尾部 100%）──
+      let maxInfluence = 0
+      let closestD = 1
+      let closestDx = 0
+      let closestDy = 0
+      for (const tp of trail) {
+        const age01 = Math.min((now - tp.birth) / TRAIL_MAX_AGE, 1) // 0=最新/头部, 1=最老/尾部
+        const radius = CONFIG.pushRadius * (0.3 + age01 * 0.7) // 头部 30% → 尾部 100%
+        const dx = curX - tp.x
+        const dy = curY - tp.y
+        const d2 = dx * dx + dy * dy
+        if (d2 < radius * radius && d2 > 0.01) {
+          const d = Math.sqrt(d2)
+          const normDist = d / radius
+          const influence = (1 - normDist) * (1 - normDist) // 二次缓出
+          if (influence > maxInfluence) {
+            maxInfluence = influence
+            closestD = d
+            closestDx = dx
+            closestDy = dy
+          }
+        }
+      }
+
+      // ── 鼠标推动（从轨迹最近点推开 + 鼠标速度拖拽）──
+      if (mouse.active && maxInfluence > 0 && closestD > 0.1) {
+        const radialX = closestDx / closestD
+        const radialY = closestDy / closestD
+        const mouseSpeed = Math.sqrt(mouse.vx ** 2 + mouse.vy ** 2)
+        const speedFactor = Math.min(mouseSpeed / 5, 1)
+        // 30% 径向 + 70% 鼠标速度拖拽
+        p.vx += (radialX * 0.3 + mouse.vx * 0.7) * CONFIG.pushStrength * maxInfluence * speedFactor
+        p.vy += (radialY * 0.3 + mouse.vy * 0.7) * CONFIG.pushStrength * maxInfluence * speedFactor
+      }
+
+      // ── 弹簧回归（幂曲线，减弱果冻：0.5→0.3）──
+      const pullDist = Math.sqrt(p.physX ** 2 + p.physY ** 2)
+      if (pullDist > 0.1) {
+        const pullStrength = Math.pow(pullDist / 100, 0.6) * 0.3 // 0.5→0.3：减弱果冻
+        p.vx += (-p.physX / pullDist) * pullStrength
+        p.vy += (-p.physY / pullDist) * pullStrength
+      }
+
+      // ── 粘性阻尼（速度相关，减弱果冻）──
+      const spd = Math.sqrt(p.vx ** 2 + p.vy ** 2)
+      const speedRatio = Math.min(spd / CONFIG.maxSpeed, 1)
+      const dynDamp = CONFIG.damping - speedRatio * 0.02 // 0.955→0.935 at max speed
+      p.vx *= dynDamp
+      p.vy *= dynDamp
+
+      // 速度上限
+      if (spd > CONFIG.maxSpeed) {
+        p.vx = (p.vx / spd) * CONFIG.maxSpeed
+        p.vy = (p.vy / spd) * CONFIG.maxSpeed
+      }
+
+      // 更新流体位移
+      p.physX += p.vx
+      p.physY += p.vy
+
+      // 边缘触发颜色状态（轨迹影响范围）
+      const inTrail = mouse.active && maxInfluence > 0
+      if (inTrail && !p.inRadius) p.lastActivate = ts + p.delay
+      p.inRadius = inTrail
+    }
+
+    draw(ts)
+
+    // 每帧耗时滚动平均（EMA）
+    const frameMs = performance.now() - frameStart
+    avgFrameMs = avgFrameMs === 0 ? frameMs : avgFrameMs * 0.9 + frameMs * 0.1
   }
 
   function stopRaf() {
@@ -239,7 +525,6 @@
   }
 
   // ── 视口暂停 + 鼠标交互：挂在 hero 上 ────────────────────
-  // 找不到 #hero 时降级为只在 visibilitychange 暂停（不报错）
   if (hero) {
     const io = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting) {
@@ -253,16 +538,23 @@
     // 鼠标交互：pointer 事件挂在 hero（canvas pointer-events:none 不挡按钮）
     hero.addEventListener('pointermove', (e) => {
       const rect = hero.getBoundingClientRect()
-      mouse.x = e.clientX - rect.left // CSS 像素，与粒子坐标同基准
-      mouse.y = e.clientY - rect.top
+      const nx = e.clientX - rect.left
+      const ny = e.clientY - rect.top
+      if (!mouse.active) { mouse.prevX = nx; mouse.prevY = ny }
+      mouse.x = nx
+      mouse.y = ny
       mouse.active = true
+      // 添加轨迹点（影响范围沿轨迹从小变大）
+      trail.push({ x: nx, y: ny, birth: performance.now() })
+      while (trail.length > TRAIL_LEN) trail.shift()
     })
     hero.addEventListener('pointerleave', () => {
-      mouse.active = false // 弹簧自然回归平静
+      mouse.active = false // 圈内已激活粒子自然走完流程回归琥珀
     })
   }
 
   // ── 启动 ───────────────────────────────────────────────
+  buildSpriteSheet() // sprite 不依赖 canvas 尺寸，只需一次
   resize()
   if (width > 0 && height > 0) {
     startRaf()
@@ -283,20 +575,33 @@
     get frameRate() {
       return fps
     },
-    sampleDisplacement(mx, my, radius) {
-      const r = radius || CONFIG.rippleRadius
-      let total = 0
-      let max = 0
-      let count = 0
+    get frameMs() {
+      return Math.round(avgFrameMs * 10) / 10
+    },
+    get dpr() {
+      return dpr
+    },
+    get maxDisplacement() {
+      // 最大流体位移（验证鼠标推动：>0 表示字符被推开）
+      let m = 0
       for (const p of particles) {
-        if (Math.hypot(p.x - mx, p.y - my) < r) {
-          const disp = Math.hypot(p.x - p.baseX, p.y - p.baseY)
-          total += disp
-          if (disp > max) max = disp
-          count++
-        }
+        const d = Math.sqrt(p.physX * p.physX + p.physY * p.physY)
+        if (d > m) m = d
       }
-      return { count, avg: count ? total / count : 0, max }
+      return Math.round(m * 10) / 10
+    },
+    get sprite() {
+      return {
+        tileCount: 6 * tilesPerBlock,
+        bytes: sheet ? sheet.width * sheet.height * 4 : 0,
+        tileSize,
+      }
+    },
+    states() {
+      const dist = { normal: 0, green: 0, red: 0, fade: 0 }
+      const now = performance.now()
+      for (const p of particles) dist[getState(p, now)]++
+      return dist
     },
   }
 </script>
