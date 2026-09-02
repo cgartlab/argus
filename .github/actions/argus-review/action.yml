@@ -172,7 +172,13 @@ runs:
             # evaluate it as an expression here.
             # printf keeps every line as a single YAML-safe argument (block
             # scalars cannot contain dedented continuation lines).
-            local lbrace='${{'
+            # NOTE: We must never write `${{` or `}}` literally inside this
+            # `run` block — the GitHub Actions template parser would treat
+            # them as an expression and fail. Instead we assemble the braces
+            # via shell variable expansion, which the template layer ignores.
+            local dollar='$'
+            local lbrace="${dollar}{{"
+            local rbrace="}}"
             local guidance
             guidance="$(printf '%s\n' \
               '[argus] 🚨 No usable OpenCode Zen API key detected.' \
@@ -184,7 +190,7 @@ runs:
               '  Step 3: Add it to this repo: Settings → Secrets and variables → Actions →' \
               '          New repository secret → name `OPENCODE_API_KEY`, paste your key' \
               '  Step 4: Your workflow passes it via' \
-              "          \`api-key: ${lbrace} secrets.OPENCODE_API_KEY }}\` (default template)." \
+              "          \`api-key: ${lbrace} secrets.OPENCODE_API_KEY ${rbrace}\` (default template)." \
               '  Step 5: Re-run this workflow.' \
               '' \
               'Alternatively configure your own LLM provider key if supported.')"
