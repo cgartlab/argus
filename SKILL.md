@@ -53,13 +53,16 @@ Before reviewing, detect the project's technology stack:
 | `angular.json` | Angular | https://angular.dev/api |
 | `*.astro` | Astro | https://docs.astro.build |
 | `lit-*.js` / `*.ts` with lit imports | Lit | https://lit.dev/docs |
+| `uno.config.ts` / `unocss.config.ts` | UnoCSS | https://uno.antfu.me/ |
+| `tailwind.config.js` / `tailwind.config.ts` | Tailwind CSS | https://tailwindcss.com/docs |
 | CSS/SCSS files only | Vanilla CSS | https://developer.mozilla.org/docs/Web/CSS |
 
 **Detection workflow:**
 1. Check file extensions of files to review
 2. Read `package.json` to confirm framework and version
 3. Check for config files (vite.config.js, tsconfig.json, etc.)
-4. Map stack to official documentation base URL
+4. Check for atomic CSS configs (`uno.config.*`, `tailwind.config.*`) — if present, review design token references inside utility classes (e.g. `bg-*`, `px-*`, `text-*`)
+5. Map stack to official documentation base URL
 
 ## Review Dimensions
 
@@ -248,13 +251,15 @@ useEffect(() => {
 **Reference:** https://react.dev/learn/keeping-components-pure
 
 ```tsx
-// WRONG — new object on every render
+// WRONG — new object/array on every render
 <div style={{ color: 'red' }} />
-<div onClick={{ handle: () => {} }} />
+<Child items={['a', 'b']} />
 
 // RIGHT — move outside component or use useMemo
 const buttonStyle = { color: 'red' };
+const items = ['a', 'b'];
 <div style={buttonStyle} />
+<Child items={items} />
 ```
 
 #### 4. Missing Key in List (P1)
@@ -434,18 +439,36 @@ watch(() => user.name, (newName) => {
 });
 ```
 
-#### 4. Not Using reactive for Objects (P2)
-**Detection:** Using `ref()` for objects without `.value` access everywhere
-**Reference:** https://vuejs.org/guide/essentials/reactivity-fundamentals#reactive-objects
+#### 4. Destructuring reactive() Loses Reactivity (P1)
+**Detection:** `const { prop } = reactive({...})` destructuring before use
+**Reference:** https://vuejs.org/guide/essentials/reactivity-fundamentals#limitations-of-reactive
 
 ```vue
-// WRONG — ref for object
-const user = ref({ name: 'John' });
-console.log(user.value.name); // Verbose
+// WRONG — destructuring reactive() drops reactivity
+<script setup>
+const state = reactive({ name: 'John' });
+const { name } = state; // name is a plain string, no longer reactive
+function update() {
+  name.value = 'Jane'; // Does NOT update state.name
+}
+</script>
 
-// RIGHT — reactive for objects
-const user = reactive({ name: 'John' });
-console.log(user.name); // Cleaner
+// RIGHT — prefer ref() (the default recommendation)
+<script setup>
+const name = ref('John');
+function update() {
+  name.value = 'Jane'; // Reactivity preserved
+}
+</script>
+
+// Alternative RIGHT — keep reactivity while destructuring
+<script setup>
+const state = reactive({ name: 'John' });
+const { name } = toRefs(state);
+function update() {
+  name.value = 'Jane'; // Updates state.name
+}
+</script>
 ```
 
 #### 5. Side Effects in Computed (P1)
@@ -492,17 +515,35 @@ onUnmounted(() => clearInterval(interval));
 <div v-for="item in items" :key="item.id">
 ```
 
-#### 8. Modifying Array Directly (P2)
-**Detection:** Push/splice on reactive array instead of spread/filter
-**Reference:** https://vuejs.org/guide/essentials/reactivity-fundamentals#mutating-methods
+#### 8. Mutating Props from Child (v-model Anti-Pattern) (P1)
+**Detection:** Direct prop assignment (`props.title = ...`) or manual `update:` emit when `defineModel()` applies
+**Reference:** https://vuejs.org/guide/components/v-model
 
 ```vue
-// WRONG — mutation
-items.push(newItem);
+// WRONG — direct prop assignment breaks one-way data flow
+<script setup>
+const props = defineProps<{ title: string }>();
+function rename() {
+  props.title = 'New'; // Warning: mutating a prop
+}
+</script>
 
-// RIGHT — immutable pattern
-items = [...items, newItem];
-// Or: items.value.push(newItem) if using ref
+// RIGHT — defineModel (Vue 3.4+)
+<script setup>
+const title = defineModel<string>();
+function rename() {
+  title.value = 'New'; // Two-way binding via v-model
+}
+</script>
+
+// Alternative RIGHT — explicit update:title emit
+<script setup>
+const props = defineProps<{ title: string }>();
+const emit = defineEmits<{ 'update:title': [value: string] }>();
+function rename() {
+  emit('update:title', 'New');
+}
+</script>
 ```
 
 ---
@@ -532,7 +573,7 @@ items = [...items, newItem];
 
 #### 2. Overusing Reactive Statements (P3)
 **Detection:** Multiple `$:` that could be combined into one
-**Reference:** https://svelte.dev/docs/svelte-components#script-3-advanced-styles
+**Reference:** https://svelte.dev/docs/svelte/legacy-reactive-assignments
 
 ```svelte
 // WRONG — too many reactive statements
@@ -542,6 +583,9 @@ $: console.log(quadrupled);
 
 // RIGHT — compute once
 $: quadrupled = count * 4;
+
+// Svelte 5 — prefer runes ($derived) over legacy $: statements
+let quadrupled = $derived(count * 4);
 ```
 
 #### 3. Mutating Props in Reactive Statements (P1)
@@ -588,16 +632,16 @@ $: quadrupled = count * 4;
 </script>
 ```
 
-#### 5. Using Reassignment Instead of Store Methods (P3)
-**Detection:** `$count++` when store has update method
-**Reference:** https://svelte.dev/docs/svelte-store#writable-stores
+#### 5. Direct Store Assignment Instead of update (P3)
+**Detection:** `$store =` direct assignment that bypasses a writable store's `update()`
+**Reference:** https://svelte.dev/docs/svelte/stores#writable-stores
 
 ```svelte
-// OK but not ideal for complex state
-count.update(n => n + 1);
+// WRONG — direct assignment bypasses the store's update() logic
+$count = $count + 1;
 
-// RIGHT — if store exposes specific methods
-userStore.incrementAge();
+// RIGHT — route changes through the store's update method
+count.update(n => n + 1);
 ```
 
 ---
@@ -606,7 +650,7 @@ userStore.incrementAge();
 
 #### 1. Subscribing Without Unsubscribe (P1)
 **Detection:** `.subscribe()` without `.unsubscribe()` or `takeUntilDestroyed`
-**Reference:** https://angular.dev/guide/subscribe#unsubscribing
+**Reference:** https://angular.dev/api/core/rxjs-interop/takeUntilDestroyed
 
 ```typescript
 // WRONG — memory leak
@@ -619,16 +663,13 @@ export class UserComponent {
   }
 }
 
-// RIGHT — use takeUntilDestroyed or async pipe
+// RIGHT — use takeUntilDestroyed (Angular 16+)
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+
 @Component({...})
-export class UserComponent implements OnDestroy {
-  private destroy$ = destroyRegistry();
-  
-  ngOnInit() {
-    this.userService.getUser()
-      .pipe(takeUntilDestroyed(this.destroy$))
-      .subscribe(user => this.user = user);
-  }
+export class UserComponent {
+  // takeUntilDestroyed() inside an injection context works without `this.destroy$`
+  user$ = this.userService.getUser().pipe(takeUntilDestroyed());
 }
 
 // BEST — use async pipe in template
@@ -638,25 +679,36 @@ export class UserComponent {
 }
 ```
 
-#### 2. Changing Values in ngOnInit (P1)
-**Detection:** Form control or state mutation in `ngOnInit`
-**Reference:** https://angular.dev/guide/lifecycle-hooks
+#### 2. Field-Declared Form + ngOnInit setValue Overwrite (P1)
+**Detection:** `FormGroup` initialized at field declaration, then overwritten with `setValue()` in `ngOnInit`
+**Reference:** https://angular.dev/guide/forms/reactive-forms
 
 ```typescript
-// WRONG — should be in constructor or ngDoCheck
+// WRONG — setValue() in ngOnInit overwrites a field-initialized form
 @Component({...})
 export class ProfileComponent implements OnInit {
+  form = new FormGroup({
+    name: new FormControl(''),
+  });
+
   ngOnInit() {
-    this.form.setValue({...}); // Too late for initial render
+    // Redundant for sync defaults; clobbers user input if async data arrives late
+    this.form.setValue({ name: 'John' });
   }
 }
 
-// RIGHT — initialize in constructor
+// RIGHT — declare defaults once; patchValue() only when async data actually arrives
 @Component({...})
 export class ProfileComponent {
   form = new FormGroup({
-    name: new FormControl(')
+    name: new FormControl(''),
   });
+
+  constructor() {
+    this.userService.getProfile()
+      .pipe(takeUntilDestroyed())
+      .subscribe(profile => this.form.patchValue(profile)); // patch, not setValue
+  }
 }
 ```
 
@@ -721,24 +773,25 @@ ngOnInit() {
 ### Astro Anti-Patterns
 
 #### 1. Client-Side Data Fetching When Server-Side Possible (P2)
-**Detection:** `fetch()` inside component without checking if static possible
+**Detection:** `fetch()` inside a client-side `<script>` (runtime request) when the data could be fetched in frontmatter at build time
 **Reference:** https://docs.astro.build/en/recipes/build-time-data-fetching
 
 ```astro
-// WRONG — fetching at runtime when build-time is possible
+// WRONG — fetch in client-side <script>: runs in the browser on every visit, no build caching
 ---
-const data = await fetch('https://api.example.com/data').then(r => r.json());
 ---
 <script>
-// Or in client-side script
-const data = await fetch('https://api.example.com/data').then(r => r.json());
+  const data = await fetch('https://api.example.com/data').then(r => r.json());
 </script>
 
-// RIGHT — fetch at build time
+// RIGHT — fetch in frontmatter: executes once at build time, page ships with data
 ---
-// In frontmatter (runs at build)
 const data = await fetch('https://api.example.com/data').then(r => r.json());
 ---
+<p>{data.title}</p>
+
+// Note: add a client:* directive only for interactivity — never for data fetching
+<Interactive client:load />
 ```
 
 #### 2. Improper Prop Typing (P2)
@@ -874,17 +927,21 @@ function processUser(user: User): User {
 
 #### 4. Creating Objects in Render (P2)
 **Detection:** Object/array creation inside render/return
-**Reference:** https://www.typescriptlang.org/docs/handbook/2/functions.html#rest-parameters
+**Reference:** https://react.dev/learn/keeping-components-pure
 
 ```tsx
-// WRONG — new array every render
-const Child = ({ items }) => (
-  items.map(item => <div key={{ id: item.id }}>{item.name}</div>)
+// WRONG — new object created on every render
+const Child = ({ name, id }) => (
+  <UserCard user={{ name, id }} />
 );
 
-// RIGHT — stable key
-const Child = ({ items }) => (
-  items.map(item => <div key={item.id}>{item.name}</div>)
+// RIGHT — move outside the component (module constant)
+const defaultUser = { name: 'John', id: 1 };
+const Child = () => <UserCard user={defaultUser} />;
+
+// Or RIGHT — memoize when values change per render
+const Child = ({ name, id }) => (
+  <UserCard user={useMemo(() => ({ name, id }), [name, id])} />
 );
 ```
 
@@ -914,6 +971,43 @@ function createUser(name: string, age?: number | null) {
 function createUser(name: string, age?: number) {
   // Use undefined for optional, value for required
 }
+```
+
+---
+
+### CSS-in-JS / Responsive Design Patterns
+
+#### 1. Hardcoded Values in CSS-in-JS (P2)
+**Detection:** Magic numbers inside styled-components / Emotion / CSS modules
+**Reference:** https://styled-components.com/docs/basics
+
+```tsx
+// WRONG — magic number inside a styled-component
+const Card = styled.div`padding: 8px;`;
+// RIGHT — use design token
+const Card = styled.div`padding: var(--ds-space-2);`;
+```
+
+#### 2. Repeated Breakpoint Values in Media Queries (P2)
+**Detection:** Raw px breakpoints in `media` queries instead of design tokens
+**Reference:** https://developer.mozilla.org/docs/Web/CSS/@media
+
+```css
+/* WRONG — duplicated magic breakpoint */
+@media (min-width: 768px) { }
+/* RIGHT — breakpoint token */
+@media (min-width: var(--ds-breakpoint-md)) { }
+```
+
+#### 3. Touch Target Below 44px on Mobile (P1)
+**Detection:** Interactive element smaller than the 44px mobile touch target
+**Reference:** https://developer.apple.com/design/human-interface-guidelines/touch-targets
+
+```css
+/* WRONG — too small to tap reliably */
+.close-btn { width: 32px; height: 32px; }
+/* RIGHT — minimum mobile touch target */
+.close-btn { width: 44px; height: 44px; }
 ```
 
 ---

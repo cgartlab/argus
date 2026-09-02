@@ -216,7 +216,7 @@ fail-on: [P0, P1, P2, P3]
 | Default | `50` |
 | Range | 1 – 500 |
 
-Caps the number of findings reported in the PR comment. When the actual finding count exceeds this limit, Argus reports the highest-severity findings first and appends a "N more findings suppressed" note.
+Caps the number of findings reported in the PR comment. When the actual finding count exceeds this limit, Argus reports findings in severity order and outputs at most N findings, prioritizing P0/P1 (highest-severity first). This is a prompt-layer convention: the cap is enforced through the review prompt injected into the LLM, so the actual output follows the model's execution.
 
 ---
 

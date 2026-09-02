@@ -34,6 +34,8 @@ Argus detects whether it is running inside a men pipeline through three signals,
 | Environment | `MEN_CONTEXT=1` | Same as the flag |
 | Invocation context | men passes an envelope with `source: men` | Argus may include men metadata in its report |
 
+> ⚠️ **Prompt-layer convention, not a CLI feature.** `--men-context`, `MEN_CONTEXT=1`, and `--events-json` are prompt-layer conventions: the OpenCode CLI itself does not recognize these custom flags. They take effect through the rules injected into the LLM context (AGENTS.md / SKILL.md) — the LLM reads the flag wording and adjusts its framing. In frameworks that load the skill package without flag support, the equivalent is to state `respond in men-context format` directly in the prompt; the CLI invocation examples in §3 / §6 are illustrative only.
+
 **Detection rules:**
 
 1. If no signal is present, Argus runs in **standalone mode** — canonical output, no men framing.
@@ -57,6 +59,8 @@ men first classifies the task. Only frontend design review tasks are routed to A
 | Content planning / decomposition | men's planning agent |
 
 ### Invocation Parameters
+
+> **Note on the flags below:** `--men-context` / `--events-json` are prompt-layer conventions (see §2) — the OpenCode CLI does not recognize custom flags. If the framework loading the skill package does not support them, write `respond in men-context format` directly in the prompt instead.
 
 ```bash
 # Minimal invocation (standalone-compatible)
@@ -132,6 +136,8 @@ Chi verification is **optional** — standalone runs skip it entirely.
 Argus supports best-effort event logging for men's learning loops.
 
 ### Usage
+
+> Flags here are prompt-layer conventions (see §2 / §3): the CLI does not parse `--events-json`; it is recognized through the injected LLM rules, or equivalently by stating the request in the prompt.
 
 ```bash
 opencode run argus --men-context --events-json /tmp/argus-events.jsonl -- \

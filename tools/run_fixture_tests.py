@@ -509,8 +509,13 @@ def _static_heuristic_scan(fixture_path: Path) -> str:
 
 # ── Result validation ─────────────────────────────────────────────────────────
 
-def validate_output(expected: ExpectedFile, argus_output: str) -> FixtureResult:
-    """Compare Argus output against the .expected specification."""
+def validate_output(expected: ExpectedFile, argus_output: str, tolerance: int = 1) -> FixtureResult:
+    """Compare Argus output against the .expected specification.
+
+    ``tolerance`` is the allowed count deviation per severity: static
+    heuristic mode is deterministic and passes ``tolerance=0`` (exact match),
+    while LLM mode keeps the historical ±1 for model variance.
+    """
     errors: list[str] = []
     warnings: list[str] = []
     output_lower = argus_output.lower()
@@ -522,14 +527,13 @@ def validate_output(expected: ExpectedFile, argus_output: str) -> FixtureResult:
             if re.search(rf"\[{sev}\]", line):
                 actual_counts[sev] += 1
 
-    # 2. Verify severity counts (allow ±1 tolerance for LLM variance)
-    TOLERANCE = 1
+    # 2. Verify severity counts (static heuristic mode → exact; LLM ±1)
     for sev, expected_count in expected.counts.items():
         actual = actual_counts.get(sev, 0)
-        if abs(actual - expected_count) > TOLERANCE:
+        if abs(actual - expected_count) > tolerance:
             errors.append(
                 f"Count mismatch [{sev}]: expected {expected_count}, got {actual} "
-                f"(tolerance ±{TOLERANCE})"
+                f"(tolerance ±{tolerance})"
             )
         elif actual != expected_count:
             warnings.append(
@@ -541,6 +545,22 @@ def validate_output(expected: ExpectedFile, argus_output: str) -> FixtureResult:
         if spec.keyword and spec.keyword.lower() not in output_lower:
             errors.append(
                 f"Required keyword not found in [{spec.severity}] findings: '{spec.keyword}'"
+            )
+
+    # 3b. Verify line_hint substrings (README: "substring that must appear in
+    #     the file:line reference"). Empty hints are skipped; a hint that
+    #     matches no finding line of its severity is advisory-only (warn), since
+    #     LLM output may reword the issue description.
+    for spec in expected.findings:
+        if not spec.line_hint:
+            continue
+        finding_lines = [
+            l for l in argus_output.splitlines()
+            if re.search(rf"\[{spec.severity}\]", l)
+        ]
+        if not any(spec.line_hint in l for l in finding_lines):
+            warnings.append(
+                f"line_hint '{spec.line_hint}' not found in any [{spec.severity}] finding line"
             )
 
     # 4. Check must-not-flag items — these should not appear as flagged tokens
@@ -720,7 +740,10 @@ def main() -> int:
 
         argus_output = run_argus_on_fixture(fixture_path, model=model, verbose=args.verbose,
                                             fallback_models=fallback_models)
-        result = validate_output(expected, argus_output)
+        # Static heuristic scan is deterministic → exact counts (tolerance 0);
+        # LLM output varies → keep the historical ±1 tolerance.
+        static_mode = _find_opencode() is None
+        result = validate_output(expected, argus_output, tolerance=0 if static_mode else 1)
         results.append(result)
 
         if result.passed:
