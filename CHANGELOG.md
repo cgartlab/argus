@@ -4,7 +4,6 @@
 
 - **Zen API Key Guidance** — The composite action accepts a new `api-key` input. When the review fails with an auth-class error (401/403/unauthorized/invalid key), it fails fast instead of walking the fallback queue (every zen model shares the same key, so retries would 401 identically) and prints a copy-ready 5-step fix guide: register at opencode.ai → create a key at opencode.ai/auth → add an `OPENCODE_API_KEY` Actions secret → the workflow passes it via `api-key: ${{ secrets.OPENCODE_API_KEY }}` → re-run. Guidance goes to stdout and, best-effort, as a PR comment.
 - **API-First Model Refresh** — `update_free_models.py` now fetches the live free model list from the public OpenCode Zen API (`GET https://opencode.ai/zen/v1/models`, no auth, stdlib `urllib` only). The opencode CLI is retained solely as a degradation path when the API is unreachable; the scheduled workflow no longer installs the CLI, and the cron is offset to `23 */12 * * *`.
-- **CSS-in-JS / Responsive Design Patterns** — New SKILL.md section covering hardcoded values in styled-components / CSS Modules, media-query breakpoint tokens, and the 44px touch target
 
 ### Changed
 
@@ -14,6 +13,17 @@
 - **User-Decided Constraints** — Only `-free`-suffixed model IDs qualify for the fallback queue (big-pickle stays excluded); consumers must configure their own OpenCode Zen API key (`OPENCODE_API_KEY`, provider=opencode) — no bundled key; GitHub's `GITHUB_TOKEN` with `contents: write` is sufficient for the auto-push, and the push does not re-trigger the workflow (accepted behavior).
 - **Delisted Models Dropped** — Removed `opencode/hy3-free` and `opencode/x-preview-f-free` from `MODEL_SCORES`; regenerated `config/free-models.yml` contains only currently-live `-free` models.
 - **Auth Preflight (local)** — `run_fixture_tests.py` prints a non-blocking hint when running an `opencode/` provider model without `OPENCODE_API_KEY` (`opencode auth login` or set the env var; see https://opencode.ai/auth).
+
+---
+
+## [0.4.1] — 2026-09-03
+
+### Added
+
+- **CSS-in-JS / Responsive Design Patterns** — New SKILL.md section covering hardcoded values in styled-components / CSS Modules, media-query breakpoint tokens, and the 44px touch target
+
+### Changed
+
 - **SKILL.md Stack Detection Expanded** — Detection table adds UnoCSS and Tailwind CSS rows; the detection workflow adds an atomic-CSS check step
 
 ### Fixed

@@ -1,6 +1,6 @@
 # AGENTS.md — Argus
 
-**Version:** 0.4.0 | **Project:** https://github.com/cgartlab/argus | **License:** MIT
+**Version:** 0.4.1 | **Project:** https://github.com/cgartlab/argus | **License:** MIT
 **Updated:** 2026-09-02
 
 ---
