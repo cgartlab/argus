@@ -41,7 +41,7 @@ argus/
 ├── tools/
 │   ├── run_fixture_tests.py           # Fixture regression test runner
 │   ├── load_config.py                 # Consumer .argus.yml loader + validator
-│   ├── update_free_models.py          # Refresh config/free-models.yml from live opencode list
+│   ├── update_free_models.py          # Refresh config/free-models.yml from live OpenCode Zen API (ranked)
 │   ├── bump_version.py                # Automated semver bumping
 │   └── validate_versioning.py         # VERSION / CHANGELOG consistency check
 ├── config/
@@ -79,7 +79,7 @@ argus/
 | Release automation | `.github/workflows/release.yml` | Tag-push → validates → packages → GitHub Release |
 | Reusable review action | `.github/actions/argus-review/action.yml` | Dynamic rule + config injection |
 | Free model config | `config/free-models.yml` | Single source of truth for fallback model queue |
-| Free model updater | `tools/update_free_models.py` | Refreshes config from live opencode list |
+| Free model updater | `tools/update_free_models.py` | Refreshes config from live OpenCode Zen API (ranked) |
 | Model refresh workflow | `.github/workflows/update-free-models.yml` | 12h scheduled refresh of fallback models |
 | PR automation | `.github/workflows/pr-automation.yml` | Auto-label/assign/project on PR open |
 | GitHub App | `github.com/apps/argus-flash` | Installed on any repo needing design review |
