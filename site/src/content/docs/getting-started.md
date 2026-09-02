@@ -3,7 +3,7 @@ title: Getting Started
 description: Install argus-flash in three steps and run your first design review.
 order: 1
 sidebarGroup: Start
-updated: 2026-08-31
+updated: 2026-09-02
 ---
 
 # Getting Started
@@ -78,11 +78,25 @@ jobs:
       - uses: cgartlab/argus/.github/actions/argus-review@main # Step 3: run the Argus review
         with:
           github-token: ${{ steps.app-token.outputs.token }}   # Pass the bot token to Argus
+          api-key: ${{ secrets.OPENCODE_API_KEY }}             # Your OpenCode Zen API key (Step 4)
 ```
 
 **What you'll see:** A new workflow appears under your repository's **Actions** tab.
 
-### Step 4 — Open a pull request and watch the magic
+### Step 4 — Add your OpenCode Zen API key
+
+**What to do:**
+
+1. Register at [opencode.ai](https://opencode.ai) (free) and create an API key at [opencode.ai/auth](https://opencode.ai/auth).
+2. Go to your repository → **Settings → Secrets and variables → Actions** → **New repository secret**, name it `OPENCODE_API_KEY`, and paste your key.
+
+**Why:** Argus reviews run on the **OpenCode Zen free model** (IDs end in `-free`, e.g. `opencode/xxx-free`). The model costs 0 USD per token — but the API still authenticates every call, so a key is required. Argus never ships with a key, and the argus-flash App provides GitHub identity only (the bot token), not an LLM key. (The free model offer is time-limited.)
+
+**What you'll see:** No workflow changes are needed — the workflow from Step 3 already passes the secret through with `api-key: ${{ secrets.OPENCODE_API_KEY }}`. If a review fails with **"No usable OpenCode Zen API key detected"**, the key is missing or mistyped — redo this step.
+
+> **Important:** never put your API key in `.argus.yml` or any committed file — it would be visible to forks and collaborators. For local runs, authenticate once with `opencode auth login` (choose **OpenCode**, paste your key) or set the `OPENCODE_API_KEY` environment variable.
+
+### Step 5 — Open a pull request and watch the magic
 
 **What to do:** Open a pull request (PR) — that's the process of proposing code changes for review. Add any frontend change, even a tiny one.
 
@@ -110,6 +124,8 @@ cd argus                                          # go into it
 
 Point your agent framework (OpenCode, Claude Code, Codex CLI) at this folder, and the review behavior loads automatically.
 
+Before your first local review, authenticate once: run `opencode auth login`, choose **OpenCode**, and paste your key from [opencode.ai/auth](https://opencode.ai/auth). Or set the `OPENCODE_API_KEY` environment variable.
+
 ## Pinning the action version
 
 **What to do:** In the workflow, use a version tag instead of `@main`:
@@ -127,6 +143,9 @@ Point your agent framework (OpenCode, Claude Code, Codex CLI) at this folder, an
 2. Confirm the workflow file is exactly at `.github/workflows/argus-review.yml` (not `.github/argus-review.yml`).
 3. Confirm the app is installed on **this** repository (Settings → Integrations).
 4. Confirm both secrets are spelled exactly `ARGUS_FLASH_APP_ID` and `ARGUS_FLASH_PRIVATE_KEY`.
+
+**Q: The review fails with "No usable OpenCode Zen API key detected."**
+The `OPENCODE_API_KEY` secret is missing or mistyped. Re-add it at Settings → Secrets and variables → Actions, then re-run the workflow (see Step 4).
 
 **Q: The workflow fails with "secret not found" or "Permission denied."**
 The secrets are missing or mistyped. Re-add them at Settings → Secrets and variables → Actions. A common mistake is a trailing space or a line break inside the private key — paste the key exactly as GitHub generated it.

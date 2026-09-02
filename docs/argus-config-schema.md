@@ -21,6 +21,24 @@ That's all you need for the most common case.
 
 ---
 
+## API keys are NOT configured here
+
+`.argus.yml` holds **review configuration only** — skills, severity overrides, ignore paths, failure thresholds. The file is committed to your repository, so anything in it is visible to forks and collaborators.
+
+**Never put an API key or token in `.argus.yml`.** A committed key is an instant leak.
+
+API keys are configured out-of-band:
+
+| Where | How |
+|---|---|
+| CI (GitHub Actions) | Add `OPENCODE_API_KEY` as a repository secret (**Settings → Secrets and variables → Actions**) — the argus-review action reads it via `api-key: ${{ secrets.OPENCODE_API_KEY }}` |
+| Local | `opencode auth login` (choose **OpenCode**, paste your key) or set the `OPENCODE_API_KEY` environment variable |
+| Key creation | Register at https://opencode.ai (free), create a key at https://opencode.ai/auth |
+
+The argus-flash GitHub App provides GitHub identity only (the bot token) — it does **not** provide an LLM key. Even with the App installed, you still need your own OpenCode Zen API key to run reviews.
+
+---
+
 ## Full Schema Reference
 
 ```yaml

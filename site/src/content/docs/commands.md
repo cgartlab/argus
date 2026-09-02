@@ -3,7 +3,7 @@ title: Commands
 description: Makefile commands and GitHub App usage reference.
 order: 5
 sidebarGroup: System
-updated: 2026-08-31
+updated: 2026-09-02
 ---
 
 # Commands
@@ -90,3 +90,5 @@ For contributors who want finer control:
 | `make release` | `Makefile` | Commits, tags, and pushes; release workflow handles the rest |
 | `python3 tools/run_fixture_tests.py` | `tools/` | Flags: `--dry-run`, `--category`, `--fixture`, `--verbose`, `--json` |
 | `python3 tools/load_config.py --validate-only` | `tools/` | Checks a `.argus.yml` without running a review |
+
+`make test-fixtures-llm` runs the fixture suite against a real model, so it needs an OpenCode CLI with a **configured model**. Configure once with `opencode auth login` (choose **OpenCode** and paste your key from [opencode.ai/auth](https://opencode.ai/auth)), or set the `OPENCODE_API_KEY` environment variable.

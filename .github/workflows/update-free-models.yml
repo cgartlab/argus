@@ -6,7 +6,7 @@ name: Update Free Models
 
 on:
   schedule:
-    - cron: "0 */12 * * *"   # every 12 hours
+    - cron: "23 */12 * * *"   # every 12 hours (offset to avoid top-of-hour spikes)
   workflow_dispatch: {}       # manual trigger
 
 permissions:
@@ -17,9 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install OpenCode CLI
-        run: curl -fsSL https://opencode.ai/install | bash
 
       - name: Refresh free model list
         run: |

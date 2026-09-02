@@ -24,3 +24,4 @@ jobs:
       - uses: cgartlab/argus/.github/actions/argus-review@main
         with:
           github-token: ${{ steps.app-token.outputs.token }}
+          api-key: ${{ secrets.OPENCODE_API_KEY }}

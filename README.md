@@ -101,9 +101,23 @@ jobs:
       - uses: cgartlab/argus/.github/actions/argus-review@main
         with:
           github-token: ${{ steps.app-token.outputs.token }}
+          api-key: ${{ secrets.OPENCODE_API_KEY }}
 ```
 
 That's it. Every PR will automatically receive a design review comment from `argus-flash[bot]`.
+
+### Configure your own API key
+
+Argus reviews run on the **OpenCode Zen free model** (IDs end in `-free`). The model costs 0 USD per token, but every call still needs an **API key** — Argus never ships with one.
+
+1. Register at https://opencode.ai (free) and create an API key at https://opencode.ai/auth
+2. Add it as a repository secret: **Settings → Secrets and variables → Actions → New repository secret** → name `OPENCODE_API_KEY`
+3. The workflow above already passes it through (`api-key: ${{ secrets.OPENCODE_API_KEY }}`) — no workflow changes needed
+4. Re-trigger the review (re-run the workflow, or push a new commit to the PR)
+
+**Local runs:** `opencode auth login` — choose **OpenCode** and paste your key — or set the `OPENCODE_API_KEY` environment variable.
+
+> **Never** put your API key in `.argus.yml` or any committed file — forks and collaborators would see it.
 
 ## Rule Auto-Sync
 

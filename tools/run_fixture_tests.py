@@ -162,9 +162,13 @@ def parse_expected(expected_path: Path) -> ExpectedFile:
 from update_free_models import MODEL_SCORES as _MODEL_SCORES
 from update_free_models import rank_models as _rank_models
 from update_free_models import _parse_config as _parse_free_models_config
+from update_free_models import BUILTIN_PRIMARY as _BUILTIN_PRIMARY
 
-# Last-resort built-in queue = known free models ranked by coding ability.
-BUILTIN_FALLBACK_MODELS = ",".join(_rank_models(list(_MODEL_SCORES.keys())))
+# Last-resort built-in queue = known free models ranked by coding ability,
+# excluding the built-in primary (the primary is never part of the fallback queue).
+BUILTIN_FALLBACK_MODELS = ",".join(
+    m for m in _rank_models(list(_MODEL_SCORES.keys())) if m != _BUILTIN_PRIMARY
+)
 
 
 def default_fallback_models() -> str:
@@ -177,6 +181,18 @@ def default_fallback_models() -> str:
     data = _parse_free_models_config(config_path)
     val = data.get("fallback_models", "")
     return val if val else BUILTIN_FALLBACK_MODELS
+
+
+def default_primary_model() -> str:
+    """Return the primary model from config/free-models.yml (or built-in default).
+
+    Mirrors the composite action's runtime resolution so local LLM-mode
+    fixture runs use the same primary as cloud reviews.
+    """
+    config_path = REPO_ROOT / "config" / "free-models.yml"
+    data = _parse_free_models_config(config_path)
+    val = data.get("primary", "")
+    return val if val else _BUILTIN_PRIMARY
 
 def build_argus_prompt(fixture_path: Path) -> str:
     """Build the same prompt the composite action uses, injecting AGENTS.md + SKILL.md."""
@@ -308,6 +324,20 @@ def _find_opencode() -> Optional[str]:
         except (FileNotFoundError, subprocess.TimeoutExpired):
             continue
     return None
+
+
+def _auth_preflight(model: str) -> None:
+    """Non-blocking hint when an opencode/ provider model is selected without
+    an OPENCODE_API_KEY (local LLM mode only; static heuristic mode needs none)."""
+    if not model.startswith("opencode/"):
+        return
+    if os.environ.get("OPENCODE_API_KEY"):
+        return
+    if _find_opencode() is None:
+        return  # static heuristic mode — no auth required
+    print(_c("yellow", "⚠ No OPENCODE_API_KEY set for opencode/ provider — runs may fail."))
+    print(_c("yellow", "  Fix: run `opencode auth login` (local login) or set OPENCODE_API_KEY."))
+    print(_c("yellow", "  Docs: https://opencode.ai/auth"))
 
 
 def _static_heuristic_scan(fixture_path: Path) -> str:
@@ -632,7 +662,7 @@ def main() -> int:
     )
     parser.add_argument("--category", metavar="NAME", help="Run only fixtures in this category subdirectory")
     parser.add_argument("--fixture", metavar="PATH", type=Path, help="Run a single fixture file")
-    parser.add_argument("--model", default="opencode/deepseek-v4-flash-free", help="LLM model to use (default: deepseek-v4-flash-free)")
+    parser.add_argument("--model", default=None, help="LLM model to use (default: primary from config/free-models.yml)")
     parser.add_argument("--fallback-models", default=None, help="Comma-separated fallback model queue (ordered by coding ability) when primary fails. Defaults to config/free-models.yml (auto-refreshed every 12h).")
     parser.add_argument("--verbose", action="store_true", help="Show full Argus output for each fixture")
     parser.add_argument("--dry-run", action="store_true", help="Parse fixtures and print plan, but do not invoke Argus")
@@ -642,6 +672,11 @@ def main() -> int:
     # Resolve fallback queue: explicit --fallback-models wins; otherwise read
     # from config/free-models.yml (auto-refreshed every 12h).
     fallback_models = args.fallback_models or default_fallback_models()
+
+    # Resolve primary model: explicit --model wins; otherwise read the primary
+    # from config/free-models.yml; built-in default only if config is missing.
+    model = args.model or default_primary_model()
+    _auth_preflight(model)
 
     pairs = discover_fixtures(
         category=args.category,
@@ -683,7 +718,7 @@ def main() -> int:
             print(f" {_c('yellow', 'SKIP')} (dry-run)")
             continue
 
-        argus_output = run_argus_on_fixture(fixture_path, model=args.model, verbose=args.verbose,
+        argus_output = run_argus_on_fixture(fixture_path, model=model, verbose=args.verbose,
                                             fallback_models=fallback_models)
         result = validate_output(expected, argus_output)
         results.append(result)
