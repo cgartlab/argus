@@ -269,11 +269,18 @@ def _list_free_models(opencode: str) -> set[str]:
 
     models: set[str] = set()
     for line in output.splitlines():
-        # Skip lines that look like error messages to avoid false positives.
+        # Skip empty lines. Only skip obvious log-level lines (e.g. `[error] ...`),
+        # not rows that legitimately start with `[` (numbered/bracketed output).
         stripped = line.strip()
-        if not stripped or stripped.startswith("["):
+        if not stripped:
             continue
-        m = FREE_MODEL_RE.search(line)
+        if stripped.lower().startswith(("[error", "[warn", "[info")):
+            continue
+        m = FREE_MODEL_RE.search(stripped)
+        if not m:
+            # The CLI may print bare IDs without the `opencode/` provider
+            # prefix — retry with the prefix added to catch them.
+            m = FREE_MODEL_RE.search("opencode/" + stripped)
         if m:
             models.add(m.group(0))
     return models

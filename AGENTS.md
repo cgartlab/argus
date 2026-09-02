@@ -236,9 +236,6 @@ make release          # validate → git commit → tag → push
 make package-skill    # Create skill package only (argus-skill-v{VERSION}.zip)
 make package          # Create all release archives (full + skill package)
 make clean            # Remove dist/
-make package-skill    # Create skill package only (argus-skill-v{VERSION}.zip)
-make package          # Create all release archives (full + skill package)
-make clean            # Remove dist/
 cd site && npm run build  # Build marketing site (site/ subproject)
 ```
 

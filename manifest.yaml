@@ -1,8 +1,10 @@
 name: argus
+# Note: also registered as `argus-design-review` (see SKILL.md frontmatter) so the
+# skill loader can find this agent by name.
 version: 0.4.0
 description: Frontend design code review agent — validates correctness, accessibility, security, and design token usage.
-skills:
-  - accessibility
+# No standalone `accessibility` skill is shipped — a11y rules are built into the
+# SKILL.md Review Dimensions.
 preferred_models:
   - opencode/deepseek-v4-flash-free
 required_capabilities:

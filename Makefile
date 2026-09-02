@@ -35,17 +35,21 @@ bump-patch bump-minor bump-major:
 .PHONY: validate
 validate:
 	@echo "── Validate: SKILL.md trigger phrases ──"
-	@python3 -c "import sys, re; f=open('SKILL.md').read(); phrases=[p.strip() for p in re.findall(r'(?:when|phrases?)[:\s]+([^\n]+)', f, re.I)]; print('SKILL.md ok') if len(phrases) >= 3 else (print('SKILL.md: need 3+ trigger phrases'), sys.exit(1))" 2>/dev/null || echo "SKILL.md: could not verify trigger phrases automatically"
+	@if command -v python3 >/dev/null 2>&1; then python3 -c "import sys, re; f=open('SKILL.md').read(); phrases=[p.strip() for p in re.findall(r'(?:when|phrases?)[:\s]+([^\n]+)', f, re.I)]; print('SKILL.md ok') if len(phrases) >= 3 else (print('SKILL.md: need 3+ trigger phrases'), sys.exit(1))"; else echo "SKILL.md: python3 not available — trigger phrase check skipped (warning)"; fi
 	@echo "── Validate: VERSION matches CHANGELOG ──"
 	@grep -q "^## \[$(VERSION)\]" CHANGELOG.md && echo "CHANGELOG ok" || (echo "CHANGELOG: missing [$(VERSION)] section" && exit 1)
+	@echo "── Validate: versioning consistency (VERSION ↔ CHANGELOG) ──"
+	@if command -v python3 >/dev/null 2>&1; then python3 tools/validate_versioning.py; else echo "validate_versioning: python3 not available — versioning check skipped (warning)"; fi
 	@echo "── Validate: required files ──"
 	@for f in AGENTS.md SKILL.md README.md VERSION CHANGELOG.md \
+	           CONTRIBUTING.md Makefile \
 	           tools/run_fixture_tests.py tools/load_config.py \
-	           tools/update_free_models.py \
+	           tools/update_free_models.py tools/bump_version.py \
+	           tools/validate_versioning.py \
 	           config/free-models.yml \
 	           docs/argus-config-schema.md \
 	           .github/actions/argus-review/action.yml \
-.github/workflows/update-free-models.yml \
+	           .github/workflows/update-free-models.yml \
 	           .github/workflows/pr-automation.yml \
 	           tests/fixtures/README.md; do \
 	    test -f "$$f" && echo "$$f ok" || (echo "$$f missing" && exit 1); \

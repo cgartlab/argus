@@ -163,8 +163,8 @@ runs:
           #   auth_re  — missing/invalid API key (every zen model shares the
           #              same key, so the fallback queue fails identically;
           #              fail fast with guidance instead of pointless retries)
-          local retry_re="429[[:space:]]+(rate|too|exceeded|limit(ed|s)?)[[:space:]]|rate[[:space:]]*limit|too many requests|model[[:space:]]+not[[:space:]]+found|no[[:space:]]+such[[:space:]]+model|model[[:space:]]+does[[:space:]]+not[[:space:]]+exist|upstream request failed|endpoint is unavailable|unavailable"
-          local auth_re="401|403|unauthorized|authentication|invalid[[:space:]]+api[[:space:]]+key|api[[:space:]]+key"
+          local retry_re="429[[:space:]]+(rate|too|exceeded|limit(ed|s)?)[[:space:]]|rate[[:space:]]*limit|too many requests|model[[:space:]]+not[[:space:]]+found|no[[:space:]]+such[[:space:]]+model|model[[:space:]]+does[[:space:]]+not[[:space:]]+exist|upstream request failed|endpoint is unavailable"
+          local auth_re="401[[:space:]]+(unauthorized|invalid)|403[[:space:]]+(forbidden|invalid)|unauthorized|authentication[[:space:]]+(failed|error)|invalid[[:space:]]+api[[:space:]]+key|missing[[:space:]]+api[[:space:]]+key"
 
           print_auth_guidance() {
             # Build the guidance text with the GitHub-expression literal
@@ -274,6 +274,7 @@ runs:
             # Auth failure — same key issue, stop trying and guide the user.
             if echo "$output" | grep -qiE "$auth_re"; then
               echo "[argus] ⚠ Fallback '$fb_model' failed (auth): all zen models require the same API key"
+              dismiss_stale_reviews
               print_auth_guidance
               return $exit_code
             fi
@@ -285,11 +286,20 @@ runs:
               echo "[argus] ⚠ Fallback '$fb_model' failed (non-retryable):"
               echo "$output" | tail -5
             fi
+            # This failed fallback may have posted a PENDING/COMMENTED review —
+            # clear it before trying the next model to avoid duplicate comments.
+            dismiss_stale_reviews
           done
 
           # All fallbacks exhausted — keep primary output and its exit code
           echo "[argus] ✗ All fallback models exhausted; keeping primary output"
-          echo "$primary_output"
+          if [ -z "$primary_output" ]; then
+            echo "[argus] ✗ Primary model produced no output (exit code: $primary_exit_code). No review was generated."
+            echo "[argus]   Possible causes: timeout killed the process, network issue, or model hang."
+            echo "[argus]   Action failed without a review comment — check the step log for the underlying error."
+          else
+            echo "$primary_output"
+          fi
           return $primary_exit_code
         }
 
@@ -305,7 +315,7 @@ runs:
         fi
         if [ -z "$FALLBACK_MODELS" ]; then
           echo "[argus] ⚠ No fallback models configured; using last-known-good defaults"
-          FALLBACK_MODELS="opencode/nemotron-3-ultra-free,opencode/nemotron-3.5-lightning-free,opencode/muse-spark-1.2-contributor-free,opencode/mimo-v2.5-free"
+          FALLBACK_MODELS="opencode/nemotron-3-ultra-free,opencode/nemotron-3.5-lightning-free,opencode/muse-spark-1.2-contributor-free,opencode/mimo-v2.5-free,opencode/laguna-s-2.1-free,opencode/ling-3.0-flash-fin-free"
         fi
         echo "[argus] Fallback queue: $FALLBACK_MODELS"
 

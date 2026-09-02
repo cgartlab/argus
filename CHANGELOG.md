@@ -4,13 +4,28 @@
 
 - **Zen API Key Guidance** — The composite action accepts a new `api-key` input. When the review fails with an auth-class error (401/403/unauthorized/invalid key), it fails fast instead of walking the fallback queue (every zen model shares the same key, so retries would 401 identically) and prints a copy-ready 5-step fix guide: register at opencode.ai → create a key at opencode.ai/auth → add an `OPENCODE_API_KEY` Actions secret → the workflow passes it via `api-key: ${{ secrets.OPENCODE_API_KEY }}` → re-run. Guidance goes to stdout and, best-effort, as a PR comment.
 - **API-First Model Refresh** — `update_free_models.py` now fetches the live free model list from the public OpenCode Zen API (`GET https://opencode.ai/zen/v1/models`, no auth, stdlib `urllib` only). The opencode CLI is retained solely as a degradation path when the API is unreachable; the scheduled workflow no longer installs the CLI, and the cron is offset to `23 */12 * * *`.
+- **CSS-in-JS / Responsive Design Patterns** — New SKILL.md section covering hardcoded values in styled-components / CSS Modules, media-query breakpoint tokens, and the 44px touch target
 
 ### Changed
 
 - **Dynamic Primary Selection** — `refresh()` re-selects the primary on every run: the current primary is kept while it is still live, otherwise the highest-ranked live `-free` model is promoted (composite score desc, ties alphabetical) with a `↻ Primary re-selected: X → Y` log. Default primary moved to `opencode/deepseek-v4-flash-free` (last-known-good); the action's `model` input now defaults to empty and is resolved at runtime from `config/free-models.yml` primary, with the same built-in default as final fallback. `run_fixture_tests.py` and `make test-fixtures-llm` no longer hardcode a model — they read the config primary too.
+
+  > **Why deepseek is back:** [0.4.0] moved the default to `opencode/hy3-free` (deepseek was deprecated at that time). `hy3-free` was subsequently delisted from the live model list (see *Delisted Models Dropped* below), so the default reverts to `opencode/deepseek-v4-flash-free` as the last-known-good model. The "[0.4.0] deepseek deprecated" note is historical context for that release, not a statement about the current default.
 - **User-Decided Constraints** — Only `-free`-suffixed model IDs qualify for the fallback queue (big-pickle stays excluded); consumers must configure their own OpenCode Zen API key (`OPENCODE_API_KEY`, provider=opencode) — no bundled key; GitHub's `GITHUB_TOKEN` with `contents: write` is sufficient for the auto-push, and the push does not re-trigger the workflow (accepted behavior).
 - **Delisted Models Dropped** — Removed `opencode/hy3-free` and `opencode/x-preview-f-free` from `MODEL_SCORES`; regenerated `config/free-models.yml` contains only currently-live `-free` models.
 - **Auth Preflight (local)** — `run_fixture_tests.py` prints a non-blocking hint when running an `opencode/` provider model without `OPENCODE_API_KEY` (`opencode auth login` or set the env var; see https://opencode.ai/auth).
+- **SKILL.md Stack Detection Expanded** — Detection table adds UnoCSS and Tailwind CSS rows; the detection workflow adds an atomic-CSS check step
+
+### Fixed
+
+- **SKILL.md Anti-Patterns Accuracy** — Removed the fabricated Angular API `destroyRegistry()` in favor of the official `takeUntilDestroyed()` / `inject(DestroyRef)`; fixed the unclosed `new FormControl(')` string (Angular #2), the mistyped `onClick={{ handle }}` (React #3), the dead link (Svelte #2), and the invented `userStore.incrementAge()` (Svelte #5); rewrote Astro #1 and General JS/TS #4 so WRONG/RIGHT examples are unambiguous
+- **SKILL.md Vue Rules Modernized** — Rewrote the doc-contradicting Vue #4 (reactive over ref) into a real anti-pattern: destructuring `reactive()` drops reactivity → use `ref()` / `toRefs()`; rewrote the Vue 2-era Vue #8 (push not reactive) into the Vue 3 rule: direct prop assignment → `defineModel()` / `emit`
+- **action.yml Auth/Retry Tightening** — `auth_re` no longer matches bare `401|403|api key` (ordinary review prose and line numbers no longer trigger false auth failures or mislead users into configuring a key); `retry_re` drops bare `unavailable`; exhausted fallbacks with no primary output now emit explicit diagnostics (timeout / network / model hang)
+- **action.yml Stale-Review Cleanup** — The fallback loop calls `dismiss_stale_reviews` between failed attempts to avoid duplicate review comments; last-resort fallback queue literal synced with `config/free-models.yml` (4 → 6 models)
+- **Fixture Runner Verification** — `run_fixture_tests.py` now actually validates `line_hint` (previously parsed but never checked); static heuristic mode uses tolerance=0 for exact matching (LLM mode keeps ±1)
+- **Model Refresh CLI Fallback** — `update_free_models.py` CLI fallback path accepts bare model IDs (no `opencode/` prefix); the `[`-prefixed line skip is narrowed to log-level lines only
+- **Makefile Validate Hardening** — `make validate` no longer swallows SKILL.md trigger-phrase check failures (python3 present → fail on fail; missing → warn without blocking); added the `validate_versioning.py` consistency check; required-files list aligned with ci.yml (14 → 18)
+- **Manifest & Docs Accuracy** — Removed the non-existent `skills: [accessibility]` reference from `manifest.yaml` (name difference annotated); cleaned duplicate COMMANDS lines in `AGENTS.md`; `docs/men-integration.md` clarifies that `--men-context` / `--events-json` are prompt-layer conventions, not CLI features; `docs/argus-config-schema.md` aligns the max-findings promise with actual behavior (dropped the unsubstantiated "N more findings suppressed" claim)
 
 ---
 
@@ -25,7 +40,7 @@
 
 ### Changed
 
-- **Primary Model** — Default review model switched from `opencode/deepseek-v4-flash-free` to `opencode/hy3-free` (deepseek deprecated)
+- **Primary Model** — Default review model switched from `opencode/deepseek-v4-flash-free` to `opencode/hy3-free` (deepseek deprecated; see the Unreleased *Dynamic Primary Selection* entry for the subsequent revert)
 - **Fallback Refresh** — `config/free-models.yml` fallback queue is now auto-refreshed every 12h, ordered by the coding-ability ranking
 - **Release Notes Extraction** — `release.yml` now extracts the current version's CHANGELOG section with `index()` instead of a regex, making version-header matching more robust
 
