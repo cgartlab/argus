@@ -1,3 +1,19 @@
+## [Unreleased]
+
+### Added
+
+- **Zen API Key Guidance** — The composite action accepts a new `api-key` input. When the review fails with an auth-class error (401/403/unauthorized/invalid key), it fails fast instead of walking the fallback queue (every zen model shares the same key, so retries would 401 identically) and prints a copy-ready 5-step fix guide: register at opencode.ai → create a key at opencode.ai/auth → add an `OPENCODE_API_KEY` Actions secret → the workflow passes it via `api-key: ${{ secrets.OPENCODE_API_KEY }}` → re-run. Guidance goes to stdout and, best-effort, as a PR comment.
+- **API-First Model Refresh** — `update_free_models.py` now fetches the live free model list from the public OpenCode Zen API (`GET https://opencode.ai/zen/v1/models`, no auth, stdlib `urllib` only). The opencode CLI is retained solely as a degradation path when the API is unreachable; the scheduled workflow no longer installs the CLI, and the cron is offset to `23 */12 * * *`.
+
+### Changed
+
+- **Dynamic Primary Selection** — `refresh()` re-selects the primary on every run: the current primary is kept while it is still live, otherwise the highest-ranked live `-free` model is promoted (composite score desc, ties alphabetical) with a `↻ Primary re-selected: X → Y` log. Default primary moved to `opencode/deepseek-v4-flash-free` (last-known-good); the action's `model` input now defaults to empty and is resolved at runtime from `config/free-models.yml` primary, with the same built-in default as final fallback. `run_fixture_tests.py` and `make test-fixtures-llm` no longer hardcode a model — they read the config primary too.
+- **User-Decided Constraints** — Only `-free`-suffixed model IDs qualify for the fallback queue (big-pickle stays excluded); consumers must configure their own OpenCode Zen API key (`OPENCODE_API_KEY`, provider=opencode) — no bundled key; GitHub's `GITHUB_TOKEN` with `contents: write` is sufficient for the auto-push, and the push does not re-trigger the workflow (accepted behavior).
+- **Delisted Models Dropped** — Removed `opencode/hy3-free` and `opencode/x-preview-f-free` from `MODEL_SCORES`; regenerated `config/free-models.yml` contains only currently-live `-free` models.
+- **Auth Preflight (local)** — `run_fixture_tests.py` prints a non-blocking hint when running an `opencode/` provider model without `OPENCODE_API_KEY` (`opencode auth login` or set the env var; see https://opencode.ai/auth).
+
+---
+
 ## [0.4.0] — 2026-09-02
 
 ### Added

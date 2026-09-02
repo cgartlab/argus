@@ -7,9 +7,19 @@ inputs:
   github-token:
     description: argus-flash GitHub App installation token
     required: true
+  api-key:
+    description: >
+      OpenCode Zen API key for the LLM provider (optional). When empty,
+      falls back to the GitHub App's configured environment. Get a free key
+      at https://opencode.ai/auth
+    default: ""
   model:
-    description: LLM model to use (primary; falls back to fallback queue on error)
-    default: opencode/hy3-free
+    description: >
+      LLM model to use (primary; falls back to fallback queue on error).
+      When empty, resolved at runtime from config/free-models.yml primary
+      (auto-refreshed every 12 hours), with a last-known-good built-in
+      default if the config is missing.
+    default: ""
   fallback-models:
     description: >
       Optional comma-separated fallback model queue override. When empty
@@ -115,6 +125,32 @@ runs:
       if: inputs.fixture-mode == 'false'
       shell: bash
       run: |
+        # Auth: only export when the consumer supplied a key — never override
+        # an existing environment value (e.g. the GitHub App's configured key).
+        if [ -n "${{ inputs.api-key }}" ]; then
+          export OPENCODE_API_KEY="${{ inputs.api-key }}"
+        fi
+        if [ -n "$OPENCODE_API_KEY" ]; then
+          echo "[argus] OpenCode API key: configured"
+        else
+          echo "[argus] OpenCode API key: unset"
+        fi
+
+        # Resolve primary model: explicit input wins; otherwise read from the
+        # auto-refreshed config/free-models.yml (updated every 12h by the
+        # update-free-models workflow); last resort is a last-known-good default.
+        PRIMARY_MODEL="${{ inputs.model }}"
+        if [ -z "$PRIMARY_MODEL" ]; then
+          MODELS_FILE="${{ github.action_path }}/../../../config/free-models.yml"
+          if [ -f "$MODELS_FILE" ]; then
+            PRIMARY_MODEL=$(grep -E '^primary:' "$MODELS_FILE" | head -1 | cut -d: -f2- | xargs)
+          fi
+        fi
+        if [ -z "$PRIMARY_MODEL" ]; then
+          echo "[argus] ⚠ No primary model configured; using last-known-good default"
+          PRIMARY_MODEL="opencode/deepseek-v4-flash-free"
+        fi
+
         run_with_fallback_queue() {
           local primary_model="$1"
           local fallback_models="$2"
@@ -122,8 +158,43 @@ runs:
           local primary_output=""
           local primary_exit_code=0
 
-          # Shared regex: retryable conditions (rate-limit OR model-unavailable)
+          # Shared regexes:
+          #   retry_re — rate-limit OR model-unavailable (fallback queue helps)
+          #   auth_re  — missing/invalid API key (every zen model shares the
+          #              same key, so the fallback queue fails identically;
+          #              fail fast with guidance instead of pointless retries)
           local retry_re="429[[:space:]]+(rate|too|exceeded|limit(ed|s)?)[[:space:]]|rate[[:space:]]*limit|too many requests|model[[:space:]]+not[[:space:]]+found|no[[:space:]]+such[[:space:]]+model|model[[:space:]]+does[[:space:]]+not[[:space:]]+exist|upstream request failed|endpoint is unavailable|unavailable"
+          local auth_re="401|403|unauthorized|authentication|invalid[[:space:]]+api[[:space:]]+key|api[[:space:]]+key"
+
+          print_auth_guidance() {
+            # Build the guidance text with the `${{ ... }}` literal split so
+            # GitHub does not try to evaluate it as an expression here.
+            # printf keeps every line as a single YAML-safe argument (block
+            # scalars cannot contain dedented continuation lines).
+            local lbrace='${{'
+            local guidance
+            guidance="$(printf '%s\n' \
+              '[argus] 🚨 No usable OpenCode Zen API key detected.' \
+              'The primary model and all fallbacks require an OpenCode Zen API key.' \
+              '' \
+              'How to fix (2 minutes):' \
+              '  Step 1: Register a free account at https://opencode.ai' \
+              '  Step 2: Create an API key at https://opencode.ai/auth' \
+              '  Step 3: Add it to this repo: Settings → Secrets and variables → Actions →' \
+              '          New repository secret → name `OPENCODE_API_KEY`, paste your key' \
+              '  Step 4: Your workflow passes it via' \
+              "          \`api-key: ${lbrace} secrets.OPENCODE_API_KEY }}\` (default template)." \
+              '  Step 5: Re-run this workflow.' \
+              '' \
+              'Alternatively configure your own LLM provider key if supported.')"
+            echo "$guidance"
+            # Best-effort: post the same guidance as a PR comment (never blocks).
+            local pr_number="${{ github.event.pull_request.number }}"
+            if [ -n "$pr_number" ]; then
+              gh api repos/${{ github.repository }}/issues/${pr_number}/comments \
+                -X POST --field body="$guidance" >/dev/null 2>&1 || true
+            fi
+          }
 
           echo "[argus] Using model: $primary_model"
           export MODEL="$primary_model"
@@ -135,6 +206,14 @@ runs:
             echo "$primary_output"
             echo "[argus] ✓ Review completed with model: $primary_model"
             return 0
+          fi
+
+          # Auth failure — fail fast with guidance (all zen models share the
+          # same key, so retrying the fallback queue would produce the same 401s).
+          if echo "$primary_output" | grep -qiE "$auth_re"; then
+            echo "$primary_output" | tail -5
+            print_auth_guidance
+            return $primary_exit_code
           fi
 
           # Check if retryable (rate-limited / model unavailable)
@@ -183,6 +262,12 @@ runs:
               echo "[argus] ✓ Review completed with fallback model: $fb_model"
               return 0
             fi
+            # Auth failure — same key issue, stop trying and guide the user.
+            if echo "$output" | grep -qiE "$auth_re"; then
+              echo "[argus] ⚠ Fallback '$fb_model' failed (auth): all zen models require the same API key"
+              print_auth_guidance
+              return $exit_code
+            fi
             if echo "$output" | grep -qiE "$retry_re"; then
               echo "[argus] ⚠ Fallback '$fb_model' rate-limited or unavailable, trying next..."
             else
@@ -211,21 +296,22 @@ runs:
         fi
         if [ -z "$FALLBACK_MODELS" ]; then
           echo "[argus] ⚠ No fallback models configured; using last-known-good defaults"
-          FALLBACK_MODELS="opencode/nemotron-3-ultra-free,opencode/nemotron-3.5-lightning-free,opencode/muse-spark-1.2-contributor-free,opencode/mimo-v2.5-free,opencode/x-preview-f-free"
+          FALLBACK_MODELS="opencode/nemotron-3-ultra-free,opencode/nemotron-3.5-lightning-free,opencode/muse-spark-1.2-contributor-free,opencode/mimo-v2.5-free"
         fi
         echo "[argus] Fallback queue: $FALLBACK_MODELS"
 
-        run_with_fallback_queue "${{ inputs.model }}" "$FALLBACK_MODELS"
+        run_with_fallback_queue "$PRIMARY_MODEL" "$FALLBACK_MODELS"
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         USE_GITHUB_TOKEN: "true"
         PROMPT: ${{ env.PROMPT }}
+        OPENCODE_API_KEY: ${{ inputs.api-key }}
 
     - name: Run fixture regression tests
       if: inputs.fixture-mode == 'true'
       run: |
         python3 ${{ github.action_path }}/../../../tools/run_fixture_tests.py \
-          --model "${{ inputs.model }}" \
+          $([ -n "${{ inputs.model }}" ] && echo --model "${{ inputs.model }}") \
           $([ -n "${{ inputs.fallback-models }}" ] && echo --fallback-models "${{ inputs.fallback-models }}") \
           --json fixture-results.json
       shell: bash

@@ -68,11 +68,12 @@ test-fixtures:
 	@python3 tools/run_fixture_tests.py
 	@echo ""
 
-# Full mode: requires OpenCode CLI + configured model
+# Full mode: requires OpenCode CLI + configured model (primary resolved from
+# config/free-models.yml at runtime by run_fixture_tests.py)
 .PHONY: test-fixtures-llm
 test-fixtures-llm:
 	@echo "── Fixture Tests (LLM mode) ──"
-	@python3 tools/run_fixture_tests.py --model $(or $(MODEL),opencode/deepseek-v4-flash-free) $(if $(FALLBACK_MODELS),--fallback-models "$(FALLBACK_MODELS)")
+	@python3 tools/run_fixture_tests.py $(if $(MODEL),--model $(MODEL)) $(if $(FALLBACK_MODELS),--fallback-models "$(FALLBACK_MODELS)")
 	@echo ""
 
 # ─── Combined pre-release check ──────────────────────────────────

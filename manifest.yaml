@@ -3,7 +3,8 @@ version: 0.4.0
 description: Frontend design code review agent — validates correctness, accessibility, security, and design token usage.
 skills:
   - accessibility
-preferred_models: []
+preferred_models:
+  - opencode/deepseek-v4-flash-free
 required_capabilities:
   - code_review
   - lint
