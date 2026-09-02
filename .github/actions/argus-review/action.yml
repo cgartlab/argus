@@ -172,10 +172,12 @@ runs:
             # evaluate it as an expression here.
             # printf keeps every line as a single YAML-safe argument (block
             # scalars cannot contain dedented continuation lines).
-            # NOTE: We must never write `${{` or `}}` literally inside this
-            # `run` block — the GitHub Actions template parser would treat
-            # them as an expression and fail. Instead we assemble the braces
-            # via shell variable expansion, which the template layer ignores.
+            # NOTE: We must never write the GitHub-expression delimiter
+            # (dollar + two left braces / two right braces) literally
+            # inside this `run` block — the Actions template parser would
+            # treat it as an expression and fail. Instead we assemble the
+            # braces via shell variable expansion, which the template
+            # layer ignores.
             local dollar='$'
             local lbrace="${dollar}{{"
             local rbrace="}}"
