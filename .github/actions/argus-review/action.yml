@@ -167,8 +167,9 @@ runs:
           local auth_re="401|403|unauthorized|authentication|invalid[[:space:]]+api[[:space:]]+key|api[[:space:]]+key"
 
           print_auth_guidance() {
-            # Build the guidance text with the `${{ ... }}` literal split so
-            # GitHub does not try to evaluate it as an expression here.
+            # Build the guidance text with the GitHub-expression literal
+            # (lbrace + rbrace tokens) split so the runner does not try to
+            # evaluate it as an expression here.
             # printf keeps every line as a single YAML-safe argument (block
             # scalars cannot contain dedented continuation lines).
             local lbrace='${{'
