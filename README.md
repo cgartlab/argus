@@ -123,7 +123,7 @@ Argus reviews run on the **OpenCode Zen free model** (IDs end in `-free`). The m
 
 `cgartlab/argus/.github/actions/argus-review@main` references the latest version of the Argus rules. When `AGENTS.md` or `SKILL.md` are updated in the argus repo, the composite action reads them at runtime — all consumer repos get the new rules instantly with no changes needed.
 
-For a pinned version, use `@v0.4.0` instead of `@main`.
+For a pinned version, use `@v0.4.1` instead of `@main`.
 
 ## Project Structure
 

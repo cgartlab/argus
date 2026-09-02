@@ -28,7 +28,8 @@ argus/
 ├── NOTICE                             # Third-party trademark declarations
 ├── site/                              # Astro marketing site (docs, legal, 404)
 ├── docs/
-│   └── argus-config-schema.md         # .argus.yml consumer config reference
+│   ├── argus-config-schema.md         # .argus.yml consumer config reference
+│   └── men-integration.md             # Optional men agent team integration protocol
 ├── tests/
 │   └── fixtures/                      # Fixture-based regression test suite
 │       ├── README.md                  # How to add/run fixtures
@@ -121,6 +122,8 @@ When invoked from a men context, Argus keeps its canonical output format **verba
 - `--men-context` flag or `MEN_CONTEXT=1` env — enables men-compatible summary framing. Standalone runs are unaffected.
 - `--events-json` — best-effort event logging for learning loops (see `docs/men-integration.md`).
 - Chi judge verification — optional independent re-check of Argus output in a men pipeline (PASS / REGRESSED).
+
+> **Note:** `--men-context` / `--events-json` are **prompt-layer conventions**, not CLI features — at the agent level they appear as extra context in the prompt, not as real flags. Full details in `docs/men-integration.md` (see "Output Contract" and the appendix).
 
 ### Independence Statement
 
@@ -228,9 +231,9 @@ make check-version    # Show current version
 make bump-patch       # Bump PATCH version (0.3.0 → 0.3.1)
 make bump-minor       # Bump MINOR version (0.3.0 → 0.4.0)
 make bump-major       # Bump MAJOR version (0.3.0 → 1.0.0)
-make validate         # Run SKILL.md trigger phrase check + CHANGELOG + AGENTS.md + action.yml
-make test-fixtures    # Run fixture regression tests (static heuristic mode)
-make test-fixtures-llm # Run fixture tests in LLM mode (requires OpenCode CLI + model)
+make validate         # Run SKILL.md trigger phrase check + CHANGELOG + versioning + action.yml
+make test-fixtures    # Run fixture regression tests (static heuristic mode, no API key needed)
+make test-fixtures-llm # Run fixture tests in LLM mode (model read from config/free-models.yml primary)
 make test             # validate + test-fixtures (full pre-release check)
 make release          # validate → git commit → tag → push
 make package-skill    # Create skill package only (argus-skill-v{VERSION}.zip)
@@ -248,5 +251,5 @@ cd site && npm run build  # Build marketing site (site/ subproject)
 - **argus-flash GitHub App** — installed at `github.com/apps/argus-flash`. Any repo can install it and add a minimal review.yml to get automated design reviews.
 - **Composite action** — `.github/actions/argus-review/action.yml` wraps OpenCode CLI + rule injection + config loading. Referenced as `cgartlab/argus/.github/actions/argus-review@main` from any repo.
 - **Version bumping** — run `make bump-patch` (or bump-minor/bump-major), then `make test && make release`.
-- **Fixture tests** — run without an API key in static heuristic mode; full LLM mode requires OpenCode CLI + a configured model.
+- **Fixture tests** — run without an API key in static heuristic mode; full LLM mode reads the primary model from `config/free-models.yml` (requires `OPENCODE_API_KEY` for `opencode/` providers).
 - **Release workflow** — pushing a `v*.*.*` tag triggers `.github/workflows/release.yml` which validates versioning, builds packages, and publishes a GitHub Release with both the full archive and the skill package (`argus-skill-v{VERSION}.zip`).

@@ -131,10 +131,10 @@ Before your first local review, authenticate once: run `opencode auth login`, ch
 **What to do:** In the workflow, use a version tag instead of `@main`:
 
 ```yaml
-- uses: cgartlab/argus/.github/actions/argus-review@v0.4.0
+- uses: cgartlab/argus/.github/actions/argus-review@v0.4.1
 ```
 
-**Why:** `@main` always uses the latest Argus rules — great for development, but a rule change could alter your reviews at any time. A pinned tag (like `@v0.4.0`) keeps reviews stable for production repos.
+**Why:** `@main` always uses the latest Argus rules — great for development, but a rule change could alter your reviews at any time. A pinned tag (like `@v0.4.1`) keeps reviews stable for production repos.
 
 ## Troubleshooting
 
@@ -154,4 +154,4 @@ The secrets are missing or mistyped. Re-add them at Settings → Secrets and var
 Argus supports a config file called `.argus.yml` where you can downgrade or ignore specific rules. See [Configuration](/docs/configuration).
 
 **Q: `@main` changed my review behavior suddenly. How do I stop that?**
-Switch the workflow to a pinned tag like `@v0.4.0` (see "Pinning the action version" above).
+Switch the workflow to a pinned tag like `@v0.4.1` (see "Pinning the action version" above).
