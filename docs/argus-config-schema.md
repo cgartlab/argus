@@ -69,10 +69,13 @@ overrides:
   token-prefix: "--ds-"               # string  (default: "--ds-")
 
   # Per-rule severity adjustments. Use sparingly — prefer fixing the root cause.
-  # Rule IDs are listed in SKILL.md under each review dimension.
+  # Upgrades are allowed; downgrades of non-core rules are allowed; the P0/P1
+  # core rules (dark-mode-coverage, bare-color, missing-alt, button-aria-label)
+  # cannot be downgraded. Rule IDs are listed in SKILL.md under each review
+  # dimension (see the rule-id × severity matrix).
   severity:
-    hardcoded-spacing: P3             # downgrade from P1 to P3 for this project
-    bem-naming: P2                    # downgrade from P1 to P2
+    hardcoded-spacing: P3             # downgrade from P2 to P3 for this project
+    bem-naming: P3                    # downgrade from P2 to P3
 
 # ── Ignore list ───────────────────────────────────────────────────────────────
 ignore:
@@ -195,7 +198,26 @@ overrides:
 
 Adjusts the severity of specific rules. Useful for projects that knowingly deviate from a default rule.
 
-> ⚠️ You cannot upgrade a rule's severity (e.g., from P1 to P0). Overrides only downgrade.
+**Upgrades are allowed** (e.g. `hardcoded-spacing: P1` raises it from P2). **Downgrades are allowed for non-core rules** (e.g. `hardcoded-spacing: P3`).
+
+> ⛔ **P0/P1 core rules cannot be downgraded.** Setting any of the following rule IDs to `P2` or `P3` is a validation error — the config fails to load. This is consistent with AGENTS.md "Severity never downgraded" and the SKILL.md rule-id × severity matrix:
+
+| Rule ID | Base severity | Reason |
+|---|---|---|
+| `dark-mode-coverage` | P0 | Dark mode break is a technical blocker |
+| `bare-color` | P0 | Bare color in blocking context (component rules) |
+| `missing-alt` | P1 | WCAG compliance (images) |
+| `button-aria-label` | P1 | WCAG compliance (icon buttons) |
+
+**Examples:**
+
+```yaml
+overrides:
+  severity:
+    hardcoded-spacing: P3        # ✅ legal — non-core downgrade (P2 → P3)
+    missing-alt: P0              # ✅ legal — upgrade (P1 → P0)
+    bare-color: P2               # ❌ validation error — 'bare-color' is P0 and cannot be downgraded
+```
 
 Rule IDs are documented in [SKILL.md](../SKILL.md) under each review dimension header.
 
@@ -219,7 +241,7 @@ Glob patterns for files Argus should skip. These are merged with (not replaced b
 | Type | list of rule ID strings |
 | Default | `[]` |
 
-Completely disables a rule across all files. Prefer `overrides.severity` (downgrading to P3) over silencing entirely — disabled rules leave a documentation gap.
+Completely disables a rule across all files. Prefer `overrides.severity` (downgrading a non-core rule to P3) over silencing entirely — disabled rules leave a documentation gap. Note that P0/P1 core rules (`dark-mode-coverage`, `bare-color`, `missing-alt`, `button-aria-label`) are non-downgradable; disabling them entirely is not supported by design.
 
 ---
 

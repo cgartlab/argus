@@ -1,3 +1,26 @@
+## [0.5.0] — 2026-09-03
+
+### Added
+
+- **Design-Token System Mapping** — The review prompt now references real design-system token names (`--ant-color-*` / `--md-sys-*` / `--p-color-*`) instead of generic `var(--ds-*)` placeholders, via built-in token mappings for Ant Design v5, Material Design 3, and Shopify Polaris
+- **Auto Detection** — `design-system: auto` (default) detects the token mapping from `package.json` dependencies (antd ≥ 5 → antd5, `@mui/material` → material3, `@shopify/polaris` → polaris, otherwise custom); consumers can pin `design-system` explicitly in `.argus.yml`
+- **False-Positive Benchmarks** — New `tests/fixtures/false-positives/` baseline so non-blocking bare values (e.g. a `box-shadow` rgba literal) are classified as P2 instead of over-flagged as P0; fixtures run as part of the static heuristic suite
+- **FalsePositiveRate** — `run_fixture_tests.py` reports the false-positive rate against the expected baseline, keeping over-flagging visible in CI
+- **Severity Matrix** — SKILL.md replaces the free-form severity table with a strict rule-id × severity matrix (`dark-mode-coverage`/`bare-color` → P0, `missing-alt`/`button-aria-label` → P1, `hardcoded-spacing`/`bem-naming`/`raw-px-breakpoint` → P2, polish → P3); P0/P1 core rules are non-downgradable, enforced by `load_config.py` (`Rule 'x' is P0 and cannot be downgraded`)
+- **Design-System Config** — `.argus.yml` gains the `design-system` field (`auto` | `antd5` | `material3` | `polaris` | `custom`); `overrides.severity` accepts upgrades and non-core downgrades, rejects P0/P1 core downgrades
+
+### Changed
+
+- **Scoped Static Fixes** — `run_fixture_tests.py` static-heuristic fixes are scoped to the offending rule instead of the whole file, aligning with the false-positives baseline (Phase 1, #18)
+
+### Fixed
+
+### Removed
+
+> **Note:** Phase 1 of #18 — Severity calibration. The 42 framework anti-pattern rules keep their existing inline P1/P2/P3 annotations unchanged.
+
+---
+
 ## [Unreleased]
 
 ### Added
