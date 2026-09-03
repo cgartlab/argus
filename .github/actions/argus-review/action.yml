@@ -46,6 +46,9 @@ runs:
       run: |
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git config --global user.name "github-actions[bot]"
+        # The token-bearing remote below is required only for opencode CLI to
+        # push the review; the token is scrubbed from .git/config by the
+        # "Scrub token from git config" step (always runs) after the review.
         git remote set-url origin https://x-access-token:${{ inputs.github-token }}@github.com/${{ github.repository }}.git
       shell: bash
 
@@ -305,7 +308,8 @@ runs:
 
         # Resolve fallback queue: explicit input wins, otherwise read from the
         # auto-refreshed config/free-models.yml (updated every 12h by the
-        # update-free-models workflow), falling back to last-known-good defaults.
+        # update-free-models workflow). Missing config is a hard error — this
+        # repo must commit config/free-models.yml.
         FALLBACK_MODELS="${{ inputs.fallback-models }}"
         if [ -z "$FALLBACK_MODELS" ]; then
           MODELS_FILE="${{ github.action_path }}/../../../config/free-models.yml"
@@ -314,8 +318,9 @@ runs:
           fi
         fi
         if [ -z "$FALLBACK_MODELS" ]; then
-          echo "[argus] ⚠ No fallback models configured; using last-known-good defaults"
-          FALLBACK_MODELS="opencode/nemotron-3-ultra-free,opencode/nemotron-3.5-lightning-free,opencode/muse-spark-1.2-contributor-free,opencode/mimo-v2.5-free,opencode/laguna-s-2.1-free,opencode/ling-3.0-flash-fin-free"
+          echo "[argus] ✗ No fallback models configured and config/free-models.yml is missing — cannot run review"
+          echo "[argus]   This repository must contain config/free-models.yml (committed by tools/update_free_models.py)."
+          exit 1
         fi
         echo "[argus] Fallback queue: $FALLBACK_MODELS"
 
@@ -325,6 +330,11 @@ runs:
         USE_GITHUB_TOKEN: "true"
         PROMPT: ${{ env.PROMPT }}
         OPENCODE_API_KEY: ${{ inputs.api-key }}
+
+    - name: Scrub token from git config
+      if: always()
+      run: git remote set-url origin https://github.com/${{ github.repository }}.git
+      shell: bash
 
     - name: Run fixture regression tests
       if: inputs.fixture-mode == 'true'
