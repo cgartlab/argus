@@ -620,6 +620,16 @@ def check() -> int:
             f"(expected: {', '.join(expected_ordered)})"
         )
 
+    # Warn when too many fallback models lack score metadata (score=0 and
+    # unranked). Unknown models are kept at the bottom by design, but a large
+    # unknown tail means the queue quality is unmaintained — surface it for
+    # human review (see #90). This is a warning, not a hard failure.
+    unknown_tail = [m for m in fallback if m not in scores]
+    if len(unknown_tail) > 2:
+        print(f"[update-free-models] ⚠ {len(unknown_tail)} fallback models lack score metadata "
+              f"({', '.join(unknown_tail)}) — add benchmark data in config/model-scores.yml "
+              f"or remove them from the queue (see #90)")
+
     # Models marked deprecated in model-scores.yml must not be in the queue.
     for mid in fallback:
         entry = scores.get(mid, {})
