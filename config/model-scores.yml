@@ -1,0 +1,43 @@
+# Model score metadata — single source of truth for fallback queue ranking.
+# Consumed by tools/update_free_models.py. Auto-refreshed model IDs that are
+# not listed here get score 0 and are placed at the bottom of the queue.
+#
+# Fields:
+#   score        — 0-100 raw benchmark score
+#   benchmark    — swebench_verified | swebench_verifiable | swebench_pro | intelligence_index | none
+#   source       — benchmark data URL
+#   confidence   — high | medium | low
+#   regions      — (optional) list of region codes where the model is available
+#   deprecated   — (optional) true when the model is deprecated; skipped entirely
+#   capabilities — (optional) list of capabilities (e.g. code_review)
+models:
+  opencode/deepseek-v4-flash-free:
+    underlying: "DeepSeek V4 Flash (284B MoE, 13B active)"
+    score: 79.0
+    benchmark: swebench_verified
+    source: https://llm-stats.com/benchmarks/swe-bench-verified
+    confidence: medium
+  opencode/nemotron-3-ultra-free:
+    underlying: "NVIDIA Nemotron 3 Ultra (550B MoE, 55B active)"
+    score: 70.7
+    benchmark: swebench_verified
+    source: https://developer.nvidia.com/blog/nvidia-nemotron-3-ultra-powers-faster-more-efficient-reasoning-for-long-running-agents/
+    confidence: high
+  opencode/muse-spark-1.2-contributor-free:
+    underlying: "Meta Muse Spark 1.2 (Superintelligence Labs)"
+    score: 54.0
+    benchmark: intelligence_index
+    source: https://artificialanalysis.ai/articles/muse-spark-1-2
+    confidence: medium
+  opencode/nemotron-3.5-lightning-free:
+    underlying: "NVIDIA Nemotron 3.5 Lightning (30B MoE, 3B active)"
+    score: 51.6
+    benchmark: swebench_verifiable
+    source: https://anotherwrapper.com/tools/llm-pricing/deepseek-v3-0324/nemotron-3.5-lightning-30b-a3b
+    confidence: high
+  opencode/mimo-v2.5-free:
+    underlying: "Xiaomi MiMo-V2.5 (1.02T MoE, 42B active)"
+    score: 56.1
+    benchmark: swebench_pro
+    source: https://www.gradually.ai/en/open-llms/
+    confidence: low
