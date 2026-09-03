@@ -1,6 +1,6 @@
 # .argus.yml — Consumer Configuration Schema
 
-> **Version:** 0.3 | Introduced in Argus v0.3.0
+> **Version:** 0.4 | Introduced in Argus v0.5.0
 
 Place a `.argus.yml` file in the root of your repository to customize how Argus reviews your codebase. All fields are optional — omitting a field uses the built-in default.
 
@@ -10,7 +10,7 @@ Place a `.argus.yml` file in the root of your repository to customize how Argus 
 
 ```yaml
 # .argus.yml
-version: "0.3"
+version: "0.4"
 skills:
   - design-review
 
@@ -43,7 +43,7 @@ The argus-flash GitHub App provides GitHub identity only (the bot token) — it 
 
 ```yaml
 # ── Schema version (required for forward-compatibility) ──────────────────────
-version: "0.3"                        # string, must be "0.2" or "0.3"
+version: "0.4"                        # string, must be "0.2", "0.3" or "0.4"
 
 # ── Design system (token mapping source) ──────────────────────────────────────
 # Selects the built-in token mapping injected into the review prompt so Argus
@@ -115,8 +115,8 @@ output:
 |---|---|
 | Type | string |
 | Required | No |
-| Default | `"0.3"` |
-| Valid values | `"0.2"`, `"0.3"` |
+| Default | `"0.4"` |
+| Valid values | `"0.2"`, `"0.3"`, `"0.4"` |
 
 Declares the schema version. Include this to ensure forward-compatible parsing when the schema evolves.
 
@@ -283,7 +283,7 @@ Caps the number of findings reported in the PR comment. When the actual finding 
 
 ### Design agency (strict, no legacy code)
 ```yaml
-version: "0.3"
+version: "0.4"
 skills:
   - design-review
 fail-on: [P0, P1, P2]
@@ -291,7 +291,7 @@ fail-on: [P0, P1, P2]
 
 ### Large existing codebase (gradual adoption)
 ```yaml
-version: "0.3"
+version: "0.4"
 skills:
   - design-review
 overrides:
@@ -309,7 +309,7 @@ output:
 
 ### Custom token namespace
 ```yaml
-version: "0.3"
+version: "0.4"
 skills:
   - design-review
 overrides:
@@ -318,7 +318,7 @@ overrides:
 
 ### Known design system (Ant Design v5)
 ```yaml
-version: "0.3"
+version: "0.4"
 skills:
   - design-review
 design-system: antd5
