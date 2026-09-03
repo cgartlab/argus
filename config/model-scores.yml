@@ -41,3 +41,15 @@ models:
     benchmark: swebench_pro
     source: https://www.gradually.ai/en/open-llms/
     confidence: low
+  opencode/muse-spark-1.3-contributor-free:
+    underlying: "Meta Muse Spark 1.3 (Superintelligence Labs; xhigh public variant)"
+    score: 61.0
+    benchmark: intelligence_index
+    source: https://artificialanalysis.ai/articles/muse-spark-1-3
+    confidence: medium
+  opencode/ling-3.0-flash-fin-free:
+    underlying: "Ant Group Ling 3.0 Flash Fin (124B MoE, 5.1B active) — finance-tuned; parent Ling 3.0 Flash score, Fin tuning unmeasured"
+    score: 38.0
+    benchmark: intelligence_index
+    source: https://artificialanalysis.ai/models/ling-3-0-flash
+    confidence: medium
