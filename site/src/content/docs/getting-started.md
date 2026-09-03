@@ -124,6 +124,8 @@ cd argus                                          # go into it
 
 Point your agent framework (OpenCode, Claude Code, Codex CLI) at this folder, and the review behavior loads automatically.
 
+**Prefer a single-file skill package?** Download `argus-skill-v{VERSION}.zip` from the [GitHub Releases](https://github.com/cgartlab/argus/releases) page and unzip it into your agent's `skills/` directory — no full clone needed. Full instructions on the [Argus Skill](/docs/skill) page.
+
 Before your first local review, authenticate once: run `opencode auth login`, choose **OpenCode**, and paste your key from [opencode.ai/auth](https://opencode.ai/auth). Or set the `OPENCODE_API_KEY` environment variable.
 
 ## Pinning the action version

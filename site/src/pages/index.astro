@@ -63,17 +63,17 @@ jobs:
     <div class="container-site">
       <h2 class="text-3xl font-bold tracking-tight text-fg">Explore Argus</h2>
       <p class="mt-3 max-w-2xl text-fg-muted">
-        Documentation, source code, and the GitHub App — everything you need to
-        put Argus in front of your codebase.
+        Documentation, source code, the GitHub App, and the skill package —
+        everything you need to put Argus in front of your codebase.
       </p>
-      <ul class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <ul class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <li class="card">
           <h3 class="text-lg font-semibold text-fg">Documentation</h3>
           <p class="mt-2 text-sm text-fg-muted">
             Overview, capabilities, configuration, and development guides.
           </p>
           <a href="/docs" class="mt-4 inline-block text-sm font-medium text-accent no-underline hover:text-accent-strong">
-            Read the docs →
+            Read the docs <span aria-hidden="true">→</span>
           </a>
         </li>
         <li class="card">
@@ -82,7 +82,17 @@ jobs:
             Source code, issues, and releases under the MIT license.
           </p>
           <a href={site.github} class="mt-4 inline-block text-sm font-medium text-accent no-underline hover:text-accent-strong">
-            github.com/cgartlab/argus →
+            github.com/cgartlab/argus <span aria-hidden="true">→</span>
+          </a>
+        </li>
+        <li class="card">
+          <h3 class="text-lg font-semibold text-fg">Argus Skill</h3>
+          <p class="mt-2 text-sm text-fg-muted">
+            Download the skill package and run reviews inside OpenCode,
+            Claude Code, or Codex CLI.
+          </p>
+          <a href="/docs/skill" class="mt-4 inline-block text-sm font-medium text-accent no-underline hover:text-accent-strong">
+            Get the skill <span aria-hidden="true">→</span>
           </a>
         </li>
         <li class="card">
@@ -91,7 +101,7 @@ jobs:
             Install the GitHub App to automate design reviews on every PR.
           </p>
           <a href={site.appUrl} class="mt-4 inline-block text-sm font-medium text-accent no-underline hover:text-accent-strong">
-            Install the app →
+            Install the app <span aria-hidden="true">→</span>
           </a>
         </li>
       </ul>
