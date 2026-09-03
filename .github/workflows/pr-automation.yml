@@ -36,6 +36,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Auto-assign PR author
+        # Skip Dependabot PRs: App installation tokens cannot assign bot accounts.
+        if: github.actor != 'dependabot[bot]'
         run: |
           gh pr edit "${{ github.event.pull_request.number }}" \
             --add-assignee "${{ github.actor }}"

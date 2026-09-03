@@ -4,6 +4,9 @@ on:
     types: [opened, synchronize, ready_for_review, reopened]
 jobs:
   review:
+    # Skip Dependabot PRs: GitHub does not pass repository secrets to workflows
+    # triggered by Dependabot PRs, and pure action upgrades need no frontend design review.
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: read
