@@ -14,7 +14,7 @@ jobs:
     name: Lint & Required Files
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Validate YAML syntax
         run: |
@@ -82,7 +82,7 @@ jobs:
     name: Validate Python Tools
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check Python syntax for all tools
         run: |
@@ -126,7 +126,7 @@ jobs:
     name: Fixture Regression Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Run fixture tests (dry-run — parse & validate .expected files)
         run: |
@@ -210,7 +210,7 @@ jobs:
     name: Model Config Change Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -259,7 +259,7 @@ jobs:
     env:
       OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Preflight check — opencode CLI present?
         id: cli-check
