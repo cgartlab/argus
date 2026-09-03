@@ -1,0 +1,18 @@
+# Expected findings for: should-flag/no-dark-mode.css
+# Purpose: :root color tokens with no [data-theme="dark"] override MUST be
+# flagged P0. Mirror pair for false-positives/root-tokens (which has overrides).
+
+[meta]
+fixture = should-flag/no-dark-mode.css
+description = Color tokens declared in :root without a [data-theme="dark"] override must be flagged P0.
+
+[findings]
+P0 | | dark
+P0 | | dark
+P0 | | dark
+
+[counts]
+P0 = 3
+P1 = 0
+P2 = 0
+P3 = 0

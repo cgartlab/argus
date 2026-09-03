@@ -1,0 +1,21 @@
+<!--
+  FIXTURE: should-flag/missing-alt
+  Purpose: img without alt MUST be flagged P1 — mirror of the a11y rule.
+  Expected: 1 P1 finding (see missing-alt.expected)
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Fixture: Missing Alt</title>
+</head>
+<body>
+
+  <!-- BAD: img with no alt → P1 -->
+  <img src="/assets/avatar.png" class="avatar">
+
+  <!-- GOOD: img with alt — must NOT be flagged -->
+  <img src="/assets/logo.png" alt="Company logo">
+
+</body>
+</html>

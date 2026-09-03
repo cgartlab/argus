@@ -1,0 +1,21 @@
+# Expected findings for: false-positives/root-tokens.css
+# Purpose: Bare color values inside :root are the legitimate token source.
+# Locks in the in_root exemption as a regression guard.
+
+[meta]
+fixture = false-positives/root-tokens.css
+description = :root color token declarations must NOT be flagged as bare colors; dark overrides are present so no dark-mode P0 fires either.
+
+[findings]
+
+[must-not-flag]
+--ds-color-primary
+--ds-color-bg
+--ds-color-fg
+--ds-color-muted
+
+[counts]
+P0 = 0
+P1 = 0
+P2 = 0
+P3 = 0

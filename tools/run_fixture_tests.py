@@ -6,6 +6,11 @@ Validates that Argus review rules produce the expected findings for each
 fixture in tests/fixtures/. Operates in heuristic mode: checks severity
 counts and keyword presence, not exact line numbers.
 
+Also reports a run-level FalsePositiveRate (FP / (FP + TP)) from
+must-not-flag violations and matched expected findings — informational
+output, not a gate (static mode enforces must-not-flag as errors, so a
+passing static run always has FP = 0).
+
 Usage:
   python3 tools/run_fixture_tests.py                             # all fixtures
   python3 tools/run_fixture_tests.py --category design-tokens   # one category
@@ -81,6 +86,8 @@ class FixtureResult:
     argus_output: str = ""
     skipped: bool = False
     skip_reason: str = ""
+    fp_count: int = 0        # must-not-flag items wrongly flagged (false positives)
+    tp_count: int = 0        # expected finding keywords present in output (true positives)
 
 
 # ── Parser for .expected files ────────────────────────────────────────────────
@@ -436,6 +443,7 @@ def _static_heuristic_scan(fixture_path: Path) -> str:
         in_root = False
         selector_props: dict[str, int] = {}  # prop → first seen lineno
         current_selector = ""
+        non_blocking_reset = False   # True inside a universal-selector (reset) block
 
         # Dark-mode coverage: collect :root color tokens and dark overrides
         root_color_tokens: set[str] = set()
@@ -490,14 +498,23 @@ def _static_heuristic_scan(fixture_path: Path) -> str:
                 if m:
                     dark_override_tokens.add(m.group(1))
 
-            # Selector detection (reset duplicate tracking per block)
-            if re.match(r"^[.#\w\[\]:,\s>~+-]+\{", stripped) and not is_comment:
+            # Selector detection (reset duplicate tracking per block).
+            # `*` is included so universal-selector resets (`* { ... }`,
+            # `*::before { ... }`, `.reset * { ... }`) reset tracking AND mark
+            # a non-blocking context: third-party reset boilerplate must not be
+            # flagged P2 (AGENTS.md: "don't flag boilerplate, third-party resets").
+            if re.match(r"^[.#\w\[\]:,\s>~+*-]+\{", stripped) and not is_comment:
                 if ":root" not in stripped and "data-theme" not in stripped:
                     current_selector = stripped
                     selector_props = {}
+                    non_blocking_reset = "*" in current_selector
 
             # Bare color values in component rules (not :root, not dark-block)
             if not in_root and not in_dark_block and not is_comment:
+                prop_name = stripped.split(":", 1)[0].strip()
+                # Shadow colors (box-shadow / text-shadow) are legitimate values,
+                # not color violations — skip them to avoid false positives.
+                is_shadow_color = prop_name in ("box-shadow", "text-shadow")
                 for pattern, label in [
                     (r"\boklch\(", "bare oklch"),
                     (r"(?<!['\"])#[0-9a-fA-F]{3,8}\b", "bare hex"),
@@ -506,7 +523,7 @@ def _static_heuristic_scan(fixture_path: Path) -> str:
                     (r"\bhsl\(", "bare hsl"),
                 ]:
                     m = re.search(pattern, stripped)
-                    if m and "var(--" not in stripped and "--" not in stripped.split(":")[0]:
+                    if m and not is_shadow_color and "var(--" not in stripped and "--" not in stripped.split(":")[0]:
                         value = stripped.split(":", 1)[-1].strip().rstrip(";").split("/*")[0].strip()
                         emit("P0", i, f"Bare color value ({label}) — use a design token",
                              value, "var(--ds-color-*)")
@@ -525,12 +542,14 @@ def _static_heuristic_scan(fixture_path: Path) -> str:
                         emit("P1", i, f"Hardcoded {prop} — use a design token",
                              m.group(1), "var(--ds-*)")
 
-            # Duplicate property detection (within same selector block)
+            # Duplicate property detection (within same selector block).
+            # Suppressed inside universal-selector (reset) blocks: resets are
+            # non-blocking context and must not produce P2 noise.
             prop_match = re.match(r"^\s*([\w-]+)\s*:", stripped)
             if prop_match and not is_comment and "{" not in stripped and "}" not in stripped:
                 prop = prop_match.group(1)
                 if not prop.startswith("--"):  # ignore custom property declarations
-                    if prop in selector_props:
+                    if prop in selector_props and not non_blocking_reset:
                         emit("P2", i, f"Duplicate property '{prop}' in selector",
                              stripped.strip(), f"Remove duplicate; keep one '{prop}' declaration")
                     else:
@@ -629,13 +648,23 @@ def validate_output(expected: ExpectedFile, argus_output: str, tolerance: int = 
                 f"line_hint '{spec.line_hint}' not found in any [{spec.severity}] finding line"
             )
 
-    # 4. Check must-not-flag items — these should not appear as flagged tokens
-    #    We check they don't appear on a [P*] finding line
+    # 4. Check must-not-flag items — these should not appear as flagged tokens.
+    #    Each violation counts as a false positive (fp_count) for the run-level
+    #    FalsePositiveRate metric (informational, not a gate).
     flagged_lines = [l for l in argus_output.splitlines() if re.search(r"\[P\d\]", l)]
     flagged_text = "\n".join(flagged_lines).lower()
+    fp_count = 0
     for forbidden in expected.must_not_flag:
         if forbidden.lower() in flagged_text:
+            fp_count += 1
             errors.append(f"False positive: '{forbidden}' was flagged but must NOT be")
+
+    # 5. True positives: how many expected finding keywords actually appeared.
+    #    Paired with fp_count for the run-level FalsePositiveRate metric.
+    tp_count = 0
+    for spec in expected.findings:
+        if spec.keyword and spec.keyword.lower() in output_lower:
+            tp_count += 1
 
     passed = len(errors) == 0
     return FixtureResult(
@@ -644,6 +673,8 @@ def validate_output(expected: ExpectedFile, argus_output: str, tolerance: int = 
         errors=errors,
         warnings=warnings,
         argus_output=argus_output,
+        fp_count=fp_count,
+        tp_count=tp_count,
     )
 
 
@@ -822,6 +853,21 @@ def main() -> int:
 
     print_summary(results)
 
+    # FalsePositiveRate — informational metric (not a gate). Aggregates
+    # must-not-flag violations (FP) and matched expected findings (TP) across
+    # all non-skipped fixtures. Meaningful in LLM mode; static heuristic mode
+    # is deterministic and enforces must-not-flag as errors, so a passing
+    # static run always yields FP = 0.
+    active = [r for r in results if not r.skipped]
+    fp_total = sum(r.fp_count for r in active)
+    tp_total = sum(r.tp_count for r in active)
+    fp_rate = (fp_total / (fp_total + tp_total) * 100) if (fp_total + tp_total) else 0.0
+    if active:
+        print(_c("bold", "── FalsePositiveRate ───────────────────────────────"))
+        print(f"  {_c('bold', 'FalsePositiveRate:')} {fp_rate:.1f}% (target ≤5%)"
+              f"  — {fp_total} FP / {tp_total} TP")
+        print()
+
     if args.output_json:
         json_data = [
             {
@@ -830,9 +876,17 @@ def main() -> int:
                 "skipped": r.skipped,
                 "errors": r.errors,
                 "warnings": r.warnings,
+                "fp_count": r.fp_count,
+                "tp_count": r.tp_count,
             }
             for r in results
         ]
+        json_data.append({
+            "fixture": "__summary__",
+            "fp_count": fp_total,
+            "tp_count": tp_total,
+            "fp_rate": round(fp_rate, 2),
+        })
         Path(args.output_json).write_text(json.dumps(json_data, indent=2), encoding="utf-8")
         print(f"JSON results written to {args.output_json}")
 

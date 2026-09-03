@@ -1,0 +1,21 @@
+# Expected findings for: false-positives/box-shadow.css
+# Purpose: rgba()/rgb() colors inside box-shadow and text-shadow are
+# legitimate shadow values and must NOT be flagged as bare color violations.
+
+[meta]
+fixture = false-positives/box-shadow.css
+description = Colors inside box-shadow and text-shadow must NOT be flagged as bare color violations.
+
+[findings]
+
+[must-not-flag]
+box-shadow
+text-shadow
+rgba(0, 0, 0, 0.15)
+rgba(0, 0, 0, 0.5)
+
+[counts]
+P0 = 0
+P1 = 0
+P2 = 0
+P3 = 0

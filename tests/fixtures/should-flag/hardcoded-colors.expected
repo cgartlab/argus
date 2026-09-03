@@ -1,0 +1,20 @@
+# Expected findings for: should-flag/hardcoded-colors.css
+# Purpose: Component-level bare oklch/hex/rgba MUST be flagged P0.
+# Mirror pair for false-positives/box-shadow + root-tokens — proves the
+# exemptions are scoped (shadow context, :root context), not blind.
+
+[meta]
+fixture = should-flag/hardcoded-colors.css
+description = Component-level bare oklch/hex/rgba must be flagged P0.
+
+[findings]
+P0 | | oklch
+P0 | | oklch
+P0 | | #e94560
+P0 | | rgba
+
+[counts]
+P0 = 4
+P1 = 0
+P2 = 0
+P3 = 0

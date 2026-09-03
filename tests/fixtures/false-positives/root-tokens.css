@@ -1,0 +1,22 @@
+/*
+ * FIXTURE: false-positives/root-tokens
+ * Purpose: Bare oklch/hex/rgba inside :root are the legitimate design-token
+ *          source. The in_root exemption must keep them unflagged — this
+ *          fixture locks that exemption in as a regression guard.
+ * Expected: 0 findings (see root-tokens.expected)
+ */
+
+:root {
+  --ds-color-primary: oklch(55% 0.18 250);
+  --ds-color-bg: #fafafa;
+  --ds-color-fg: oklch(20% 0.02 60);
+  --ds-color-muted: rgba(0, 0, 0, 0.6);
+  --ds-space-4: 1rem;
+}
+
+[data-theme="dark"] {
+  --ds-color-primary: oklch(70% 0.20 255);
+  --ds-color-bg: #1a1a1a;
+  --ds-color-fg: oklch(90% 0.02 60);
+  --ds-color-muted: rgba(255, 255, 255, 0.6);
+}

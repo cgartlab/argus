@@ -1,0 +1,21 @@
+/*
+ * FIXTURE: false-positives/box-shadow
+ * Purpose: Colors inside box-shadow / text-shadow are legitimate shadow
+ *          values, NOT color violations. This locks in the shadow-context
+ *          exemption in the static scanner.
+ * Expected: 0 findings (see box-shadow.expected)
+ */
+
+.card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  background: var(--ds-color-surface);
+}
+
+.dialog {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Multi-layer shadow with rgb() space syntax — also exempt */
+.popover {
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.1), 0 8px 24px rgba(0, 0, 0, 0.12);
+}
