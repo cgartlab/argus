@@ -194,12 +194,77 @@ def default_primary_model() -> str:
     val = data.get("primary", "")
     return val if val else _BUILTIN_PRIMARY
 
-def build_argus_prompt(fixture_path: Path) -> str:
+def _detect_design_system(package_json: Path) -> str:
+    """Detect the design system from package.json (mirrors action.yml detect step).
+
+    Returns one of: antd5 / antd4-unsupported / material3 / polaris / custom.
+    Missing or invalid package.json yields 'custom'.
+    """
+    try:
+        data = json.loads(package_json.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return "custom"
+    deps = {}
+    deps.update(data.get("dependencies", {}))
+    deps.update(data.get("devDependencies", {}))
+    if "antd" in deps:
+        major = deps["antd"].lstrip("^~").split(".")[0]
+        try:
+            return "antd5" if int(major) >= 5 else "antd4-unsupported"
+        except ValueError:
+            return "antd5"
+    elif "@mui/material" in deps:
+        return "material3"
+    elif "@shopify/polaris" in deps:
+        return "polaris"
+    return "custom"
+
+
+def _load_token_section(token_system: str) -> str:
+    """Return the design-token prompt section for a system, or '' when none.
+
+    'auto' triggers package.json detection at REPO_ROOT. Missing/unreadable
+    .github/tokens/<system>.json files silently yield '' (no injection),
+    matching the composite action's degrade-without-error behavior.
+    """
+    system = token_system
+    if system == "auto":
+        system = _detect_design_system(REPO_ROOT / "package.json")
+
+    if system == "antd4-unsupported":
+        return (
+            "## Design System: antd v4 (unsupported)\n"
+            "antd v4 uses Less variables, not CSS custom properties.\n"
+            "Configure design-system: custom in .argus.yml, or migrate to antd v5.\n"
+        )
+    if system == "custom":
+        return ""
+
+    token_file = REPO_ROOT / ".github" / "tokens" / f"{system}.json"
+    if not token_file.exists():
+        return ""
+    try:
+        tokens = token_file.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    if not tokens.strip():
+        return ""
+    return (
+        f"## Design System: {system}\n"
+        "Reference these design tokens when suggesting fixes:\n"
+        f"{tokens.strip()}\n"
+    )
+
+
+def build_argus_prompt(fixture_path: Path, token_system: str = "auto") -> str:
     """Build the same prompt the composite action uses, injecting AGENTS.md + SKILL.md."""
     agents = AGENTS_MD.read_text(encoding="utf-8")
     skill = SKILL_MD.read_text(encoding="utf-8")
     code = fixture_path.read_text(encoding="utf-8")
     rel = fixture_path.relative_to(REPO_ROOT)
+
+    token_section = _load_token_section(token_system)
+    token_block = f"{token_section}\n" if token_section else ""
 
     return textwrap.dedent(f"""\
         You are Argus, a frontend design code review agent.
@@ -207,7 +272,7 @@ def build_argus_prompt(fixture_path: Path) -> str:
         ## Argus Hard Rules
         {agents}
 
-        ## Review Dimensions
+        {token_block}## Review Dimensions
         {skill}
 
         ## File to Review
@@ -255,7 +320,8 @@ def _run_opencode(opencode: str, model: str, prompt_file: Path, verbose: bool) -
 
 
 def run_argus_on_fixture(fixture_path: Path, model: str, verbose: bool,
-                         fallback_models: str | None = None) -> str:
+                         fallback_models: str | None = None,
+                         token_system: str = "auto") -> str:
     """
     Invoke Argus (via OpenCode CLI) on a single fixture file.
     Returns the raw text output.
@@ -270,7 +336,7 @@ def run_argus_on_fixture(fixture_path: Path, model: str, verbose: bool,
     if opencode is None:
         return _static_heuristic_scan(fixture_path)
 
-    prompt = build_argus_prompt(fixture_path)
+    prompt = build_argus_prompt(fixture_path, token_system=token_system)
     prompt_file = fixture_path.parent / f".argus_prompt_{fixture_path.stem}.tmp"
     try:
         prompt_file.write_text(prompt, encoding="utf-8")
@@ -683,6 +749,7 @@ def main() -> int:
     parser.add_argument("--category", metavar="NAME", help="Run only fixtures in this category subdirectory")
     parser.add_argument("--fixture", metavar="PATH", type=Path, help="Run a single fixture file")
     parser.add_argument("--model", default=None, help="LLM model to use (default: primary from config/free-models.yml)")
+    parser.add_argument("--token-system", default="auto", choices=["antd5", "material3", "polaris", "custom", "auto"], help="Design system whose token mapping (.github/tokens/<system>.json) is injected into the prompt; 'auto' detects from package.json (default: auto)")
     parser.add_argument("--fallback-models", default=None, help="Comma-separated fallback model queue (ordered by coding ability) when primary fails. Defaults to config/free-models.yml (auto-refreshed every 12h).")
     parser.add_argument("--verbose", action="store_true", help="Show full Argus output for each fixture")
     parser.add_argument("--dry-run", action="store_true", help="Parse fixtures and print plan, but do not invoke Argus")
@@ -739,7 +806,8 @@ def main() -> int:
             continue
 
         argus_output = run_argus_on_fixture(fixture_path, model=model, verbose=args.verbose,
-                                            fallback_models=fallback_models)
+                                            fallback_models=fallback_models,
+                                            token_system=args.token_system)
         # Static heuristic scan is deterministic → exact counts (tolerance 0);
         # LLM output varies → keep the historical ±1 tolerance.
         static_mode = _find_opencode() is None

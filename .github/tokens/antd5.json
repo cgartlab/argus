@@ -1,0 +1,21 @@
+{
+  "_source": "https://ant.design/docs/react/customize-theme",
+  "_version": "5.14",
+  "system": "Ant Design 5",
+  "semantic": {
+    "color.bg": "var(--ant-color-bg-container)",
+    "color.fg": "var(--ant-color-text)",
+    "color.primary": "var(--ant-color-primary)",
+    "color.border": "var(--ant-color-border)",
+    "spacing.xs": "var(--ant-margin-xs)",
+    "spacing.sm": "var(--ant-margin-sm)",
+    "spacing.md": "var(--ant-margin-md)",
+    "spacing.lg": "var(--ant-margin-lg)",
+    "radius.sm": "var(--ant-border-radius-sm)",
+    "radius.md": "var(--ant-border-radius-md)",
+    "radius.lg": "var(--ant-border-radius-lg)",
+    "font.size-sm": "var(--ant-font-size-sm)",
+    "font.size-md": "var(--ant-font-size)",
+    "font.size-lg": "var(--ant-font-size-lg)"
+  }
+}

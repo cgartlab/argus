@@ -1,0 +1,21 @@
+{
+  "_source": "",
+  "_version": "User-defined template",
+  "system": "Custom",
+  "semantic": {
+    "color.bg": "var(--your-token-name)",
+    "color.fg": "var(--your-token-name)",
+    "color.primary": "var(--your-token-name)",
+    "color.border": "var(--your-token-name)",
+    "spacing.xs": "var(--your-token-name)",
+    "spacing.sm": "var(--your-token-name)",
+    "spacing.md": "var(--your-token-name)",
+    "spacing.lg": "var(--your-token-name)",
+    "radius.sm": "var(--your-token-name)",
+    "radius.md": "var(--your-token-name)",
+    "radius.lg": "var(--your-token-name)",
+    "font.size-sm": "var(--your-token-name)",
+    "font.size-md": "var(--your-token-name)",
+    "font.size-lg": "var(--your-token-name)"
+  }
+}

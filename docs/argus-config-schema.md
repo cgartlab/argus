@@ -45,6 +45,13 @@ The argus-flash GitHub App provides GitHub identity only (the bot token) — it 
 # ── Schema version (required for forward-compatibility) ──────────────────────
 version: "0.3"                        # string, must be "0.2" or "0.3"
 
+# ── Design system (token mapping source) ──────────────────────────────────────
+# Selects the built-in token mapping injected into the review prompt so Argus
+# suggests real token names. 'auto' detects from package.json dependencies
+# (antd >= 5 → antd5, @mui/material → material3, @shopify/polaris → polaris,
+# otherwise custom). Overrides with token-prefix below are independent.
+design-system: auto                   # string  (default: "auto")
+
 # ── Skills to activate ───────────────────────────────────────────────────────
 # List one or more review skill IDs. Each ID maps to a skill file in the
 # Argus repo under skills/. Defaults to ["design-review"].
@@ -109,6 +116,36 @@ output:
 | Valid values | `"0.2"`, `"0.3"` |
 
 Declares the schema version. Include this to ensure forward-compatible parsing when the schema evolves.
+
+---
+
+### `design-system`
+
+| | |
+|---|---|
+| Type | string (one of `auto` \| `antd5` \| `material3` \| `polaris` \| `custom`) |
+| Required | No |
+| Default | `auto` |
+
+Decides which built-in design-token mapping is injected into the review prompt, so Argus suggests **real** token names (e.g. `--ant-color-primary` / `--md-sys-color-primary` / `--p-color-text`) instead of the generic `var(--ds-*)` placeholders.
+
+| Value | Meaning |
+|---|---|
+| `auto` | Detect from `package.json` dependencies: `antd` ≥ 5 → `antd5`, `@mui/material` → `material3`, `@shopify/polaris` → `polaris`, otherwise `custom` |
+| `antd5` | Ant Design v5 (CSS-in-JS design tokens) |
+| `material3` | Material Design 3 (MUI) |
+| `polaris` | Shopify Polaris |
+| `custom` | No built-in mapping — any `var(--<any-name>)` is treated as a valid design token reference |
+
+**Relationship to `overrides.token-prefix`:** the two settings are independent and complementary. `design-system` selects the **built-in token mapping** injected into the prompt (which real tokens the LLM should reference when suggesting fixes). `token-prefix` controls **custom namespace recognition** — which `var(--<prefix>*)` usages Argus accepts as valid without flagging. For a bespoke design system, combine both:
+
+```yaml
+design-system: custom
+overrides:
+  token-prefix: "--brand-"
+```
+
+> **Note:** When `auto` detection finds `antd` v4 (Less variables, unsupported), the review prompt reports `antd4-unsupported`. Configure `design-system: custom` explicitly, or migrate to antd v5.
 
 ---
 
@@ -255,6 +292,14 @@ skills:
   - design-review
 overrides:
   token-prefix: "--brand-"
+```
+
+### Known design system (Ant Design v5)
+```yaml
+version: "0.3"
+skills:
+  - design-review
+design-system: antd5
 ```
 
 ---
