@@ -193,7 +193,7 @@ runs:
         fi
 
         # Resolve primary model: explicit input wins; otherwise read from the
-        # auto-refreshed config/free-models.yml (updated every 12h by the
+        # auto-refreshed config/free-models.yml (refreshed weekly by the
         # update-free-models workflow); last resort is a last-known-good default.
         PRIMARY_MODEL="${{ inputs.model }}"
         if [ -z "$PRIMARY_MODEL" ]; then
@@ -204,7 +204,7 @@ runs:
         fi
         if [ -z "$PRIMARY_MODEL" ]; then
           echo "[argus] ⚠ No primary model configured; using last-known-good default"
-          PRIMARY_MODEL="opencode/deepseek-v4-flash-free"
+          PRIMARY_MODEL="opencode/nemotron-3-ultra-free"
         fi
 
         run_with_fallback_queue() {

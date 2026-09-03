@@ -52,6 +52,7 @@ import itertools
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import urllib.error
@@ -320,14 +321,22 @@ def print_ranking() -> None:
 # ── Live model list retrieval ────────────────────────────────────────────────
 
 def _find_opencode() -> str | None:
-    """Locate the opencode CLI (PATH first, then the standard install dir)."""
-    for candidate in [os.environ.get("OPENCODE_BIN", ""), "opencode",
-                      str(Path.home() / ".opencode" / "bin" / "opencode")]:
+    """Locate the opencode CLI (PATH first, then the standard install dir).
+
+    Uses ``shutil.which`` so Windows npm shims (``opencode.cmd``) and other
+    PATHEXT-resolved executables are found, not just bare ``opencode``.
+    """
+    candidates = [os.environ.get("OPENCODE_BIN", ""), "opencode",
+                  str(Path.home() / ".opencode" / "bin" / "opencode")]
+    for candidate in candidates:
         if not candidate:
             continue
+        resolved = shutil.which(candidate) if not os.path.isabs(candidate) else candidate
+        if not resolved:
+            continue
         try:
-            subprocess.run([candidate, "--version"], capture_output=True, timeout=10)
-            return candidate
+            subprocess.run([resolved, "--version"], capture_output=True, timeout=10)
+            return resolved
         except (FileNotFoundError, subprocess.TimeoutExpired):
             continue
     return None
@@ -478,6 +487,33 @@ def refresh(dry_run: bool = False) -> int:
 
     if not live_free:
         print("[update-free-models] ✗ No free models returned — aborting to avoid clobbering config",
+              file=sys.stderr)
+        return 2
+
+    # Cross-check against the runtime CLI registry when available: the Zen API
+    # can list models that the installed OpenCode CLI cannot resolve (e.g. a
+    # stale primary), which would fail every review with "Model not found".
+    # The CLI registry is the runtime truth — drop API-only models from the
+    # live set so primary re-selection and the fallback queue use only models
+    # that actually run. In CI (no CLI installed) this degrades to API-only.
+    opencode = _find_opencode()
+    if opencode is not None:
+        try:
+            cli_free = _list_free_models(opencode)
+        except RuntimeError as exc:
+            print(f"[update-free-models] ⚠ CLI registry unavailable, skipping cross-check: {exc}",
+                  file=sys.stderr)
+            cli_free = set()
+        if cli_free:
+            api_only = sorted(live_free - cli_free)
+            if api_only:
+                print("[update-free-models] − API-listed but CLI-unavailable, excluded from live set:")
+                for mid in api_only:
+                    print(f"  - {mid}")
+            live_free = live_free & cli_free
+
+    if not live_free:
+        print("[update-free-models] ✗ CLI cross-check emptied the live set — aborting to avoid clobbering config",
               file=sys.stderr)
         return 2
 
