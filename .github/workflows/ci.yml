@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: "23 4 * * 1"   # weekly Monday — model/rule health audit
 
 jobs:
   # ── Job 1: YAML lint + required file checks ─────────────────────────────────
@@ -94,6 +96,10 @@ jobs:
         run: |
           python3 tools/update_free_models.py --check
           echo "free model list validation: ok"
+
+      - name: Validate version consistency (VERSION / CHANGELOG / AGENTS.md / SKILL.md / manifest.yaml)
+        run: |
+          python3 tools/validate_versioning.py
 
       - name: Validate load_config.py defaults (no .argus.yml)
         run: |
@@ -193,4 +199,76 @@ jobs:
         with:
           name: fixture-results
           path: fixture-results.json
+          if-no-files-found: ignore
+
+  # ── Job 4: Model config change tests (paths-gated) ──────────────────────────
+  # Runs the full static suite whenever fallback-model config or its updater
+  # changes (#55/#53). On `push` (no changed_files context) it always runs.
+  model-config-tests:
+    name: Model Config Change Tests
+    runs-on: ubuntu-latest
+    if: >-
+      contains(github.event.pull_request.changed_files, 'config/free-models.yml') ||
+      contains(github.event.pull_request.changed_files, 'config/model-scores.yml') ||
+      contains(github.event.pull_request.changed_files, 'tools/update_free_models.py') ||
+      contains(github.event.pull_request.changed_files, '.github/workflows/update-free-models.yml') ||
+      github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate free model list integrity
+        run: |
+          python3 tools/update_free_models.py --check
+
+      - name: Run fixture tests (static heuristic mode)
+        run: |
+          python3 tools/run_fixture_tests.py
+
+      - name: Verify model-scores.yml parses
+        run: |
+          python3 - << 'EOF'
+          import sys, pathlib
+          sys.path.insert(0, 'tools')
+          from update_free_models import _load_model_scores
+          scores = _load_model_scores()
+          assert len(scores) >= 5, f'expected >=5 scored models, got {len(scores)}'
+          print(f'model-scores.yml: {len(scores)} models ok')
+          EOF
+
+  # ── Job 5: LLM fixture tests (optional, graceful degrade) ───────────────────
+  # Preflights the external `opencode` CLI and skips gracefully when it or the
+  # API key is missing — static tests still cover regressions (#51).
+  llm-fixture-tests:
+    name: LLM Fixture Tests (optional)
+    runs-on: ubuntu-latest
+    needs: validate-tools
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    env:
+      OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preflight check — opencode CLI present?
+        id: cli-check
+        run: |
+          if command -v opencode >/dev/null 2>&1; then
+            echo "opencode CLI found"
+            echo "opencode-ok=true" >> $GITHUB_OUTPUT
+          else
+            echo "opencode CLI NOT found — LLM fixture job will be skipped (static tests still cover regressions)"
+            echo "opencode-ok=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run fixture tests in LLM mode
+        if: steps.cli-check.outputs.opencode-ok == 'true' && env.OPENCODE_API_KEY != ''
+        run: |
+          python3 tools/run_fixture_tests.py --json llm-fixture-results.json
+          echo "LLM fixture tests: ok"
+
+      - name: Upload LLM fixture results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-fixture-results
+          path: llm-fixture-results.json
           if-no-files-found: ignore
