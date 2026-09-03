@@ -203,28 +203,41 @@ jobs:
 
   # ── Job 4: Model config change tests (paths-gated) ──────────────────────────
   # Runs the full static suite whenever fallback-model config or its updater
-  # changes (#55/#53). On `push` (no changed_files context) it always runs.
+  # changes (#55/#53). Uses dorny/paths-filter (git-diff based) — the naive
+  # `github.event.pull_request.changed_files` is an integer count, not a path
+  # array, so it cannot gate on paths. On `push`/`schedule` it always runs.
   model-config-tests:
     name: Model Config Change Tests
     runs-on: ubuntu-latest
-    if: >-
-      contains(github.event.pull_request.changed_files, 'config/free-models.yml') ||
-      contains(github.event.pull_request.changed_files, 'config/model-scores.yml') ||
-      contains(github.event.pull_request.changed_files, 'tools/update_free_models.py') ||
-      contains(github.event.pull_request.changed_files, '.github/workflows/update-free-models.yml') ||
-      github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect model config changes (PR)
+        if: github.event_name == 'pull_request'
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            models:
+              - 'config/free-models.yml'
+              - 'config/model-scores.yml'
+              - 'tools/update_free_models.py'
+              - '.github/workflows/update-free-models.yml'
 
       - name: Validate free model list integrity
+        if: steps.changes.outputs.models == 'true' || github.event_name != 'pull_request'
         run: |
           python3 tools/update_free_models.py --check
 
       - name: Run fixture tests (static heuristic mode)
+        if: steps.changes.outputs.models == 'true' || github.event_name != 'pull_request'
         run: |
           python3 tools/run_fixture_tests.py
 
       - name: Verify model-scores.yml parses
+        if: steps.changes.outputs.models == 'true' || github.event_name != 'pull_request'
         run: |
           python3 - << 'EOF'
           import sys, pathlib
@@ -253,10 +266,10 @@ jobs:
         run: |
           if command -v opencode >/dev/null 2>&1; then
             echo "opencode CLI found"
-            echo "opencode-ok=true" >> $GITHUB_OUTPUT
+            echo "opencode-ok=true" >> "$GITHUB_OUTPUT"
           else
             echo "opencode CLI NOT found — LLM fixture job will be skipped (static tests still cover regressions)"
-            echo "opencode-ok=false" >> $GITHUB_OUTPUT
+            echo "opencode-ok=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run fixture tests in LLM mode
