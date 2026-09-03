@@ -1,0 +1,12 @@
+/*
+ * FIXTURE: should-flag/no-dark-mode
+ * Purpose: :root color tokens with NO [data-theme="dark"] override MUST be
+ *          flagged P0 — mirror of the dark-mode coverage rule.
+ * Expected: 3 P0 findings (see no-dark-mode.expected)
+ */
+
+:root {
+  --ds-color-bg: oklch(97% 0.012 80);
+  --ds-color-surface: oklch(99% 0.005 80);
+  --ds-color-fg: oklch(20% 0.02 60);
+}

@@ -145,7 +145,8 @@ jobs:
           from pathlib import Path
 
           fixtures_dir = Path("tests/fixtures")
-          required_categories = ["design-tokens", "accessibility", "hardcoded-values", "css-quality"]
+          required_categories = ["design-tokens", "accessibility", "hardcoded-values", "css-quality",
+                                  "false-positives", "should-flag"]
           # Extensions that count as fixture input files
           INPUT_SUFFIXES = {".css", ".html", ".js", ".ts", ".jsx", ".tsx", ".json"}
           errors = []

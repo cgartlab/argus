@@ -1,0 +1,18 @@
+# Expected findings for: should-flag/missing-alt.html
+# Purpose: img without alt MUST be flagged P1; img with alt must not be.
+
+[meta]
+fixture = should-flag/missing-alt.html
+description = img without alt must be flagged P1; img with alt must not be flagged.
+
+[findings]
+P1 | | alt
+
+[must-not-flag]
+logo.png
+
+[counts]
+P0 = 0
+P1 = 1
+P2 = 0
+P3 = 0

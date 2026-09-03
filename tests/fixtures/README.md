@@ -20,7 +20,35 @@ tests/fixtures/
   css-quality/
     duplicate-rules.css             ← duplicate properties in same selector
     duplicate-rules.expected
+  false-positives/                  ← legal code that must NOT be flagged
+    root-tokens.css                 ← :root token declarations (in_root exemption)
+    box-shadow.css                  ← rgba() inside box-shadow/text-shadow
+    third-party-reset.css           ← universal-selector reset blocks
+    *.expected                      ← [counts] all 0 + [must-not-flag] list
+  should-flag/                      ← mirror pairs proving exemptions are scoped
+    hardcoded-colors.css            ← component bare colors (must flag P0)
+    missing-alt.html                ← img without alt (must flag P1)
+    no-dark-mode.css                ← missing dark overrides (must flag P0)
+    *.expected                      ← [counts] > 0 + required [findings]
 ```
+
+## Category Semantics
+
+- **`false-positives/`** — files that are **legally correct** and must produce **zero**
+  findings. Each `.expected` declares `P0 = 0 / P1 = 0 / P2 = 0 / P3 = 0` plus a
+  `[must-not-flag]` list naming the tokens/constructs that must never appear on a
+  flagged line. These lock in exemption logic (e.g. `:root` token source, shadow
+  colors, reset boilerplate) as regression guards.
+- **`should-flag/`** — mirror pairs that prove the exemptions are **scoped, not
+  blind**: the same construct outside its exempted context *must* be flagged
+  (e.g. bare rgba in a component rule vs. inside `box-shadow`). `.expected`
+  files carry `[counts]` > 0 and the required `[findings]`.
+- **FalsePositiveRate** = FP / (FP + TP), where FP is the number of
+  `[must-not-flag]` items that appeared on a flagged line and TP is the number of
+  expected `[findings]` keywords that appeared in the output. Reported by the
+  runner after every run (target ≤ 5%). The metric is meaningful in LLM mode;
+  static heuristic mode is deterministic and enforces `must-not-flag` as errors,
+  so a passing static run always has FP = 0.
 
 ## .expected File Format
 

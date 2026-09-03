@@ -1,0 +1,22 @@
+# Expected findings for: false-positives/third-party-reset.css
+# Purpose: Universal-selector reset blocks are non-blocking context:
+# duplicate-property P2 must not fire there, even when a preceding component
+# repeats the same property. Zero values remain unflagged.
+
+[meta]
+fixture = false-positives/third-party-reset.css
+description = Universal-selector reset blocks must NOT be flagged P2 for duplicate properties; zero-value resets must NOT be flagged.
+
+[findings]
+
+[must-not-flag]
+box-sizing: border-box
+margin: 0
+padding: 0
+*::after
+
+[counts]
+P0 = 0
+P1 = 0
+P2 = 0
+P3 = 0

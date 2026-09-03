@@ -1,0 +1,29 @@
+/*
+ * FIXTURE: false-positives/third-party-reset
+ * Purpose: Third-party reset stylesheets legitimately use universal
+ *          selectors and zero values. Universal-selector blocks are
+ *          non-blocking context — the duplicate-property P2 must not fire
+ *          there, even when a preceding component repeats the same property.
+ * Expected: 0 findings (see third-party-reset.expected)
+ */
+
+/* Component rule before the reset — repeats a property the reset also sets */
+.site-header {
+  margin: var(--ds-space-4);
+  padding: var(--ds-space-4);
+}
+
+/* Universal selector reset — must NOT be flagged P2 for duplicate margin */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Descendant universal selector inside a reset layer */
+.reset * {
+  margin: 0;
+  padding: 0;
+}

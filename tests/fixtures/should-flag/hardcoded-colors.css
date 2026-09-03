@@ -1,0 +1,33 @@
+/*
+ * FIXTURE: should-flag/hardcoded-colors
+ * Purpose: Mirror of the false-positives exemptions — component-level bare
+ *          color values (including rgba NOT inside a shadow) MUST be flagged
+ *          P0. Proves the box-shadow / :root exemptions are scoped, not blind.
+ * Expected: 4 P0 findings (see hardcoded-colors.expected)
+ */
+
+:root {
+  --ds-color-surface: oklch(99% 0.005 80);
+  --ds-color-fg: oklch(20% 0.02 60);
+}
+
+[data-theme="dark"] {
+  --ds-color-surface: oklch(15% 0.005 80);
+  --ds-color-fg: oklch(90% 0.02 60);
+}
+
+/* BAD: bare oklch in component → P0 */
+.card {
+  background: oklch(99% 0.005 80);
+  color: oklch(20% 0.02 60);
+}
+
+/* BAD: bare hex in component → P0 */
+.badge {
+  background: #e94560;
+}
+
+/* BAD: bare rgba in component — NOT in a shadow context → P0 */
+.overlay {
+  background: rgba(0, 0, 0, 0.5);
+}
