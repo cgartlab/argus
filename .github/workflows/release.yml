@@ -37,11 +37,19 @@ jobs:
         id: release-notes
         run: |
           VERSION=$(cat VERSION)
+          if ! grep -q "^## \[${VERSION}\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no section '## [${VERSION}]' — release notes would be empty. Aborting release."
+            exit 1
+          fi
           awk -v ver="[${VERSION}]" '
             index($0, "## " ver) == 1 { found=1; next }
             found && /^## \[/ { exit }
             found { print }
           ' CHANGELOG.md > /tmp/release-notes.md
+          if [ ! -s /tmp/release-notes.md ]; then
+            echo "::error::Extracted release notes for v${VERSION} are empty. Aborting release."
+            exit 1
+          fi
           echo "notes_path=/tmp/release-notes.md" >> $GITHUB_OUTPUT
           echo "Extracted release notes for v${VERSION}:"
           cat /tmp/release-notes.md

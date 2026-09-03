@@ -2,16 +2,20 @@ name: Argus-Flash Review
 on:
   pull_request:
     types: [opened, synchronize, ready_for_review, reopened]
+
+# Least privilege: read contents; write pull requests and issues for the
+# review comment. Declared at workflow level (was job-level, unified).
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   review:
     # Skip Dependabot PRs: GitHub does not pass repository secrets to workflows
     # triggered by Dependabot PRs, and pure action upgrades need no frontend design review.
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-      issues: write
     steps:
       - uses: actions/checkout@v7
         with:

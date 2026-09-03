@@ -8,15 +8,18 @@ on:
   schedule:
     - cron: "21 4 * * 0"
 
+# Least privilege, declared at workflow level (CodeQL uploads need
+# security-events write; everything else is read-only).
+permissions:
+  security-events: write
+  packages: read
+  actions: read
+  contents: read
+
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-      packages: read
-      actions: read
-      contents: read
     strategy:
       fail-fast: false
       matrix:

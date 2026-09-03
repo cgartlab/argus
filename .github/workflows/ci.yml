@@ -8,6 +8,10 @@ on:
   schedule:
     - cron: "23 4 * * 1"   # weekly Monday — model/rule health audit
 
+# Least privilege: checks only read repository contents (no writes needed).
+permissions:
+  contents: read
+
 jobs:
   # ── Job 1: YAML lint + required file checks ─────────────────────────────────
   lint:
