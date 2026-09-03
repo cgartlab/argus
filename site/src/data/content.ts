@@ -58,8 +58,8 @@ export const quickstartSteps: QuickStartStep[] = [
   },
   {
     title: 'Add Secrets',
-    desc: 'Store ARGUS_FLASH_APP_ID and ARGUS_FLASH_PRIVATE_KEY in your repository Actions secrets.',
-    code: 'secrets.ARGUS_FLASH_APP_ID',
+    desc: 'Store your GitHub App ID and private key in your repository Actions secrets.',
+    code: 'secrets.YOUR_APP_ID',
   },
   {
     title: 'Create a Workflow',
