@@ -117,7 +117,7 @@ You don't need to memorize this — it's the map for the rest of the docs. The t
 |---|---|---|
 | **Local agent** | Reads `AGENTS.md` + `SKILL.md` at startup | OpenCode, Claude Code, Codex CLI |
 | **GitHub App** | `argus-flash` + composite action | Automated PR review gate |
-| **Skill package** | `argus-skill-v{VERSION}.zip` | Distribution to skill-marketplace runtimes |
+| **Skill package** | `argus-skill-v{VERSION}.zip` | Distribution to skill-marketplace runtimes — see [Argus Skill](/docs/skill) |
 
 **Why it matters:** the same rules power all three — learn the rules once, and they apply everywhere.
 

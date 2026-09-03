@@ -45,19 +45,20 @@ Argus reads every line of frontend code, flags issues with a severity level (P0 
 | One-size-fits-all rules | **Stack-aware** — it detects React, Vue, Svelte, Angular, Astro, etc. and checks against official docs |
 | Need installation, configuration, build steps | **Pure documentation** — no runtime code, no build step, just rules it reads at review time |
 
-## Two ways to use it
+## Three ways to use it
 
 - **Automated (GitHub App)** — install **argus-flash**, add a small workflow, and every pull request gets a design review comment automatically. See [Getting Started](/docs/getting-started).
 - **Standalone (local agent)** — point any agent framework at `AGENTS.md` and `SKILL.md`; the review behavior loads automatically.
+- **Skill package** — download `argus-skill-v{VERSION}.zip` from the [GitHub Releases](https://github.com/cgartlab/argus/releases) page and install it into your agent (OpenCode, Claude Code, Codex CLI). See [Argus Skill](/docs/skill).
 
-**Why this matters:** the automated mode is what most teams use — it turns "remember to check the design" into "the bot checks it on every PR, every time."
+**Why this matters:** the automated mode is what most teams use — it turns "remember to check the design" into "the bot checks it on every PR, every time." The skill package gives you the same rules inside your own tool.
 
 ## Key facts
 
 | | |
 |---|---|
 | License | MIT |
-| Version | 0.4.0 |
+| Version | 0.5.0 |
 | Made by | [CGArtLab](https://github.com/cgartlab) |
 | Repository | [github.com/cgartlab/argus](https://github.com/cgartlab/argus) |
 | GitHub App | [github.com/apps/argus-flash](https://github.com/apps/argus-flash) |
