@@ -67,6 +67,24 @@ VALID_SEVERITIES = {"P0", "P1", "P2", "P3"}
 VALID_DESIGN_SYSTEMS = {"auto", "antd5", "material3", "polaris", "custom"}
 SUPPORTED_VERSIONS = {"0.2", "0.3"}
 
+# P0/P1 core rules that cannot be downgraded via overrides.severity.
+# Consistent with AGENTS.md "Severity never downgraded" and the SKILL.md
+# rule-id × severity matrix. Upgrading these (e.g. missing-alt → P0) is allowed.
+NON_DOWNGRADABLE_RULES = {
+    "dark-mode-coverage",  # P0 — dark mode break is a technical blocker
+    "bare-color",          # P0 — bare color in blocking context (component rules)
+    "missing-alt",         # P1 — WCAG compliance (images)
+    "button-aria-label",   # P1 — WCAG compliance (icon buttons)
+}
+
+# Base severity used in the error message for each non-downgradable rule.
+NON_DOWNGRADABLE_BASE = {
+    "dark-mode-coverage": "P0",
+    "bare-color": "P0",
+    "missing-alt": "P1",
+    "button-aria-label": "P1",
+}
+
 # ── Loader ───────────────────────────────────────────────────────────────────
 
 def _deep_merge(base: dict, override: dict) -> dict:
@@ -193,6 +211,9 @@ def validate_config(config: dict) -> list[str]:
             for rule, sev in severity_overrides.items():
                 if sev not in VALID_SEVERITIES:
                     errors.append(f"Invalid severity override for rule '{rule}': '{sev}'")
+                elif rule in NON_DOWNGRADABLE_RULES and sev in ("P2", "P3"):
+                    base = NON_DOWNGRADABLE_BASE.get(rule, "P1")
+                    errors.append(f"Rule '{rule}' is {base} and cannot be downgraded")
 
     output_cfg = config.get("output", {})
     if isinstance(output_cfg, dict):

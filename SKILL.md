@@ -1,7 +1,7 @@
 ---
 name: argus-design-review
 description: "Use when reviewing frontend code for design quality — checking design token usage, hardcoded values, dark mode coverage, accessibility compliance, CSS consistency, semantic HTML, or framework API usage. Use when auditing a component, page, or design system for issues. Trigger phrases: '帮我 review 这段代码'、'检查一下这个组件的设计问题'、'看看有没有 hardcoded values'、'dark mode 有没有遗漏'、'无障碍有没有问题'、'帮我做个 design audit'、'让 Argus-Flash 审一下'"
-version: 0.4.1
+version: 0.5.0
 ---
 
 # Argus Design Review Skill
@@ -1014,12 +1014,21 @@ const Card = styled.div`padding: var(--ds-space-2);`;
 
 ## Issue Severity
 
-| Severity | Meaning | Examples |
-|---|---|---|
-| **P0** | Blocking — CI will fail | Bare oklch in component rule, broken dark mode override, critical API misuse |
-| **P1** | High — must fix | Missing aria-label, invalid BEM, hardcoded spacing, hook deps missing |
-| **P2** | Medium — should fix | Duplicate rules, empty catch blocks, semantic violations |
-| **P3** | Low — polish | Code style, cosmetic issues |
+Severity is assigned by a strict **rule-id × severity matrix**, not free-form judgment. When a finding maps to a known rule-id, its severity comes from this matrix; framework anti-patterns keep the severity annotated inline (P1/P2/P3, unchanged).
+
+| Severity | Definition | Example rule-ids |
+|----------|------------|------------------|
+| **P0** | Technical blocker — CI will fail / blank page / visual functionality broken | `dark-mode-coverage`, bare color `bare-color` in component rules (blocking context), destructive API misuse |
+| **P1** | Compliance blocker — WCAG / semantics / interaction failure | `missing-alt`, `button-aria-label`, contrast < 4.5:1, touch target < 44px |
+| **P2** | Design-system quality — violates the design system (downgradable) | non-blocking bare values, `hardcoded-spacing`, `bem-naming`, `raw-px-breakpoint` |
+| **P3** | Optional polish (can be ignored) | focus enhancement, CSS order, missing comments |
+
+### Severity Calibration Rules
+
+- **P0/P1 cannot be downgraded** — consistent with AGENTS.md "Severity never downgraded". `overrides.severity` in `.argus.yml` rejects P2/P3 overrides for `dark-mode-coverage`, `bare-color`, `missing-alt`, and `button-aria-label`.
+- **Non-blocking bare values** (e.g. a `box-shadow` rgba literal outside a component's primary color context) are **P2**, aligned with the PR-B false-positives benchmark — not every bare value is a P0.
+- **Upgrades are allowed** (P2 → P1); **downgrades of non-core rules are allowed** (`hardcoded-spacing` → P3, `bem-naming` → P3).
+- **Framework anti-pattern annotations are unchanged** — all 42 rules in the stack sections below keep their existing inline P1/P2/P3 labels.
 
 ## Output Format
 
