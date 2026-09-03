@@ -160,7 +160,7 @@ def parse_expected(expected_path: Path) -> ExpectedFile:
 
 # ── Argus invocation (heuristic/static mode) ──────────────────────────────────
 
-# Fallback queue is read from config/free-models.yml (auto-refreshed every 12h
+# Fallback queue is read from config/free-models.yml (auto-refreshed weekly via reviewable PR
 # by the update-free-models workflow). These are last-resort built-in defaults
 # used only when the config file is missing or unparseable.
 # Single source of truth for the built-in queue lives in
@@ -781,14 +781,14 @@ def main() -> int:
     parser.add_argument("--fixture", metavar="PATH", type=Path, help="Run a single fixture file")
     parser.add_argument("--model", default=None, help="LLM model to use (default: primary from config/free-models.yml)")
     parser.add_argument("--token-system", default="auto", choices=["antd5", "material3", "polaris", "custom", "auto"], help="Design system whose token mapping (.github/tokens/<system>.json) is injected into the prompt; 'auto' detects from package.json (default: auto)")
-    parser.add_argument("--fallback-models", default=None, help="Comma-separated fallback model queue (ordered by coding ability) when primary fails. Defaults to config/free-models.yml (auto-refreshed every 12h).")
+    parser.add_argument("--fallback-models", default=None, help="Comma-separated fallback model queue (ordered by coding ability) when primary fails. Defaults to config/free-models.yml (auto-refreshed weekly via reviewable PR).")
     parser.add_argument("--verbose", action="store_true", help="Show full Argus output for each fixture")
     parser.add_argument("--dry-run", action="store_true", help="Parse fixtures and print plan, but do not invoke Argus")
     parser.add_argument("--json", dest="output_json", metavar="FILE", help="Write JSON results to FILE")
     args = parser.parse_args()
 
     # Resolve fallback queue: explicit --fallback-models wins; otherwise read
-    # from config/free-models.yml (auto-refreshed every 12h).
+    # from config/free-models.yml (auto-refreshed weekly via reviewable PR).
     fallback_models = args.fallback_models or default_fallback_models()
 
     # Resolve primary model: explicit --model wins; otherwise read the primary

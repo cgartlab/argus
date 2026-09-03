@@ -500,34 +500,6 @@ site/.astro/
 
 ---
 
-## 9. 实施 TODO（Wave 分解，供 men 分发 ji）
-
-### Wave 1 — 脚手架（可并行于 Wave 2 的数据准备）
-
-- [ ] T1: 创建 site/package.json + tsconfig.json + astro.config.mjs + uno.config.ts（Category: code | Skills: npm, astro | QA: V1-V4）
-- [ ] T2: 安装依赖 `npm install` 并生成 package-lock.json（Category: code | Skills: npm | QA: V13）
-- [ ] T3: 根 .gitignore 追加 3 行 + Makefile package 规则加 exclude（Category: code | Skills: git, make | QA: V11-V12）
-
-### Wave 2 — 骨架与数据（依赖 Wave 1）
-
-- [ ] T4: src/data/site.ts + src/data/content.ts 数据落地（Category: write | Skills: typescript | QA: V21）
-- [ ] T5: BaseLayout + Header + Footer + global.css（Category: code | Skills: astro, unocss, a11y | QA: V6, V17）
-- [ ] T6: content.config.ts + 7 个 docs md（先写 frontmatter + 章节标题占位，正文 T8 补全）（Category: write | Skills: markdown | QA: V5, V9）
-
-### Wave 3 — 页面（依赖 Wave 2）
-
-- [ ] T7: landing：Hero + CapabilityList + ArchitectureDiagram + QuickStart + CodeBlock + index.astro（Category: code | Skills: astro, unocss, a11y | QA: V7, V16, V18）
-- [ ] T8: docs 内容正文补全（源码转写：AGENTS/SKILL/README/config-schema/Makefile）（Category: write | Skills: markdown, editorial | QA: V9-V10）
-- [ ] T9: DocsLayout + DocsSidebar + docs/[...slug].astro + docs/index.astro（Category: code | Skills: astro, cc | QA: V5, V15）
-
-### Wave 4 — 收尾（依赖 Wave 3）
-
-- [ ] T10: 404.astro + NotFound + public/{favicon,robots,CNAME}（Category: code | Skills: astro | QA: V8, V20）
-- [ ] T11: deploy-site.yml（Category: code | Skills: github-actions, yaml | QA: V19）
-- [ ] T12: 构建验证：`cd site && npm install && npm run build` 退出码 0；根目录 `make validate` 通过（Category: review | Skills: npm, make | QA: V13-V15）
-
----
-
 ## 10. 验收标准表（chi judge 消费，全部机械可验证）
 
 | ID | 描述 | 验证方式 | PASS 条件 |

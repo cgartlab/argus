@@ -36,7 +36,9 @@ argus/
 │       ├── design-tokens/             # Design token & dark mode violations
 │       ├── accessibility/             # ARIA, alt, semantic HTML violations
 │       ├── hardcoded-values/          # Magic number spacing/radii/font-size
-│       └── css-quality/               # Duplicate rules, BEM violations
+│       ├── css-quality/               # Duplicate rules, BEM violations
+│       ├── false-positives/           # Legal code that must NOT be flagged (FP benchmarks)
+│       └── should-flag/               # Mirror pairs that MUST be flagged (proof of scope)
 ├── src/
 │   └── components/                    # Test components for review validation
 ├── tools/
@@ -46,15 +48,16 @@ argus/
 │   ├── bump_version.py                # Automated semver bumping
 │   └── validate_versioning.py         # VERSION / CHANGELOG consistency check
 ├── config/
-│   └── free-models.yml                # Auto-refreshed fallback model queue (every 12h)
+│   └── free-models.yml                # Auto-refreshed fallback model queue (weekly, reviewable PR)
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml                     # Lint + tool validation + fixture tests
 │   │   ├── review.yml                 # Argus-Flash PR review (triggers composite action)
 │   │   ├── release.yml                # Automated release workflow (tag-push triggers)
-│   │   ├── update-free-models.yml     # 12h scheduled refresh of fallback model list
+│   │   ├── update-free-models.yml     # Weekly scheduled refresh (reviewable PR)
 │   │   ├── pr-automation.yml          # Auto-label/assign/project on PR open
 │   │   └── deploy-site.yml            # Build + deploy site/ to GitHub Pages
+│   ├── tokens/                        # Design-token mappings (antd5/material3/polaris/custom)
 │   └── actions/
 │       └── argus-review/
 │           └── action.yml             # Reusable composite action for any repo
@@ -72,8 +75,10 @@ argus/
 | Skill execution | `SKILL.md` | Trigger phrases, review dimensions |
 | Agent manifest | `manifest.yaml` | Name, version, capabilities, inputs/outputs |
 | Consumer configuration | `docs/argus-config-schema.md` | Full `.argus.yml` field reference |
+| Token mapping data | `.github/tokens/` | Per-system design token JSON (antd5/material3/polaris/custom) |
 | Config loader | `tools/load_config.py` | Merges defaults + consumer `.argus.yml` |
 | Fixture test suite | `tests/fixtures/` | Regression tests for review rules |
+| False-positive benchmarks | `tests/fixtures/false-positives/` | Code that must NOT be flagged; mirror pairs in should-flag/ |
 | Fixture runner | `tools/run_fixture_tests.py` | `make test-fixtures` or directly |
 | CI pipeline | `.github/workflows/ci.yml` | Lint + tool validation + fixture tests |
 | PR review automation | `.github/workflows/review.yml` | Triggers argus-flash App |
@@ -81,7 +86,7 @@ argus/
 | Reusable review action | `.github/actions/argus-review/action.yml` | Dynamic rule + config injection |
 | Free model config | `config/free-models.yml` | Single source of truth for fallback model queue |
 | Free model updater | `tools/update_free_models.py` | Refreshes config from live OpenCode Zen API (ranked) |
-| Model refresh workflow | `.github/workflows/update-free-models.yml` | 12h scheduled refresh of fallback models |
+| Model refresh workflow | `.github/workflows/update-free-models.yml` | Weekly scheduled refresh (reviewable PR) |
 | PR automation | `.github/workflows/pr-automation.yml` | Auto-label/assign/project on PR open |
 | GitHub App | `github.com/apps/argus-flash` | Installed on any repo needing design review |
 | Marketing site | `site/` | Astro marketing site (docs, legal, 404); deployed to https://argus.cgartlab.com |
