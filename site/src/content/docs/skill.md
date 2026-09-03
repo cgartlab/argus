@@ -28,10 +28,10 @@ The archive `argus-skill-v{VERSION}.zip` contains three files:
 
 Get the latest skill package from the [GitHub Releases page](https://github.com/cgartlab/argus/releases) — look for the asset named `argus-skill-v{VERSION}.zip` on the newest release.
 
-Direct download link (current latest release):
+Direct download link — replace `{VERSION}` with the actual version number from the Releases page (e.g. `v0.4.1`):
 
 ```
-https://github.com/cgartlab/argus/releases/latest/download/argus-skill-v0.4.1.zip
+https://github.com/cgartlab/argus/releases/latest/download/argus-skill-v{VERSION}.zip
 ```
 
 > **Version tip:** the `{VERSION}` in the asset name matches the release tag. If you want a specific version, download the asset from that release's page instead of the latest one.
@@ -44,8 +44,9 @@ Each agent framework has a `skills/` directory where skill packages live. Unzip 
 
 ```bash
 # Generic example — check your framework's docs for the exact path
+# Replace {VERSION} with the version you downloaded (e.g. v0.4.1)
 mkdir -p ~/.config/<agent>/skills/argus-design-review
-unzip argus-skill-v0.4.1.zip -d ~/.config/<agent>/skills/argus-design-review
+unzip argus-skill-v{VERSION}.zip -d ~/.config/<agent>/skills/argus-design-review
 ```
 
 Common locations:
