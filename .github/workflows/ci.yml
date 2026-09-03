@@ -218,7 +218,7 @@ jobs:
       - name: Detect model config changes (PR)
         if: github.event_name == 'pull_request'
         id: changes
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             models:
