@@ -40,6 +40,7 @@ except ImportError:
 
 DEFAULTS: dict[str, Any] = {
     "version": "0.3",
+    "design-system": "auto",
     "skills": ["design-review"],
     "overrides": {
         "token-prefix": "--ds-",
@@ -63,6 +64,7 @@ DEFAULTS: dict[str, Any] = {
 
 VALID_SKILLS = {"design-review", "security-review", "api-contract", "performance", "infrastructure"}
 VALID_SEVERITIES = {"P0", "P1", "P2", "P3"}
+VALID_DESIGN_SYSTEMS = {"auto", "antd5", "material3", "polaris", "custom"}
 SUPPORTED_VERSIONS = {"0.2", "0.3"}
 
 # ── Loader ───────────────────────────────────────────────────────────────────
@@ -169,6 +171,13 @@ def validate_config(config: dict) -> list[str]:
         if unknown:
             errors.append(f"Unknown skill(s): {unknown}. Valid: {sorted(VALID_SKILLS)}")
 
+    design_system = config.get("design-system", "auto")
+    if design_system not in VALID_DESIGN_SYSTEMS:
+        errors.append(
+            f"Invalid 'design-system': '{design_system}'. "
+            f"Valid: {sorted(VALID_DESIGN_SYSTEMS)}"
+        )
+
     fail_on = config.get("fail-on", [])
     if not isinstance(fail_on, list):
         errors.append("'fail-on' must be a list of severity levels")
@@ -219,6 +228,8 @@ def emit_github_env(config: dict) -> None:
       ARGUS_IGNORE_RULES     — comma-separated ignored rule IDs
       ARGUS_MAX_FINDINGS     — integer max findings
       ARGUS_SHOW_TOKENS      — "true" or "false"
+      ARGUS_DESIGN_SYSTEM    — explicit design-system (only when not "auto");
+                               "auto" lets the action detect from package.json
     """
     env_file = os.environ.get("GITHUB_ENV")
     lines: list[str] = [
@@ -229,6 +240,12 @@ def emit_github_env(config: dict) -> None:
         f"ARGUS_MAX_FINDINGS={config.get('output', {}).get('max-findings', 50)}",
         f"ARGUS_SHOW_TOKENS={str(config.get('output', {}).get('show-token-names', True)).lower()}",
     ]
+
+    # Explicit design-system wins; "auto" is omitted so the action's Detect
+    # design system step performs package.json detection.
+    design_system = config.get("design-system", "auto")
+    if design_system != "auto":
+        lines.append(f"ARGUS_DESIGN_SYSTEM={design_system}")
 
     # Multi-line value for ignore paths (GitHub Actions supports EOF syntax)
     ignore_paths = config.get("ignore", {}).get("paths", [])

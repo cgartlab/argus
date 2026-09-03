@@ -1,0 +1,21 @@
+{
+  "_source": "https://polaris.shopify.com/tokens/colors",
+  "_version": "13",
+  "system": "Shopify Polaris",
+  "semantic": {
+    "color.bg": "var(--p-color-bg)",
+    "color.fg": "var(--p-color-text)",
+    "color.primary": "var(--p-color-bg-primary)",
+    "color.border": "var(--p-color-border)",
+    "spacing.xs": "var(--p-space-100)",
+    "spacing.sm": "var(--p-space-200)",
+    "spacing.md": "var(--p-space-300)",
+    "spacing.lg": "var(--p-space-400)",
+    "radius.sm": "var(--p-border-radius-100)",
+    "radius.md": "var(--p-border-radius-200)",
+    "radius.lg": "var(--p-border-radius-300)",
+    "font.size-sm": "var(--p-font-size-200)",
+    "font.size-md": "var(--p-font-size-300)",
+    "font.size-lg": "var(--p-font-size-400)"
+  }
+}

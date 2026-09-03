@@ -77,6 +77,40 @@ runs:
         fi
       shell: bash
 
+    - name: Detect design system
+      id: detect-system
+      run: |
+        # Explicit .argus.yml wins; otherwise parse package.json precisely.
+        DESIGN_SYSTEM="${ARGUS_DESIGN_SYSTEM:-auto}"
+        if [ "$DESIGN_SYSTEM" = "auto" ] && [ -f package.json ]; then
+          DESIGN_SYSTEM=$(python3 - <<'PY'
+        import json, sys
+        try:
+            data = json.load(open("package.json", encoding="utf-8"))
+        except Exception:
+            sys.exit(0)  # no/invalid package.json -> default custom
+        deps = {}
+        deps.update(data.get("dependencies", {}))
+        deps.update(data.get("devDependencies", {}))
+        if "antd" in deps:
+            major = deps["antd"].lstrip("^~").split(".")[0]
+            try:
+                print("antd5" if int(major) >= 5 else "antd4-unsupported")
+            except ValueError:
+                print("antd5")
+        elif "@mui/material" in deps:
+            print("material3")
+        elif "@shopify/polaris" in deps:
+            print("polaris")
+        else:
+            print("custom")
+        PY
+        )
+        fi
+        echo "ARGUS_DESIGN_SYSTEM=${DESIGN_SYSTEM:-custom}" >> $GITHUB_ENV
+        echo "[argus] Detected design system: ${DESIGN_SYSTEM:-custom}"
+      shell: bash
+
     - name: Build review prompt from Argus rules
       id: prompt
       run: |
@@ -87,6 +121,25 @@ runs:
           echo "## Argus Hard Rules"
           cat ${{ github.action_path }}/../../../AGENTS.md
           echo ""
+
+          # Inject design token mapping if a known system is detected
+          TOKEN_FILE="${{ github.action_path }}/../../../.github/tokens/$ARGUS_DESIGN_SYSTEM.json"
+          if [ "$ARGUS_DESIGN_SYSTEM" = "antd4-unsupported" ]; then
+            echo "## Design System: antd v4 (unsupported)"
+            echo "antd v4 uses Less variables, not CSS custom properties."
+            echo "Configure design-system: custom in .argus.yml, or migrate to antd v5."
+            echo ""
+          elif [ -n "$ARGUS_DESIGN_SYSTEM" ] && [ "$ARGUS_DESIGN_SYSTEM" != "custom" ] && [ -f "$TOKEN_FILE" ]; then
+            echo "## Design System: $ARGUS_DESIGN_SYSTEM"
+            echo "Reference these design tokens when suggesting fixes:"
+            cat "$TOKEN_FILE"
+            echo ""
+          elif [ "$ARGUS_DESIGN_SYSTEM" = "custom" ] || [ -z "$ARGUS_DESIGN_SYSTEM" ]; then
+            echo "## Custom Design System"
+            echo "No known design-token system detected. Treat any \`var(--<any-name>)\` as a valid design token reference."
+            echo ""
+          fi
+
           echo "## Review Dimensions"
           cat ${{ github.action_path }}/../../../SKILL.md
           echo ""

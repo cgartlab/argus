@@ -1,0 +1,23 @@
+{
+  "_source": "https://m3.material.io/foundations/design-tokens/overview",
+  "_version": "MD3 2024 (spacing 为 4dp 约定)",
+  "system": "Material Design 3",
+  "semantic": {
+    "color.primary": "var(--md-sys-color-primary)",
+    "color.surface": "var(--md-sys-color-surface)",
+    "color.on-surface": "var(--md-sys-color-on-surface)",
+    "color.bg": "var(--md-sys-color-background)",
+    "color.fg": "var(--md-sys-color-on-surface)",
+    "color.border": "var(--md-sys-color-outline)",
+    "spacing.xs": "var(--md-sys-spacing-xs)",
+    "spacing.sm": "var(--md-sys-spacing-sm)",
+    "spacing.md": "var(--md-sys-spacing-md)",
+    "spacing.lg": "var(--md-sys-spacing-lg)",
+    "radius.sm": "var(--md-sys-shape-corner-small)",
+    "radius.md": "var(--md-sys-shape-corner-medium)",
+    "radius.lg": "var(--md-sys-shape-corner-large)",
+    "font.size-sm": "var(--md-sys-typescale-body-small-size)",
+    "font.size-md": "var(--md-sys-typescale-body-medium-size)",
+    "font.size-lg": "var(--md-sys-typescale-body-large-size)"
+  }
+}
