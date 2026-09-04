@@ -42,6 +42,26 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Validate inputs (fail-fast on missing github-token)
+      # Closes #104 — consumers often pass GitHub App credentials
+      # (app-id / private-key) instead of an installation token. GitHub
+      # Actions only warns about unknown inputs and continues, leaving
+      # github-token empty; the downstream `opencode github run` then
+      # fails with a confusing error pointing at the GITHUB_TOKEN env
+      # variable. This step catches the misconfiguration at the boundary
+      # and fails fast with an actionable message.
+      shell: bash
+      env:
+        TOKEN: ${{ inputs.github-token }}
+      run: |
+        if [ -z "$TOKEN" ]; then
+          echo "::error::github-token input is empty or not provided."
+          echo "::error::This action expects an argus-flash GitHub App installation token as 'github-token'."
+          echo "::error::Common mistake: passing GitHub App credentials 'app-id'/'private-key' in the 'with:' block. GitHub Actions only warns about unknown inputs, so github-token stays empty and 'opencode github run' later fails with a misleading error about GITHUB_TOKEN."
+          echo "::error::Fix: use actions/create-github-app-token to mint an installation token, then pass it as github-token."
+          echo "::error::Reference: .github/workflows/review.yml in this repo (steps 'Generate argus-flash token' + 'cgartlab/argus/.github/actions/argus-review')."
+          exit 1
+        fi
     - name: Configure git
       run: |
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
