@@ -1,7 +1,11 @@
 ---
 // DigitalWater — 数字水面动态背景
 // Wave 4：字符网格粒子 + 双层 sin 波浪 + 绿红流动状态机。
-// 60fps 三色 sprite drawImage：主循环 0 fillText / 0 fillStyle / 0 font。
+// PR1：WebGL1 单批次 instanced 渲染（骨架 + 软渲染检测 + Canvas2D fallback）。
+//   · CPU 状态机完全保留（wave/状态机仍在 CPU），仅替换像素提交路径。
+//   · WebGL：atlas 纹理 + drawArraysInstancedANGLE，消除逐粒子 drawImage。
+//   · 2D：原 drawImage 路径原样封装（?water=2d 强制 / 软渲染自动回退）。
+//   · 输出像素一致（premultiplied 混合 = source-over）。
 // 视觉表达 Argus 代码审查流程：检查(绿) → 发现问题(红) → 修复回归(琥珀)。
 // 纯 canvas 实现，无框架依赖。
 ---
@@ -180,7 +184,9 @@
   const canvas = document.getElementById('digital-water')
   // 注意：必须保持透明通道（alpha:true）——琥珀字符 alpha 仅 0.05-0.13，
   // 若用 { alpha:false } 会得到不透明黑底，盖住 hero 浅色背景，背景变黑。
-  const ctx = canvas.getContext('2d')
+  // 渲染器（Canvas2D fallback / WebGL1 instanced）在 createRenderer() 中创建。
+  // 同一 canvas 只能绑定一种 context → 必须延迟 ctx 创建到能力检测之后。
+  let renderer = null
   const hero = document.getElementById('hero') || canvas.closest('#hero')
 
   // ── 状态 ────────────────────────────────────────────────
@@ -215,6 +221,316 @@
   let tilesPerBlock = 0 // = chars.length * 3
   let tilesPerRow = 0 // = tilesPerBlock
   let tileSize = 0
+
+  // ── PR1：Renderer 抽象（Canvas2D fallback / WebGL1 instanced）────
+  // 两种渲染器共享同一 submit(block, charIdx, tier, dx, dy, alpha) 接口，
+  // CPU 状态机（emitDraw）保留，仅替换像素提交路径。输出像素一致。
+  // WebGL 路径：单批次 instanced drawArrays（混合阶段双绘 → 每粒子 ≤2 实例槽位）。
+
+  // WebGL 上下文属性：必须保留透明通道（alpha:true）+ premultiplied
+  // （2D canvas backing store 是 premultiplied，UNPACK 直接使用避免二次转换）。
+  const GL_ATTRS = { antialias: true, alpha: true, premultipliedAlpha: true }
+
+  // 软渲染检测：SwiftShader（Chrome 无 GPU 回退）/ llvmpipe（Mesa）/ Software（通用）
+  // / "ANGLE (Google"（ANGLE SwiftShader 旧标识）→ 判定软渲染，强制 2D。
+  const SOFTWARE_RENDERER_RE = /SwiftShader|llvmpipe|Software|ANGLE \(Google/i
+
+  // 顶点着色器：单位 quad（a_corner，divisor=0）+ 每实例（divisor=1）
+  // a_center（左上角 CSS px）/ a_uv（tile 的归一化 uv 矩形）/ a_alpha。
+  // 坐标：canvas 左上原点（y 向下）→ clip space（y 向上）在 shader 内翻转。
+  const VS_SRC = [
+    'attribute vec2 a_corner;',
+    'attribute vec2 a_center;',
+    'attribute vec4 a_uv;',
+    'attribute float a_alpha;',
+    'uniform vec2 u_resolution;',
+    'uniform float u_tileSize;',
+    'varying vec2 v_texCoord;',
+    'varying float v_alpha;',
+    'void main(void) {',
+    '  v_texCoord = a_uv.xy + a_corner * (a_uv.zw - a_uv.xy);',
+    '  v_alpha = a_alpha;',
+    '  vec2 px = a_center + a_corner * u_tileSize;',
+    '  vec2 clip = (px / u_resolution) * 2.0 - 1.0;',
+    '  clip.y = -clip.y;',
+    '  gl_Position = vec4(clip, 0.0, 1.0);',
+    '}',
+  ].join('\n')
+
+  // 片元着色器：atlas 纹理（premultiplied）× 每实例 alpha → premultiplied 输出，
+  // 配合 gl.blendFunc(ONE, ONE_MINUS_SRC_ALPHA) = 2D source-over 合成语义。
+  const FS_SRC = [
+    'precision mediump float;',
+    'varying vec2 v_texCoord;',
+    'varying float v_alpha;',
+    'uniform sampler2D u_atlas;',
+    'void main(void) {',
+    '  vec4 c = texture2D(u_atlas, v_texCoord);',
+    '  gl_FragColor = vec4(c.rgb * v_alpha, c.a * v_alpha);',
+    '}',
+  ].join('\n')
+
+  // Canvas2D renderer：现有 drawTile 逻辑原样封装（fallback，零回归）。
+  class Canvas2DRenderer {
+    constructor(canvas) {
+      this.name = '2d'
+      this.canvas = canvas
+      this.ctx = canvas.getContext('2d') // fallback：保留原 2D 路径
+      this.dpr = 1
+      this.width = 0
+      this.height = 0
+    }
+
+    init(sheetCanvas, ts, tpr, tpb) {
+      this.sheet = sheetCanvas
+      this.tileSize = ts
+      this.tilesPerRow = tpr
+      this.tilesPerBlock = tpb
+    }
+
+    resize(dpr, width, height) {
+      this.dpr = dpr
+      this.width = width
+      this.height = height
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    }
+
+    begin() {
+      this.ctx.clearRect(0, 0, this.width, this.height)
+      this.ctx.globalAlpha = 1
+    }
+
+    submit(block, charIdx, tier, dx, dy, alpha) {
+      const charTileIdx = charIdx * 3 + tier
+      const spriteIdx = block * this.tilesPerBlock + charTileIdx
+      const sx = (spriteIdx % this.tilesPerRow) * this.tileSize
+      const sy = Math.floor(spriteIdx / this.tilesPerRow) * this.tileSize
+      this.ctx.globalAlpha = alpha
+      this.ctx.drawImage(this.sheet, sx, sy, this.tileSize, this.tileSize, dx, dy, this.tileSize, this.tileSize)
+    }
+
+    end() {
+      this.ctx.globalAlpha = 1
+    }
+  }
+
+  // WebGL1 renderer：单批次 instanced drawArrays（消除逐粒子 drawImage）。
+  // 预分配 maxParticles × 2 实例槽位（混合阶段单粒子最多 2 次提交）。
+  class WebGLRenderer {
+    constructor(canvas, gl, ext) {
+      this.name = 'webgl'
+      this.canvas = canvas
+      this.gl = gl
+      this.ext = ext
+      this.dpr = 1
+      this.width = 0
+      this.height = 0
+      this.tileSize = 0
+      this.tilesPerRow = 0
+      this.tilesPerBlock = 0
+      this.sheetW = 1
+      this.sheetH = 1
+      this.maxInstances = CONFIG.maxParticles * 2
+      this.instanceCount = 0
+      this.instanceData = new Float32Array(this.maxInstances * 7) // center2 + uv4 + alpha1
+      this.program = null
+      this.tex = null
+      this.quadBuffer = null
+      this.instanceBuffer = null
+      this.locCorner = -1
+      this.locCenter = -1
+      this.locUv = -1
+      this.locAlpha = -1
+      this.locAtlas = null
+      this.locResolution = null
+      this.locTileSize = null
+      this.locAtlasSize = null
+    }
+
+    init(sheetCanvas, ts, tpr, tpb) {
+      this.tileSize = ts
+      this.tilesPerRow = tpr
+      this.tilesPerBlock = tpb
+      this.sheetW = sheetCanvas.width
+      this.sheetH = sheetCanvas.height
+      const gl = this.gl
+
+      // ── shader 编译（失败抛错 → createRenderer 捕获回退 2D）──
+      const vs = gl.createShader(gl.VERTEX_SHADER)
+      gl.shaderSource(vs, VS_SRC)
+      gl.compileShader(vs)
+      if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
+        throw new Error('WebGL vertex shader compile failed: ' + gl.getShaderInfoLog(vs))
+      }
+      const fs = gl.createShader(gl.FRAGMENT_SHADER)
+      gl.shaderSource(fs, FS_SRC)
+      gl.compileShader(fs)
+      if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
+        throw new Error('WebGL fragment shader compile failed: ' + gl.getShaderInfoLog(fs))
+      }
+      const prog = gl.createProgram()
+      gl.attachShader(prog, vs)
+      gl.attachShader(prog, fs)
+      gl.linkProgram(prog)
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+        throw new Error('WebGL program link failed: ' + gl.getProgramInfoLog(prog))
+      }
+      this.program = prog
+
+      this.locCorner = gl.getAttribLocation(prog, 'a_corner')
+      this.locCenter = gl.getAttribLocation(prog, 'a_center')
+      this.locUv = gl.getAttribLocation(prog, 'a_uv')
+      this.locAlpha = gl.getAttribLocation(prog, 'a_alpha')
+      this.locAtlas = gl.getUniformLocation(prog, 'u_atlas')
+      this.locResolution = gl.getUniformLocation(prog, 'u_resolution')
+      this.locTileSize = gl.getUniformLocation(prog, 'u_tileSize')
+      this.locAtlasSize = gl.getUniformLocation(prog, 'u_atlasSize')
+
+      // ── 单位 quad（6 顶点 2 三角形，divisor=0）──
+      this.quadBuffer = gl.createBuffer()
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer)
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        0, 0, 1, 0, 0, 1,
+        0, 1, 1, 0, 1, 1,
+      ]), gl.STATIC_DRAW)
+
+      // ── 实例缓冲（预分配 maxParticles×2 槽位，DYNAMIC_DRAW）──
+      this.instanceBuffer = gl.createBuffer()
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer)
+      gl.bufferData(gl.ARRAY_BUFFER, this.instanceData.byteLength, gl.DYNAMIC_DRAW)
+
+      // ── atlas 纹理：从 sprite sheet canvas 一次性上传 ──
+      // premultiplied：2D canvas backing store 已是 premultiplied，
+      // UNPACK_PREMULTIPLY_ALPHA_WEBGL=true 直接使用，避免二次转换。
+      // NPOT → CLAMP_TO_EDGE + NEAREST（WebGL1 无 mipmap）。
+      this.tex = gl.createTexture()
+      gl.bindTexture(gl.TEXTURE_2D, this.tex)
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sheetCanvas)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+
+      // premultiplied 混合 = 2D source-over 合成（SRC_ALPHA 会偏暗）
+      gl.enable(gl.BLEND)
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    }
+
+    resize(dpr, width, height) {
+      this.dpr = dpr
+      this.width = width
+      this.height = height
+      this.gl.viewport(0, 0, Math.round(width * dpr), Math.round(height * dpr))
+    }
+
+    begin() {
+      const gl = this.gl
+      gl.clearColor(0, 0, 0, 0)
+      gl.clear(gl.COLOR_BUFFER_BIT)
+      this.instanceCount = 0
+    }
+
+    // 收集实例（CPU 状态机决定 block/tier/alpha，不迁移任何计算逻辑）
+    submit(block, charIdx, tier, dx, dy, alpha) {
+      if (this.instanceCount >= this.maxInstances) return
+      const charTileIdx = charIdx * 3 + tier
+      const spriteIdx = block * this.tilesPerBlock + charTileIdx
+      const sx = (spriteIdx % this.tilesPerRow) * this.tileSize
+      const sy = Math.floor(spriteIdx / this.tilesPerRow) * this.tileSize
+      const i = this.instanceCount * 7
+      const d = this.instanceData
+      d[i] = dx
+      d[i + 1] = dy
+      d[i + 2] = sx / this.sheetW
+      d[i + 3] = sy / this.sheetH
+      d[i + 4] = (sx + this.tileSize) / this.sheetW
+      d[i + 5] = (sy + this.tileSize) / this.sheetH
+      d[i + 6] = alpha
+      this.instanceCount++
+    }
+
+    // 单批次 instanced drawArrays（替代逐粒子 drawImage）
+    end() {
+      const gl = this.gl
+      if (this.instanceCount === 0) return
+      gl.useProgram(this.program)
+      gl.uniform2f(this.locResolution, this.width, this.height)
+      gl.uniform1f(this.locTileSize, this.tileSize)
+      gl.uniform2f(this.locAtlasSize, this.sheetW, this.sheetH)
+
+      // 每顶点属性（divisor=0）
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer)
+      gl.enableVertexAttribArray(this.locCorner)
+      gl.vertexAttribPointer(this.locCorner, 2, gl.FLOAT, false, 0, 0)
+
+      // 每实例属性（divisor=1），stride = 7 floats
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer)
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.instanceData.subarray(0, this.instanceCount * 7))
+      const stride = 7 * 4
+      gl.enableVertexAttribArray(this.locCenter)
+      gl.vertexAttribPointer(this.locCenter, 2, gl.FLOAT, false, stride, 0)
+      this.ext.vertexAttribDivisorANGLE(this.locCenter, 1)
+      gl.enableVertexAttribArray(this.locUv)
+      gl.vertexAttribPointer(this.locUv, 4, gl.FLOAT, false, stride, 8)
+      this.ext.vertexAttribDivisorANGLE(this.locUv, 1)
+      gl.enableVertexAttribArray(this.locAlpha)
+      gl.vertexAttribPointer(this.locAlpha, 1, gl.FLOAT, false, stride, 24)
+      this.ext.vertexAttribDivisorANGLE(this.locAlpha, 1)
+
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, this.tex)
+      gl.uniform1i(this.locAtlas, 0)
+
+      gl.drawArraysInstancedANGLE(gl.TRIANGLES, 0, 6, this.instanceCount)
+    }
+  }
+
+  // ── 能力检测：URL 开关 → WebGL 探测 → ANGLE 扩展 → 软渲染 ──
+  // 返回 'gl'（可用）或 '2d'（不可用/被强制/软渲染）。
+  function detectRendererMode() {
+    // 调试开关：?water=2d 强制 2D；?water=gl 强制 WebGL（仍走能力检测，失败回退）
+    const params = new URLSearchParams(window.location.search)
+    const forced = params.get('water')
+    if (forced === '2d') return '2d'
+    if (forced === 'gl') return 'gl'
+
+    // 软渲染检测（临时 canvas 探测，不影响主 canvas 的 context 绑定）
+    try {
+      const probe = document.createElement('canvas')
+      const gl = probe.getContext('webgl', GL_ATTRS) || probe.getContext('experimental-webgl', GL_ATTRS)
+      if (!gl) return '2d' // 无 WebGL
+      if (!gl.getExtension('ANGLE_instanced_arrays')) return '2d' // 无 instanced 扩展
+      const dbg = gl.getExtension('WEBGL_debug_renderer_info')
+      if (dbg) {
+        const rendererInfo = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || ''
+        if (SOFTWARE_RENDERER_RE.test(rendererInfo)) return '2d' // 软渲染 → 强制 2D
+      }
+      return 'gl'
+    } catch (err) {
+      return '2d'
+    }
+  }
+
+  // ── 创建渲染器：绑定 context 的唯一入口（互斥）──
+  function createRenderer() {
+    if (detectRendererMode() === 'gl') {
+      try {
+        const gl = canvas.getContext('webgl', GL_ATTRS) || canvas.getContext('experimental-webgl', GL_ATTRS)
+        const ext = gl && gl.getExtension('ANGLE_instanced_arrays')
+        if (gl && ext) {
+          const r = new WebGLRenderer(canvas, gl, ext)
+          r.init(sheet, tileSize, tilesPerRow, tilesPerBlock)
+          return r
+        }
+      } catch (err) {
+        // WebGL 初始化失败（shader 编译/link 等）→ 回退 2D
+      }
+    }
+    const r = new Canvas2DRenderer(canvas)
+    r.init(sheet, tileSize, tilesPerRow, tilesPerBlock)
+    return r
+  }
 
   // ── 自动触发（画布随机选点触发动效，不产生位移）──
   let lastAutoTrigger = 0
@@ -337,18 +653,13 @@
     if (width === 0 || height === 0) return
     canvas.width = Math.round(width * dpr)
     canvas.height = Math.round(height * dpr)
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    renderer.resize(dpr, width, height)
     buildParticles()
   }
 
-  // ── 从 sprite sheet 画一个 tile（主循环唯一绘制路径）──────
-  function drawTile(block, charIdx, tier, dx, dy) {
-    const charTileIdx = charIdx * 3 + tier
-    const spriteIdx = block * tilesPerBlock + charTileIdx
-    const sx = (spriteIdx % tilesPerRow) * tileSize
-    const sy = Math.floor(spriteIdx / tilesPerRow) * tileSize
-    ctx.drawImage(sheet, sx, sy, tileSize, tileSize, dx, dy, tileSize, tileSize)
-  }
+  // ── 从 sprite sheet 计算 tile 的像素坐标（renderer 内部使用）──
+  // PR1 起 tile 提交统一走 renderer.submit(block, charIdx, tier, dx, dy, alpha)：
+  // Canvas2DRenderer 保留原 drawImage 路径，WebGLRenderer 写入 instanced 缓冲。
 
   // ── 状态机：给定粒子 + 当前时间 → 'normal' | 'green' | 'red' | 'fade' ──
   function getState(p, now) {
@@ -371,16 +682,17 @@
     return BLOCK_AMBER_C
   }
 
-  // ── 单粒子绘制（7 阶段状态机 + 缓动 + 颜色混合过渡）──────
-  function drawParticle(p, drawX, drawY, ts) {
+  // ── 单粒子提交（7 阶段状态机 + 缓动 + 颜色混合过渡）──────
+  // CPU 状态机完全保留（决定 block/tier/alpha），仅把 ctx.globalAlpha+drawImage
+  // 换成 renderer.submit(block, charIdx, tier, dx, dy, alpha)。双绘阶段提交 2 次。
+  function emitDraw(renderer, p, drawX, drawY, ts) {
     const dx = Math.floor(drawX)
     const dy = Math.floor(drawY)
     const dt = ts - p.lastActivate
 
     if (dt < 0) {
       // 延迟期：琥珀（空气动力错落感）
-      ctx.globalAlpha = 1
-      drawTile(amberBlockFor(drawY), p.charIdx, p.sizeTier, dx, dy)
+      renderer.submit(amberBlockFor(drawY), p.charIdx, p.sizeTier, dx, dy, 1)
       return
     }
 
@@ -399,58 +711,47 @@
         p.charIdx = p.newCharIdx
         p.newCharIdx = null
       }
-      ctx.globalAlpha = 1
-      drawTile(amberBlockFor(drawY), p.charIdx, p.sizeTier, dx, dy)
+      renderer.submit(amberBlockFor(drawY), p.charIdx, p.sizeTier, dx, dy, 1)
       return
     }
 
     if (dt < greenIn) {
       // 1. GREEN_IN：绿淡入（ease-in，从慢到快）
       const k = easeInQuad(dt / greenIn)
-      ctx.globalAlpha = CONFIG.greenAlpha * k
-      drawTile(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy)
+      renderer.submit(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * k)
 
     } else if (dt < green) {
       // 2. GREEN：绿稳定
-      ctx.globalAlpha = CONFIG.greenAlpha
-      drawTile(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy)
+      renderer.submit(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha)
 
     } else if (dt < redIn) {
       // 3. GREEN_TO_RED：颜色混合（绿渐隐 + 红渐显，ease-in-out 叠加）
       const blend = easeInOutCubic((dt - green) / (redIn - green))
-      ctx.globalAlpha = CONFIG.greenAlpha * (1 - blend)
-      drawTile(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy) // 绿渐隐
-      ctx.globalAlpha = CONFIG.greenAlpha * blend
-      drawTile(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy) // 红渐显
+      renderer.submit(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * (1 - blend)) // 绿渐隐
+      renderer.submit(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * blend) // 红渐显
 
     } else if (dt < red) {
       // 4. RED：红稳定
-      ctx.globalAlpha = CONFIG.greenAlpha
-      drawTile(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy)
+      renderer.submit(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha)
 
     } else if (dt < blurIn) {
       // 5. RED_TO_BLUR：红渐隐 + 模糊渐显（ease-out）
       const blend = easeOutQuad((dt - red) / (blurIn - red))
-      ctx.globalAlpha = CONFIG.greenAlpha * (1 - blend)
-      drawTile(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy) // 红渐隐
-      ctx.globalAlpha = CONFIG.greenAlpha * 0.7 * blend
-      drawTile(BLOCK_BLUR, p.charIdx, p.sizeTier, dx, dy) // 模糊渐显
+      renderer.submit(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * (1 - blend)) // 红渐隐
+      renderer.submit(BLOCK_BLUR, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * 0.7 * blend) // 模糊渐显
 
     } else {
       // 6. FADE：模糊渐隐 + 新字符渐显（ease-in-out）
       if (p.newCharIdx === null) p.newCharIdx = Math.floor(Math.random() * CONFIG.chars.length)
       const k = easeInOutCubic((dt - blurIn) / (fade - blurIn))
-      ctx.globalAlpha = CONFIG.greenAlpha * 0.7 * (1 - k)
-      drawTile(BLOCK_BLUR, p.charIdx, p.sizeTier, dx, dy) // 模糊渐隐
-      ctx.globalAlpha = k * 0.6 // 新字符略淡入（0.6 max，柔和浮现）
-      drawTile(amberBlockFor(drawY), p.newCharIdx, p.sizeTier, dx, dy) // 新字符渐显
+      renderer.submit(BLOCK_BLUR, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * 0.7 * (1 - k)) // 模糊渐隐
+      renderer.submit(amberBlockFor(drawY), p.newCharIdx, p.sizeTier, dx, dy, k * 0.6) // 新字符渐显
     }
   }
 
   // ── 单帧绘制 ───────────────────────────────────────────
   function draw(ts) {
-    ctx.clearRect(0, 0, width, height)
-    ctx.globalAlpha = 1
+    renderer.begin()
 
     for (const p of particles) {
       // 双层 sin 波浪（第二层反向传播），叠加在静网格之上
@@ -459,9 +760,10 @@
         CONFIG.amplitude2 * Math.sin(p.baseX * CONFIG.frequency2 - t * CONFIG.speed2 + p.phase2)
       const drawX = p.baseX + p.physX // 流体水平位移
       const drawY = p.baseY + wave + p.physY // 波浪 + 流体垂直位移
-      drawParticle(p, drawX, drawY, ts)
+      emitDraw(renderer, p, drawX, drawY, ts)
     }
-    ctx.globalAlpha = 1
+
+    renderer.end()
   }
 
   function frame(ts) {
@@ -649,6 +951,7 @@
 
   // ── 启动 ───────────────────────────────────────────────
   buildSpriteSheet() // sprite 不依赖 canvas 尺寸，只需一次
+  renderer = createRenderer() // 能力检测 + context 绑定（互斥，延迟到此处）
   resize()
   if (width > 0 && height > 0) {
     startRaf()
@@ -665,6 +968,9 @@
   window.__digitalWater = {
     get particles() {
       return particles.length
+    },
+    get renderer() {
+      return renderer ? renderer.name : 'none'
     },
     get frameRate() {
       return fps
