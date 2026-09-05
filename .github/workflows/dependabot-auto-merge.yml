@@ -1,0 +1,66 @@
+name: Dependabot Auto-Merge
+
+# Auto-approves and auto-merges dependabot PRs for patch/minor updates.
+# Major version bumps are intentionally left for manual review.
+#
+# Uses `pull_request_target` because dependabot PRs need elevated permissions
+# (their branches/PRs originate from a bot context). `pull_request_review` lets
+# the workflow re-run after a human approves, in case CI was not green at PR time.
+#
+# Triple gate (each as an `if` step condition so failures are easy to debug):
+#   1. Only dependabot PRs.
+#   2. Only patch/minor semver updates — `semver-major` is skipped.
+#   3. Only after CI checks pass (or the PR is mergeable).
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      # Gate 1: actor check (the job-level `if` above) + fetch dependabot metadata.
+      - name: Fetch dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      # Gate 2: only auto-merge patch/minor — skip major (leave for human review).
+      - name: Skip major version updates
+        if: steps.metadata.outputs.update-type == 'version-update:semver-major'
+        run: |
+          echo "Major version update (semver-major) — skipping auto-merge, leaving for manual review."
+          exit 0
+
+      # Gate 3: wait for CI to pass, then auto-merge.
+      - name: Wait for CI checks to pass
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        run: |
+          gh pr checks "${{ github.event.pull_request.number }}" \
+            --watch \
+            --interval 10
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Approve pull request
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        run: |
+          gh pr review "${{ github.event.pull_request.number }}" --approve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge (squash)
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        run: |
+          gh pr merge "${{ github.event.pull_request.number }}" --auto --squash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
