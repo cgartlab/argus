@@ -63,6 +63,7 @@ jobs:
             tools/update_free_models.py
             tools/bump_version.py
             tools/validate_versioning.py
+            tools/validate_model_scores.py
             config/free-models.yml
             docs/argus-config-schema.md
             .github/actions/argus-review/action.yml
@@ -95,6 +96,7 @@ jobs:
           python3 -m py_compile tools/update_free_models.py && echo "update_free_models.py: ok"
           python3 -m py_compile tools/bump_version.py      && echo "bump_version.py: ok"
           python3 -m py_compile tools/validate_versioning.py && echo "validate_versioning.py: ok"
+          python3 -m py_compile tools/validate_model_scores.py && echo "validate_model_scores.py: ok"
 
       - name: Validate free model list (config/free-models.yml)
         run: |
@@ -229,6 +231,7 @@ jobs:
               - 'config/free-models.yml'
               - 'config/model-scores.yml'
               - 'tools/update_free_models.py'
+              - 'tools/validate_model_scores.py'
               - '.github/workflows/update-free-models.yml'
 
       - name: Validate free model list integrity
@@ -252,6 +255,11 @@ jobs:
           assert len(scores) >= 5, f'expected >=5 scored models, got {len(scores)}'
           print(f'model-scores.yml: {len(scores)} models ok')
           EOF
+
+      - name: Validate model-scores.yml schema
+        if: steps.changes.outputs.models == 'true' || github.event_name != 'pull_request'
+        run: |
+          python3 tools/validate_model_scores.py
 
   # ── Job 5: LLM fixture tests (optional, graceful degrade) ───────────────────
   # Preflights the external `opencode` CLI and skips gracefully when it or the

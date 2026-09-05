@@ -144,7 +144,8 @@ argus/
 │   ├── bump_version.py         # Automated semver bumping
 │   ├── load_config.py          # Consumer .argus.yml loader
 │   ├── run_fixture_tests.py    # Fixture regression test runner
-│   └── validate_versioning.py  # VERSION/CHANGELOG consistency check
+│   ├── validate_versioning.py  # VERSION/CHANGELOG consistency check
+│   └── validate_model_scores.py  # config/model-scores.yml schema validator
 ├── Makefile                     # validate, release, package, clean
 ├── VERSION                      # Semantic version
 └── LICENSE                      # MIT
