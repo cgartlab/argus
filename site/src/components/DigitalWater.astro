@@ -1,6 +1,9 @@
 ---
 // DigitalWater — 数字水面动态背景
 // Wave 4：字符网格粒子 + 双层 sin 波浪 + 绿红流动状态机。
+// PR4：网格点阵 → 代码风横向字符串布局（token 流 + 加权缩进），
+//   密度 15000-20000（桌面 16000 / 移动 4000 / 2D 4000），
+//   波浪改整行同步（shader 与 2D 均用 baseY），状态机与鼠标物理零改动。
 // PR1：WebGL1 单批次 instanced 渲染（骨架 + 软渲染检测 + Canvas2D fallback）。
 //   · CPU 状态机完全保留（wave/状态机仍在 CPU），仅替换像素提交路径。
 //   · WebGL：atlas 纹理 + drawArraysInstancedANGLE，消除逐粒子 drawImage。
@@ -114,17 +117,29 @@
   // 分组说明：按语义分四组。保持扁平结构（不重构成嵌套对象，
   // 避免破坏下方大量 CONFIG.x 引用）。各组仅注释标注，不改任何值。
   const CONFIG = {
-    // ── grid（internal）：字符网格密度 ──
-    cellSize: 18,           // 网格单元尺寸（px）—— 超密版（约 1700 粒子铺满 hero）
-    maxParticles: 5000,     // 粒子数上限（cap）
+    // ── line（internal）：代码风横向字符串布局 ──
+    charAdvance: 5.0,       // 水平字距（px）
+    lineHeight: 10.0,       // 行距（px）
+    maxParticles: 16000,    // 粒子数上限（cap）—— 桌面目标
+    mobileMaxParticles: 4000, // 移动端粒子上限（降级）
+    fillRatio: 0.88,        // 行填充率（水平铺满比例）
+    indentSteps: [0, 4, 8, 12, 16, 20],       // 缩进档位（格）
+    indentWeights: [0.55, 0.25, 0.12, 0.06, 0.02], // 对应 0/4/8/12/16+
+    pseudoTokens: {
+      weights: { keyword: 0.10, identifier: 0.35, literal: 0.15, operator: 0.25, delimiter: 0.10, space: 0.05 },
+      keyword: ['if', 'for', 'while', 'return', 'const', 'let', 'function', 'async', 'await', 'class', 'new', 'import', 'export', 'try', 'catch', 'throw'],
+      literal: ['true', 'false', 'null', 'undefined'],
+      operator: ['=', '==', '===', '!=', '<', '>', '<=', '>=', '+', '-', '*', '/', '&&', '||', '!', '->'],
+      delimiter: ['{', '}', '(', ')', '[', ']', ';', ',', ':'],
+    },
 
-    // ── wave（internal）：双层 sin 波浪 ──
-    amplitude1: 30,         // 第一层波浪振幅
-    amplitude2: 15,         // 第二层波浪振幅
-    frequency1: 0.02,       // 第一层波浪空间频率
-    frequency2: 0.045,      // 第二层波浪空间频率（反向）
-    speed1: 0.9,            // 第一层波浪传播速度
-    speed2: -1.4,           // 第二层波浪传播速度（反向）
+    // ── wave（internal）：双层 sin 波浪（整行同步波动）──
+    amplitude1: 4.0,        // 第一层波浪振幅
+    amplitude2: 2.0,        // 第二层波浪振幅
+    frequency1: 0.008,      // 第一层波浪空间频率
+    frequency2: 0.02,       // 第二层波浪空间频率（反向）
+    speed1: 0.3,            // 第一层波浪传播速度
+    speed2: -0.5,           // 第二层波浪传播速度（反向）
 
     // ── type（internal）：字号分档 ──
     // 字号 3 档（红块 +1.5px 一档：9.5 / 11 / 12.5）
@@ -203,7 +218,6 @@
   let dpr = 1
   let width = 0
   let height = 0
-  let cellSize = CONFIG.cellSize
   let particles = []
   let t = 0
   let lastTs = 0
@@ -283,10 +297,11 @@
     '  v_mixColor = a_mixColor;',
     '  v_mix = a_mix;',
     // 双层 sin 波浪（PR2：CPU → GPU）。与旧 draw() 公式逐项一致：
-    //   wave = amp1*sin(baseX*f1 + t*s1 + phase1) + amp2*sin(baseX*f2 - t*s2 + phase2)
+    //   wave = amp1*sin(baseY*f1 + t*s1 + phase1) + amp2*sin(baseY*f2 - t*s2 + phase2)
+    //   PR4：改用 a_base.y（行 y）—— 同一行字符共享 baseY → 整行同步波动（代码风行布局）
     '  float wave =',
-    '    uAmplitude1 * sin(a_base.x * uFrequency1 + uTime * uSpeed1 + a_phase.x) +',
-    '    uAmplitude2 * sin(a_base.x * uFrequency2 - uTime * uSpeed2 + a_phase.y);',
+    '    uAmplitude1 * sin(a_base.y * uFrequency1 + uTime * uSpeed1 + a_phase.x) +',
+    '    uAmplitude2 * sin(a_base.y * uFrequency2 - uTime * uSpeed2 + a_phase.y);',
     // 位置 = base + phys（水平），垂直再加 wave
     '  vec2 px = a_base + a_phys;',
     '  px.y += wave;',
@@ -660,32 +675,94 @@
   const AUTO_TRIGGER_RADIUS_MIN = 50 // 触发半径最小（当前值）
   const AUTO_TRIGGER_RADIUS_MAX = 150 // 触发半径最大（3× 当前）
 
-  // ── 字符网格粒子构建 ────────────────────────────────────
-  function buildParticles() {
-    // PR3：移动端粒子降级（≤2500）—— 降低顶点/物理开销；桌面端 maxParticles 不变
-    const isMobile = isMobileViewport()
-    const maxParticles = isMobile ? Math.min(CONFIG.maxParticles, 2500) : CONFIG.maxParticles
-    let cols = Math.ceil(width / CONFIG.cellSize)
-    let rows = Math.ceil(height / CONFIG.cellSize)
-    cellSize = CONFIG.cellSize
-    if (cols * rows > maxParticles) {
-      // 粒子数超上限：等比放大 cellSize 收紧网格（保持铺满）
-      cellSize = Math.max(CONFIG.cellSize, Math.ceil(Math.sqrt((width * height) / maxParticles)))
-      cols = Math.ceil(width / cellSize)
-      rows = Math.ceil(height / cellSize)
+  // ── 代码风横向字符串粒子构建 ───────────────────────────────
+  // PR4：网格点阵 → 横向字符串布局。每行按伪代码 token 流铺字符，
+  // 缩进按 indentSteps/indentWeights 加权采样（代码缩进感）。
+  // 粒子数：桌面 maxParticles（16000）；移动端 mobileMaxParticles（4000）；
+  // 2D 渲染器（软渲染/强制 ?water=2d）额外降级到 4000（CPU drawImage 保护）。
+
+  // charToIndex：token 字符 → chars 索引。不在 chars 中则 fallback 随机索引。
+  function charToIndex(c) {
+    const i = CONFIG.chars.indexOf(c)
+    return i >= 0 ? i : Math.floor(Math.random() * CONFIG.chars.length)
+  }
+
+  // sampleIndent：按 indentWeights 加权采样缩进档位（格）。
+  // 档位 0-4 对应 indentSteps[0..4]；档位 5+ 归入 indentSteps[5]（20 格）。
+  function sampleIndent() {
+    const w = CONFIG.indentWeights
+    let r = Math.random()
+    let acc = 0
+    for (let i = 0; i < w.length; i++) {
+      acc += w[i]
+      if (r < acc) return CONFIG.indentSteps[i]
     }
+    return CONFIG.indentSteps[CONFIG.indentSteps.length - 1]
+  }
 
+  // sampleToken：按 pseudoTokens.weights 采样 token。
+  // 返回 { text, type }；type 用于标识符生成；space 返回 null（不建粒子）。
+  function sampleToken() {
+    const pt = CONFIG.pseudoTokens
+    let r = Math.random()
+    let acc = 0
+    for (const type of ['keyword', 'identifier', 'literal', 'operator', 'delimiter', 'space']) {
+      acc += pt.weights[type]
+      if (r < acc) {
+        if (type === 'space') return null
+        if (type === 'identifier') {
+          // 随机生成 2-12 字符 camelCase/snake_case（字母+下划线）
+          const len = 2 + Math.floor(Math.random() * 11)
+          let s = ''
+          for (let i = 0; i < len; i++) {
+            const isUnder = Math.random() < 0.12
+            s += isUnder ? '_' : String.fromCharCode(97 + Math.floor(Math.random() * 26))
+          }
+          return { text: s, type }
+        }
+        const list = pt[type]
+        return { text: list[Math.floor(Math.random() * list.length)], type }
+      }
+    }
+    return null // 权重未覆盖（不应发生）
+  }
+
+  // sampleCharIdx：token → 粒子映射字符。
+  // identifier 取其中随机 1 字符；其余取 token 内随机 1 字符。
+  function tokenToCharIdx(token) {
+    if (!token || token.text.length === 0) return Math.floor(Math.random() * CONFIG.chars.length)
+    const c = token.text[Math.floor(Math.random() * token.text.length)]
+    return charToIndex(c)
+  }
+
+  function buildParticles() {
+    // 粒子上限：移动端/2D 降级 4000，桌面 16000
+    const isMobile = isMobileViewport()
+    const is2D = renderer && renderer.name === '2d'
+    const maxParticles = isMobile || is2D ? CONFIG.mobileMaxParticles : CONFIG.maxParticles
+
+    const rows = Math.ceil(height / CONFIG.lineHeight)
     const next = []
-    for (let row = 0; row < rows; row++) {
-      const y = row * cellSize + cellSize / 2
-      for (let col = 0; col < cols; col++) {
-        const x = col * cellSize + cellSize / 2
-        const charIdx = Math.floor(Math.random() * CONFIG.chars.length)
+    for (let row = 0; row < rows && next.length < maxParticles; row++) {
+      const y = row * CONFIG.lineHeight + CONFIG.lineHeight / 2
+      // 缩进：按权重采样档位
+      const indent = sampleIndent()
+      let x = indent * CONFIG.charAdvance
+      while (x < width * CONFIG.fillRatio && next.length < maxParticles) {
+        const token = sampleToken() // 按 pseudoTokens.weights 采样
+        if (token === null) {
+          // space：不建粒子，仅 x 推进 1 格
+          x += CONFIG.charAdvance
+          continue
+        }
+        // 运算符/分隔符两侧自动补 1 空格推进（简化强制空格逻辑，保证节奏）
+        const tokenLen = token.text.length
+        const pad = (token.type === 'operator' || token.type === 'delimiter') ? 1 : 0
+        const charIdx = tokenToCharIdx(token)
         const sizeTier = Math.floor(Math.random() * 3) // 3 档字号
-
         next.push({
-          baseX: x,           // 静网格 x
-          baseY: y,           // 静网格 y
+          baseX: x,           // 静布局 x
+          baseY: y,           // 静布局 y（行中线）
           physX: 0, physY: 0, // 流体位移（被鼠标推开后的位置偏移）
           vx: 0, vy: 0,       // 流体速度
           charIdx,
@@ -700,6 +777,7 @@
           delay: Math.random() * 90,         // 0-90ms 激活延迟 → 字符错落激活，像流体逐点反应
           jitter: (Math.random() - 0.5) * 90, // -45~+45ms 绿保持期抖动 → 斑驳自然，像湍流
         })
+        x += (tokenLen + pad) * CONFIG.charAdvance // 按 token 长度推进
       }
     }
     particles = next
@@ -916,10 +994,10 @@
         // （shader 内用 uTime + phase 计算 wave 并加到垂直位置）
         emitDraw(renderer, p, p.baseX + p.physX, p.baseY + p.physY, ts)
       } else {
-        // 2D：保留 CPU 双层 sin 波浪（?water=2d 视觉基准不变）
+        // 2D：保留 CPU 双层 sin 波浪（?water=2d 视觉基准不变；PR4 起用 baseY 整行波动，与 shader 一致）
         const wave =
-          CONFIG.amplitude1 * Math.sin(p.baseX * CONFIG.frequency1 + t * CONFIG.speed1 + p.phase1) +
-          CONFIG.amplitude2 * Math.sin(p.baseX * CONFIG.frequency2 - t * CONFIG.speed2 + p.phase2)
+          CONFIG.amplitude1 * Math.sin(p.baseY * CONFIG.frequency1 + t * CONFIG.speed1 + p.phase1) +
+          CONFIG.amplitude2 * Math.sin(p.baseY * CONFIG.frequency2 - t * CONFIG.speed2 + p.phase2)
         const drawX = p.baseX + p.physX // 流体水平位移
         const drawY = p.baseY + wave + p.physY // 波浪 + 流体垂直位移
         emitDraw(renderer, p, drawX, drawY, ts)
