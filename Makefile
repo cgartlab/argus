@@ -46,6 +46,7 @@ validate:
 	           tools/run_fixture_tests.py tools/load_config.py \
 	           tools/update_free_models.py tools/bump_version.py \
 	           tools/validate_versioning.py \
+	           tools/validate_model_scores.py \
 	           config/free-models.yml \
 	           docs/argus-config-schema.md \
 	           .github/actions/argus-review/action.yml \
@@ -58,8 +59,11 @@ validate:
 	@python3 -m py_compile tools/run_fixture_tests.py && echo "run_fixture_tests.py ok"
 	@python3 -m py_compile tools/load_config.py && echo "load_config.py ok"
 	@python3 -m py_compile tools/update_free_models.py && echo "update_free_models.py ok"
+	@python3 -m py_compile tools/validate_model_scores.py && echo "validate_model_scores.py ok"
 	@echo "── Validate: free model list ──"
 	@python3 tools/update_free_models.py --check
+	@echo "── Validate: model-scores.yml schema ──"
+	@python3 tools/validate_model_scores.py
 	@echo "── Validate: load_config defaults ──"
 	@python3 tools/load_config.py --validate-only
 	@echo ""
