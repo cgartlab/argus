@@ -6,6 +6,16 @@
 //   · WebGL：atlas 纹理 + drawArraysInstancedANGLE，消除逐粒子 drawImage。
 //   · 2D：原 drawImage 路径原样封装（?water=2d 强制 / 软渲染自动回退）。
 //   · 输出像素一致（premultiplied 混合 = source-over）。
+// PR2：双层 sin wave 迁移到 vertex shader（base/phys/phase 实例 attribute + uTime）。
+//   · WebGL：wave 在 shader 内用 uTime + phase 计算，CPU 不再逐粒子 Math.sin。
+//   · amplitude/frequency/speed 作为 shader uniform 传入（数值与 CPU 旧值相同）。
+//   · 2D：仍用 CPU 计算（?water=2d 视觉基准不变）。
+// PR3：混合阶段（绿→红 / 红→琥珀）迁到 fragment shader mix()，消除双提交超绘。
+//   · WebGL：每粒子每阶段 ≤1 次 submit（maxInstances 回落 maxParticles）。
+//   · per-instance a_mix/a_mixColor 精确控制逐粒子过渡色（稳定态粒子 mix=0 不受污染）；
+//     renderer 级 uMixColor/uMixFactor 作为全局兜底（默认 uMixFactor=0 无影响）。
+//   · 2D：保留双绘叠加（?water=2d 视觉基准不变）。
+//   · 移动端调优：dpr cap 1.5 + 粒子数降级 2500（桌面行为不变）。
 // 视觉表达 Argus 代码审查流程：检查(绿) → 发现问题(红) → 修复回归(琥珀)。
 // 纯 canvas 实现，无框架依赖。
 ---
@@ -222,10 +232,12 @@
   let tilesPerRow = 0 // = tilesPerBlock
   let tileSize = 0
 
-  // ── PR1：Renderer 抽象（Canvas2D fallback / WebGL1 instanced）────
-  // 两种渲染器共享同一 submit(block, charIdx, tier, dx, dy, alpha) 接口，
+//  ── PR1：Renderer 抽象（Canvas2D fallback / WebGL1 instanced）────
+  // 两种渲染器共享同一 submit(block, charIdx, tier, dx, dy, alpha, p) 接口，
   // CPU 状态机（emitDraw）保留，仅替换像素提交路径。输出像素一致。
   // WebGL 路径：单批次 instanced drawArrays（混合阶段双绘 → 每粒子 ≤2 实例槽位）。
+  // PR2：WebGL 的 wave 计算迁到 vertex shader，submit 额外接收粒子 p
+  // （base/phys/phase 写入实例缓冲）；2D 忽略第 7 参，仍用 dx/dy 最终位置。
 
   // WebGL 上下文属性：必须保留透明通道（alpha:true）+ premultiplied
   // （2D canvas backing store 是 premultiplied，UNPACK 直接使用避免二次转换）。
@@ -235,22 +247,50 @@
   // / "ANGLE (Google"（ANGLE SwiftShader 旧标识）→ 判定软渲染，强制 2D。
   const SOFTWARE_RENDERER_RE = /SwiftShader|llvmpipe|Software|ANGLE \(Google/i
 
-  // 顶点着色器：单位 quad（a_corner，divisor=0）+ 每实例（divisor=1）
-  // a_center（左上角 CSS px）/ a_uv（tile 的归一化 uv 矩形）/ a_alpha。
+  // 顶点着色器：单位 quad（a_corner，divisor=0）+ 每实例（divisor=1）。
+  // a_base（静网格位置 CSS px）/ a_phys（流体位移）/ a_phase（双层 sin 相位）/
+  // a_uv（tile 的归一化 uv 矩形）/ a_alpha。
+  // PR2：双层 sin wave 从 CPU 迁移到此 —— 用 uTime + phase 在 shader 内计算，
+  // 加到 a_base.y + a_phys.y 上（原 draw() 的 wave 公式原样搬入，视觉一致）。
+  // PR3：a_mixColor/a_mix（每实例过渡目标色 + mix 因子）—— 稳定态粒子
+  // mix=0 → 目标色无影响；过渡态粒子逐实例精确混色（消除超绘）。
   // 坐标：canvas 左上原点（y 向下）→ clip space（y 向上）在 shader 内翻转。
   const VS_SRC = [
     'attribute vec2 a_corner;',
-    'attribute vec2 a_center;',
+    'attribute vec2 a_base;',
+    'attribute vec2 a_phys;',
+    'attribute vec2 a_phase;',
     'attribute vec4 a_uv;',
     'attribute float a_alpha;',
+    'attribute vec3 a_mixColor;',
+    'attribute float a_mix;',
     'uniform vec2 u_resolution;',
     'uniform float u_tileSize;',
+    'uniform float uTime;',
+    'uniform float uAmplitude1;',
+    'uniform float uAmplitude2;',
+    'uniform float uFrequency1;',
+    'uniform float uFrequency2;',
+    'uniform float uSpeed1;',
+    'uniform float uSpeed2;',
     'varying vec2 v_texCoord;',
     'varying float v_alpha;',
+    'varying vec3 v_mixColor;',
+    'varying float v_mix;',
     'void main(void) {',
     '  v_texCoord = a_uv.xy + a_corner * (a_uv.zw - a_uv.xy);',
     '  v_alpha = a_alpha;',
-    '  vec2 px = a_center + a_corner * u_tileSize;',
+    '  v_mixColor = a_mixColor;',
+    '  v_mix = a_mix;',
+    // 双层 sin 波浪（PR2：CPU → GPU）。与旧 draw() 公式逐项一致：
+    //   wave = amp1*sin(baseX*f1 + t*s1 + phase1) + amp2*sin(baseX*f2 - t*s2 + phase2)
+    '  float wave =',
+    '    uAmplitude1 * sin(a_base.x * uFrequency1 + uTime * uSpeed1 + a_phase.x) +',
+    '    uAmplitude2 * sin(a_base.x * uFrequency2 - uTime * uSpeed2 + a_phase.y);',
+    // 位置 = base + phys（水平），垂直再加 wave
+    '  vec2 px = a_base + a_phys;',
+    '  px.y += wave;',
+    '  px += a_corner * u_tileSize;',
     '  vec2 clip = (px / u_resolution) * 2.0 - 1.0;',
     '  clip.y = -clip.y;',
     '  gl_Position = vec4(clip, 0.0, 1.0);',
@@ -259,14 +299,23 @@
 
   // 片元着色器：atlas 纹理（premultiplied）× 每实例 alpha → premultiplied 输出，
   // 配合 gl.blendFunc(ONE, ONE_MINUS_SRC_ALPHA) = 2D source-over 合成语义。
+  // PR3：混合阶段（绿→红 / 红→琥珀）在 shader 内 mix() 完成 —— per-instance
+  // v_mix/v_mixColor 精确控制逐粒子过渡色（稳定态 v_mix=0 → 无混色）；
+  // renderer 级 uMixColor/uMixFactor 作为全局兜底（默认 uMixFactor=0 无影响）。
   const FS_SRC = [
     'precision mediump float;',
     'varying vec2 v_texCoord;',
     'varying float v_alpha;',
+    'varying vec3 v_mixColor;',
+    'varying float v_mix;',
     'uniform sampler2D u_atlas;',
+    'uniform vec3 uMixColor;',
+    'uniform float uMixFactor;',
     'void main(void) {',
     '  vec4 c = texture2D(u_atlas, v_texCoord);',
-    '  gl_FragColor = vec4(c.rgb * v_alpha, c.a * v_alpha);',
+    '  vec3 rgb = mix(c.rgb, v_mixColor, v_mix);',
+    '  rgb = mix(rgb, uMixColor, uMixFactor);',
+    '  gl_FragColor = vec4(rgb * v_alpha, c.a * v_alpha);',
     '}',
   ].join('\n')
 
@@ -279,6 +328,7 @@
       this.dpr = 1
       this.width = 0
       this.height = 0
+      this.mixFactor = 0 // PR3：emitDraw 统一设置；2D 双绘路径忽略该值
     }
 
     init(sheetCanvas, ts, tpr, tpb) {
@@ -315,7 +365,8 @@
   }
 
   // WebGL1 renderer：单批次 instanced drawArrays（消除逐粒子 drawImage）。
-  // 预分配 maxParticles × 2 实例槽位（混合阶段单粒子最多 2 次提交）。
+  // PR3：混合阶段迁到 fragment shader → 每粒子每阶段 ≤1 次 submit，
+  // maxInstances 从 maxParticles×2 回落 maxParticles（超绘消除）。
   class WebGLRenderer {
     constructor(canvas, gl, ext) {
       this.name = 'webgl'
@@ -330,21 +381,38 @@
       this.tilesPerBlock = 0
       this.sheetW = 1
       this.sheetH = 1
-      this.maxInstances = CONFIG.maxParticles * 2
+      this.maxInstances = CONFIG.maxParticles // PR3：回落 maxParticles（无超绘）
       this.instanceCount = 0
-      this.instanceData = new Float32Array(this.maxInstances * 7) // center2 + uv4 + alpha1
+      // PR2+PR3：每实例 15 floats = base2 + phys2 + phase2 + uv4 + alpha1 + mixColor3 + mixFactor1
+      // （wave 在 shader 内计算；混色 per-instance 精确控制）
+      this.instanceData = new Float32Array(this.maxInstances * 15)
+      this.mixFactor = 0 // PR3：过渡态混色因子（emitDraw 设置 → submit 写入 per-instance）
       this.program = null
       this.tex = null
       this.quadBuffer = null
       this.instanceBuffer = null
       this.locCorner = -1
-      this.locCenter = -1
+      this.locBase = -1
+      this.locPhys = -1
+      this.locPhase = -1
       this.locUv = -1
       this.locAlpha = -1
+      this.locMixColorAttr = -1
+      this.locMixAttr = -1
       this.locAtlas = null
       this.locResolution = null
       this.locTileSize = null
       this.locAtlasSize = null
+      this.locTime = null
+      this.locAmplitude1 = null
+      this.locAmplitude2 = null
+      this.locFrequency1 = null
+      this.locFrequency2 = null
+      this.locSpeed1 = null
+      this.locSpeed2 = null
+      this.locMixColor = null
+      this.locMixFactor = null
+      this.time = 0
     }
 
     init(sheetCanvas, ts, tpr, tpb) {
@@ -378,13 +446,26 @@
       this.program = prog
 
       this.locCorner = gl.getAttribLocation(prog, 'a_corner')
-      this.locCenter = gl.getAttribLocation(prog, 'a_center')
+      this.locBase = gl.getAttribLocation(prog, 'a_base')
+      this.locPhys = gl.getAttribLocation(prog, 'a_phys')
+      this.locPhase = gl.getAttribLocation(prog, 'a_phase')
       this.locUv = gl.getAttribLocation(prog, 'a_uv')
       this.locAlpha = gl.getAttribLocation(prog, 'a_alpha')
+      this.locMixColorAttr = gl.getAttribLocation(prog, 'a_mixColor')
+      this.locMixAttr = gl.getAttribLocation(prog, 'a_mix')
       this.locAtlas = gl.getUniformLocation(prog, 'u_atlas')
       this.locResolution = gl.getUniformLocation(prog, 'u_resolution')
       this.locTileSize = gl.getUniformLocation(prog, 'u_tileSize')
       this.locAtlasSize = gl.getUniformLocation(prog, 'u_atlasSize')
+      this.locTime = gl.getUniformLocation(prog, 'uTime')
+      this.locAmplitude1 = gl.getUniformLocation(prog, 'uAmplitude1')
+      this.locAmplitude2 = gl.getUniformLocation(prog, 'uAmplitude2')
+      this.locFrequency1 = gl.getUniformLocation(prog, 'uFrequency1')
+      this.locFrequency2 = gl.getUniformLocation(prog, 'uFrequency2')
+      this.locSpeed1 = gl.getUniformLocation(prog, 'uSpeed1')
+      this.locSpeed2 = gl.getUniformLocation(prog, 'uSpeed2')
+      this.locMixColor = gl.getUniformLocation(prog, 'uMixColor')
+      this.locMixFactor = gl.getUniformLocation(prog, 'uMixFactor')
 
       // ── 单位 quad（6 顶点 2 三角形，divisor=0）──
       this.quadBuffer = gl.createBuffer()
@@ -429,24 +510,39 @@
       gl.clearColor(0, 0, 0, 0)
       gl.clear(gl.COLOR_BUFFER_BIT)
       this.instanceCount = 0
+      this.mixFactor = 0 // PR3：每帧重置 —— 稳定态粒子默认无混色，仅过渡态覆盖
     }
 
-    // 收集实例（CPU 状态机决定 block/tier/alpha，不迁移任何计算逻辑）
-    submit(block, charIdx, tier, dx, dy, alpha) {
+    // 收集实例（CPU 状态机决定 block/tier/alpha，不迁移任何计算逻辑）。
+    // PR2：wave 计算迁到 shader —— 实例数据改为 base/phys/phase，不再传最终 drawY。
+    // dx/dy 仅 2D 路径使用；WebGL 从 p 读取 baseX/baseY/physX/physY/phase1/phase2。
+    // PR3：每实例写入 mixColor/mixFactor（过渡目标色由 block 推断：
+    // GREEN_TO_RED 用 BLOCK_GREEN → 红；RED_TO_BLUR 用 BLOCK_RED → 琥珀；
+    // FADE 用 BLOCK_BLUR → 琥珀）。稳定态粒子 mixFactor=0 → 目标色无影响。
+    submit(block, charIdx, tier, dx, dy, alpha, p) {
       if (this.instanceCount >= this.maxInstances) return
       const charTileIdx = charIdx * 3 + tier
       const spriteIdx = block * this.tilesPerBlock + charTileIdx
       const sx = (spriteIdx % this.tilesPerRow) * this.tileSize
       const sy = Math.floor(spriteIdx / this.tilesPerRow) * this.tileSize
-      const i = this.instanceCount * 7
+      const i = this.instanceCount * 15
       const d = this.instanceData
-      d[i] = dx
-      d[i + 1] = dy
-      d[i + 2] = sx / this.sheetW
-      d[i + 3] = sy / this.sheetH
-      d[i + 4] = (sx + this.tileSize) / this.sheetW
-      d[i + 5] = (sy + this.tileSize) / this.sheetH
-      d[i + 6] = alpha
+      d[i] = p.baseX
+      d[i + 1] = p.baseY
+      d[i + 2] = p.physX
+      d[i + 3] = p.physY
+      d[i + 4] = p.phase1
+      d[i + 5] = p.phase2
+      d[i + 6] = sx / this.sheetW
+      d[i + 7] = sy / this.sheetH
+      d[i + 8] = (sx + this.tileSize) / this.sheetW
+      d[i + 9] = (sy + this.tileSize) / this.sheetH
+      d[i + 10] = alpha
+      const mixColor = block === BLOCK_GREEN ? CONFIG.red : CONFIG.amber
+      d[i + 11] = mixColor[0] / 255
+      d[i + 12] = mixColor[1] / 255
+      d[i + 13] = mixColor[2] / 255
+      d[i + 14] = this.mixFactor
       this.instanceCount++
     }
 
@@ -458,25 +554,50 @@
       gl.uniform2f(this.locResolution, this.width, this.height)
       gl.uniform1f(this.locTileSize, this.tileSize)
       gl.uniform2f(this.locAtlasSize, this.sheetW, this.sheetH)
+      // PR2：wave 参数（amplitude/frequency 与 CPU 旧值相同，保证视觉一致）+ 时间
+      gl.uniform1f(this.locTime, this.time)
+      gl.uniform1f(this.locAmplitude1, CONFIG.amplitude1)
+      gl.uniform1f(this.locAmplitude2, CONFIG.amplitude2)
+      gl.uniform1f(this.locFrequency1, CONFIG.frequency1)
+      gl.uniform1f(this.locFrequency2, CONFIG.frequency2)
+      gl.uniform1f(this.locSpeed1, CONFIG.speed1)
+      gl.uniform1f(this.locSpeed2, CONFIG.speed2)
+      // PR3：renderer 级默认 mix（全局兜底；per-instance a_mix/a_mixColor 精确控制过渡）
+      // uMixFactor=0 → 兜底分支无影响；uMixColor 上传主过渡目标色（红）
+      gl.uniform3f(this.locMixColor, CONFIG.red[0] / 255, CONFIG.red[1] / 255, CONFIG.red[2] / 255)
+      gl.uniform1f(this.locMixFactor, 0)
 
       // 每顶点属性（divisor=0）
       gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer)
       gl.enableVertexAttribArray(this.locCorner)
       gl.vertexAttribPointer(this.locCorner, 2, gl.FLOAT, false, 0, 0)
 
-      // 每实例属性（divisor=1），stride = 7 floats
+      // 每实例属性（divisor=1），stride = 15 floats
+      // （base2 + phys2 + phase2 + uv4 + alpha1 + mixColor3 + mixFactor1）
       gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer)
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.instanceData.subarray(0, this.instanceCount * 7))
-      const stride = 7 * 4
-      gl.enableVertexAttribArray(this.locCenter)
-      gl.vertexAttribPointer(this.locCenter, 2, gl.FLOAT, false, stride, 0)
-      this.ext.vertexAttribDivisorANGLE(this.locCenter, 1)
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.instanceData.subarray(0, this.instanceCount * 15))
+      const stride = 15 * 4
+      gl.enableVertexAttribArray(this.locBase)
+      gl.vertexAttribPointer(this.locBase, 2, gl.FLOAT, false, stride, 0)
+      this.ext.vertexAttribDivisorANGLE(this.locBase, 1)
+      gl.enableVertexAttribArray(this.locPhys)
+      gl.vertexAttribPointer(this.locPhys, 2, gl.FLOAT, false, stride, 8)
+      this.ext.vertexAttribDivisorANGLE(this.locPhys, 1)
+      gl.enableVertexAttribArray(this.locPhase)
+      gl.vertexAttribPointer(this.locPhase, 2, gl.FLOAT, false, stride, 16)
+      this.ext.vertexAttribDivisorANGLE(this.locPhase, 1)
       gl.enableVertexAttribArray(this.locUv)
-      gl.vertexAttribPointer(this.locUv, 4, gl.FLOAT, false, stride, 8)
+      gl.vertexAttribPointer(this.locUv, 4, gl.FLOAT, false, stride, 24)
       this.ext.vertexAttribDivisorANGLE(this.locUv, 1)
       gl.enableVertexAttribArray(this.locAlpha)
-      gl.vertexAttribPointer(this.locAlpha, 1, gl.FLOAT, false, stride, 24)
+      gl.vertexAttribPointer(this.locAlpha, 1, gl.FLOAT, false, stride, 40)
       this.ext.vertexAttribDivisorANGLE(this.locAlpha, 1)
+      gl.enableVertexAttribArray(this.locMixColorAttr)
+      gl.vertexAttribPointer(this.locMixColorAttr, 3, gl.FLOAT, false, stride, 44)
+      this.ext.vertexAttribDivisorANGLE(this.locMixColorAttr, 1)
+      gl.enableVertexAttribArray(this.locMixAttr)
+      gl.vertexAttribPointer(this.locMixAttr, 1, gl.FLOAT, false, stride, 56)
+      this.ext.vertexAttribDivisorANGLE(this.locMixAttr, 1)
 
       gl.activeTexture(gl.TEXTURE0)
       gl.bindTexture(gl.TEXTURE_2D, this.tex)
@@ -540,12 +661,15 @@
 
   // ── 字符网格粒子构建 ────────────────────────────────────
   function buildParticles() {
+    // PR3：移动端粒子降级（≤2500）—— 降低顶点/物理开销；桌面端 maxParticles 不变
+    const isMobile = isMobileViewport()
+    const maxParticles = isMobile ? Math.min(CONFIG.maxParticles, 2500) : CONFIG.maxParticles
     let cols = Math.ceil(width / CONFIG.cellSize)
     let rows = Math.ceil(height / CONFIG.cellSize)
     cellSize = CONFIG.cellSize
-    if (cols * rows > CONFIG.maxParticles) {
+    if (cols * rows > maxParticles) {
       // 粒子数超上限：等比放大 cellSize 收紧网格（保持铺满）
-      cellSize = Math.max(CONFIG.cellSize, Math.ceil(Math.sqrt((width * height) / CONFIG.maxParticles)))
+      cellSize = Math.max(CONFIG.cellSize, Math.ceil(Math.sqrt((width * height) / maxParticles)))
       cols = Math.ceil(width / cellSize)
       rows = Math.ceil(height / cellSize)
     }
@@ -645,9 +769,16 @@
     sheetCtx.globalAlpha = 1
   }
 
+  // ── 移动端检测（PR3：dpr cap 1.5 + 粒子降级 2500，桌面行为完全不变）──
+  function isMobileViewport() {
+    return window.matchMedia('(max-width: 767px)').matches || /Mobi|Android/i.test(navigator.userAgent)
+  }
+
   // ── 尺寸重建（DPR 保持锐利，不做低分辨率缩放）────────────
   function resize() {
-    dpr = Math.min(window.devicePixelRatio || 1, 2)
+    // PR3：移动端 dpr cap 1.5（省 GPU 带宽），桌面 2（保持锐利）
+    const isMobile = isMobileViewport()
+    dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2)
     width = canvas.clientWidth
     height = canvas.clientHeight
     if (width === 0 || height === 0) return
@@ -684,15 +815,19 @@
 
   // ── 单粒子提交（7 阶段状态机 + 缓动 + 颜色混合过渡）──────
   // CPU 状态机完全保留（决定 block/tier/alpha），仅把 ctx.globalAlpha+drawImage
-  // 换成 renderer.submit(block, charIdx, tier, dx, dy, alpha)。双绘阶段提交 2 次。
+  // 换成 renderer.submit(block, charIdx, tier, dx, dy, alpha)。
+  // PR3：WebGL 分支混合阶段单提交（mix 迁到 fragment shader，消除超绘）；
+  // 2D 分支保留双绘叠加（视觉基准）。renderer.mixFactor 每粒子显式重置为 0，
+  // 仅过渡态覆盖 → 稳定态粒子不受混色污染（per-instance 精确）。
   function emitDraw(renderer, p, drawX, drawY, ts) {
     const dx = Math.floor(drawX)
     const dy = Math.floor(drawY)
     const dt = ts - p.lastActivate
+    renderer.mixFactor = 0 // PR3：默认无混色（WebGL 过渡态覆盖；2D 忽略）
 
     if (dt < 0) {
       // 延迟期：琥珀（空气动力错落感）
-      renderer.submit(amberBlockFor(drawY), p.charIdx, p.sizeTier, dx, dy, 1)
+      renderer.submit(amberBlockFor(drawY), p.charIdx, p.sizeTier, dx, dy, 1, p)
       return
     }
 
@@ -711,41 +846,62 @@
         p.charIdx = p.newCharIdx
         p.newCharIdx = null
       }
-      renderer.submit(amberBlockFor(drawY), p.charIdx, p.sizeTier, dx, dy, 1)
+      renderer.submit(amberBlockFor(drawY), p.charIdx, p.sizeTier, dx, dy, 1, p)
       return
     }
 
     if (dt < greenIn) {
       // 1. GREEN_IN：绿淡入（ease-in，从慢到快）
       const k = easeInQuad(dt / greenIn)
-      renderer.submit(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * k)
+      renderer.submit(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * k, p)
 
     } else if (dt < green) {
       // 2. GREEN：绿稳定
-      renderer.submit(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha)
+      renderer.submit(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha, p)
 
     } else if (dt < redIn) {
       // 3. GREEN_TO_RED：颜色混合（绿渐隐 + 红渐显，ease-in-out 叠加）
       const blend = easeInOutCubic((dt - green) / (redIn - green))
-      renderer.submit(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * (1 - blend)) // 绿渐隐
-      renderer.submit(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * blend) // 红渐显
+      if (renderer.name === 'webgl') {
+        // PR3：WebGL 单提交 BLOCK_GREEN + mix 到红（fragment shader 内合成，消除超绘）
+        renderer.mixFactor = blend
+        renderer.submit(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha, p)
+      } else {
+        // 2D：双绘叠加（视觉基准不变）
+        renderer.submit(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * (1 - blend), p) // 绿渐隐
+        renderer.submit(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * blend, p) // 红渐显
+      }
 
     } else if (dt < red) {
       // 4. RED：红稳定
-      renderer.submit(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha)
+      renderer.submit(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha, p)
 
     } else if (dt < blurIn) {
       // 5. RED_TO_BLUR：红渐隐 + 模糊渐显（ease-out）
       const blend = easeOutQuad((dt - red) / (blurIn - red))
-      renderer.submit(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * (1 - blend)) // 红渐隐
-      renderer.submit(BLOCK_BLUR, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * 0.7 * blend) // 模糊渐显
+      if (renderer.name === 'webgl') {
+        // PR3：WebGL 单提交 BLOCK_RED + mix 到琥珀（fragment shader 内合成，消除超绘）
+        renderer.mixFactor = blend
+        renderer.submit(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha, p)
+      } else {
+        // 2D：双绘叠加（视觉基准不变）
+        renderer.submit(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * (1 - blend), p) // 红渐隐
+        renderer.submit(BLOCK_BLUR, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * 0.7 * blend, p) // 模糊渐显
+      }
 
     } else {
       // 6. FADE：模糊渐隐 + 新字符渐显（ease-in-out）
       if (p.newCharIdx === null) p.newCharIdx = Math.floor(Math.random() * CONFIG.chars.length)
       const k = easeInOutCubic((dt - blurIn) / (fade - blurIn))
-      renderer.submit(BLOCK_BLUR, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * 0.7 * (1 - k)) // 模糊渐隐
-      renderer.submit(amberBlockFor(drawY), p.newCharIdx, p.sizeTier, dx, dy, k * 0.6) // 新字符渐显
+      if (renderer.name === 'webgl') {
+        // PR3：WebGL 单提交 BLOCK_BLUR + mix 到琥珀（newCharIdx 在 fade 结束后由 NORMAL 应用）
+        renderer.mixFactor = k
+        renderer.submit(BLOCK_BLUR, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * 0.7, p)
+      } else {
+        // 2D：双绘叠加（视觉基准不变）
+        renderer.submit(BLOCK_BLUR, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * 0.7 * (1 - k), p) // 模糊渐隐
+        renderer.submit(amberBlockFor(drawY), p.newCharIdx, p.sizeTier, dx, dy, k * 0.6, p) // 新字符渐显
+      }
     }
   }
 
@@ -754,15 +910,23 @@
     renderer.begin()
 
     for (const p of particles) {
-      // 双层 sin 波浪（第二层反向传播），叠加在静网格之上
-      const wave =
-        CONFIG.amplitude1 * Math.sin(p.baseX * CONFIG.frequency1 + t * CONFIG.speed1 + p.phase1) +
-        CONFIG.amplitude2 * Math.sin(p.baseX * CONFIG.frequency2 - t * CONFIG.speed2 + p.phase2)
-      const drawX = p.baseX + p.physX // 流体水平位移
-      const drawY = p.baseY + wave + p.physY // 波浪 + 流体垂直位移
-      emitDraw(renderer, p, drawX, drawY, ts)
+      if (renderer.name === 'webgl') {
+        // PR2：双层 sin wave 已迁移到 vertex shader —— CPU 只传 base+phys
+        // （shader 内用 uTime + phase 计算 wave 并加到垂直位置）
+        emitDraw(renderer, p, p.baseX + p.physX, p.baseY + p.physY, ts)
+      } else {
+        // 2D：保留 CPU 双层 sin 波浪（?water=2d 视觉基准不变）
+        const wave =
+          CONFIG.amplitude1 * Math.sin(p.baseX * CONFIG.frequency1 + t * CONFIG.speed1 + p.phase1) +
+          CONFIG.amplitude2 * Math.sin(p.baseX * CONFIG.frequency2 - t * CONFIG.speed2 + p.phase2)
+        const drawX = p.baseX + p.physX // 流体水平位移
+        const drawY = p.baseY + wave + p.physY // 波浪 + 流体垂直位移
+        emitDraw(renderer, p, drawX, drawY, ts)
+      }
     }
 
+    // PR2：uTime 同步 —— shader wave 使用与 2D 相同的 t（秒），保证视觉一致
+    renderer.time = t
     renderer.end()
   }
 
