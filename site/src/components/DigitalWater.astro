@@ -603,7 +603,8 @@
       gl.bindTexture(gl.TEXTURE_2D, this.tex)
       gl.uniform1i(this.locAtlas, 0)
 
-      gl.drawArraysInstancedANGLE(gl.TRIANGLES, 0, 6, this.instanceCount)
+      // WebGL1 instancing 必须通过 ANGLE_instanced_arrays 扩展对象调用（gl 上无此方法）
+      this.ext.drawArraysInstancedANGLE(gl.TRIANGLES, 0, 6, this.instanceCount)
     }
   }
 
