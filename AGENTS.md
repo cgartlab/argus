@@ -46,6 +46,7 @@ argus/
 │   ├── load_config.py                 # Consumer .argus.yml loader + validator
 │   ├── update_free_models.py          # Refresh config/free-models.yml from live OpenCode Zen API (ranked)
 │   ├── bump_version.py                # Automated semver bumping
+│   ├── check_release.py               # Release gate (tag vs VERSION, dup/older-version refusal)
 │   └── validate_versioning.py         # VERSION / CHANGELOG consistency check
 ├── config/
 │   └── free-models.yml                # Auto-refreshed fallback model queue (weekly, reviewable PR)
@@ -83,6 +84,7 @@ argus/
 | CI pipeline | `.github/workflows/ci.yml` | Lint + tool validation + fixture tests |
 | PR review automation | `.github/workflows/review.yml` | Triggers argus-flash App |
 | Release automation | `.github/workflows/release.yml` | Tag-push → validates → packages → GitHub Release |
+| Release gate | `tools/check_release.py` | `--expect-unreleased` in `make release`; `--expect-released` in daily `release-check.yml` |
 | Reusable review action | `.github/actions/argus-review/action.yml` | Dynamic rule + config injection |
 | Free model config | `config/free-models.yml` | Single source of truth for fallback model queue |
 | Free model updater | `tools/update_free_models.py` | Refreshes config from live OpenCode Zen API (ranked) |
@@ -232,7 +234,7 @@ Issues are grouped under headers in order: P0 → P1 → P2 → P3.
 ## COMMANDS
 
 ```bash
-make check-version    # Show current version
+make check-version    # Show current version + release status
 make bump-patch       # Bump PATCH version (0.3.0 → 0.3.1)
 make bump-minor       # Bump MINOR version (0.3.0 → 0.4.0)
 make bump-major       # Bump MAJOR version (0.3.0 → 1.0.0)
@@ -240,7 +242,7 @@ make validate         # Run SKILL.md trigger phrase check + CHANGELOG + versioni
 make test-fixtures    # Run fixture regression tests (static heuristic mode, no API key needed)
 make test-fixtures-llm # Run fixture tests in LLM mode (model read from config/free-models.yml primary)
 make test             # validate + test-fixtures (full pre-release check)
-make release          # validate → git commit → tag → push
+make release          # release-gate → verify → tag → push (triggers release workflow)
 make package-skill    # Create skill package only (argus-skill-v{VERSION}.zip)
 make package          # Create all release archives (full + skill package)
 make clean            # Remove dist/
@@ -255,6 +257,6 @@ cd site && npm run build  # Build marketing site (site/ subproject)
 - **Cross-platform** — works in any agent framework: OpenCode, Claude Code, Codex CLI, etc.
 - **argus-flash GitHub App** — installed at `github.com/apps/argus-flash`. Any repo can install it and add a minimal review.yml to get automated design reviews.
 - **Composite action** — `.github/actions/argus-review/action.yml` wraps OpenCode CLI + rule injection + config loading. Referenced as `cgartlab/argus/.github/actions/argus-review@main` from any repo.
-- **Version bumping** — run `make bump-patch` (or bump-minor/bump-major), then `make test && make release`.
+- **Version bumping** — run `make bump-patch` (or bump-minor/bump-major), fill in the new CHANGELOG section, commit (`chore(release): prepare vX.Y.Z`), then `make test && make release`. `make release` refuses duplicate/older releases and requires version files committed; the daily `Release Check` workflow fails when `VERSION` is bumped without a tag.
 - **Fixture tests** — run without an API key in static heuristic mode; full LLM mode reads the primary model from `config/free-models.yml` (requires `OPENCODE_API_KEY` for `opencode/` providers).
 - **Release workflow** — pushing a `v*.*.*` tag triggers `.github/workflows/release.yml` which validates versioning, builds packages, and publishes a GitHub Release with both the full archive and the skill package (`argus-skill-v{VERSION}.zip`).

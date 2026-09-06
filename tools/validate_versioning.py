@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
-Validate versioning consistency across all 5 version locations.
+Validate versioning consistency across all 7 version locations.
 
-VERSION is the single source of truth. The other 4 locations must match it:
-  - VERSION           → source of truth
-  - CHANGELOG.md      → latest section `## [x.y.z]` (content must be non-empty)
-  - AGENTS.md         → header `**Version:** x.y.z`
-  - SKILL.md          → frontmatter `version: x.y.z`
-  - manifest.yaml     → `version: x.y.z`
+VERSION is the single source of truth. The other 6 locations must match it:
+  - VERSION                          → source of truth
+  - CHANGELOG.md                     → latest section `## [x.y.z]` (content must be non-empty)
+  - AGENTS.md                        → header `**Version:** x.y.z`
+  - SKILL.md                         → frontmatter `version: x.y.z`
+  - manifest.yaml                    → `version: x.y.z`
+  - site/src/data/site.ts            → `version: 'x.y.z'`
+  - site/src/content/docs/index.md   → `| Version | x.y.z |`
 
 Any mismatch exits non-zero with `FAIL: <file> version <found> != <expected>`.
 Run from the repository root (Makefile and CI both call it that way).
@@ -24,6 +26,8 @@ SYNCED_FILES = {
     "AGENTS.md": r"\*\*Version:\*\*\s*([0-9]+\.[0-9]+\.[0-9]+)",
     "SKILL.md": r"^version:\s*([0-9]+\.[0-9]+\.[0-9]+)",
     "manifest.yaml": r"^version:\s*([0-9]+\.[0-9]+\.[0-9]+)",
+    "site/src/data/site.ts": r"version:\s*'([0-9]+\.[0-9]+\.[0-9]+)'",
+    "site/src/content/docs/index.md": r"\| Version \| ([0-9]+\.[0-9]+\.[0-9]+) \|",
 }
 
 

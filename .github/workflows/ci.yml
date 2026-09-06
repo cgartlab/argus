@@ -30,6 +30,7 @@ jobs:
             '.github/workflows/release.yml',
             '.github/workflows/update-free-models.yml',
             '.github/workflows/pr-automation.yml',
+            '.github/workflows/release-check.yml',
             '.github/actions/argus-review/action.yml',
           ]
           errors = []
@@ -64,6 +65,7 @@ jobs:
             tools/bump_version.py
             tools/validate_versioning.py
             tools/validate_model_scores.py
+            tools/check_release.py
             config/free-models.yml
             docs/argus-config-schema.md
             .github/actions/argus-review/action.yml
@@ -97,6 +99,7 @@ jobs:
           python3 -m py_compile tools/bump_version.py      && echo "bump_version.py: ok"
           python3 -m py_compile tools/validate_versioning.py && echo "validate_versioning.py: ok"
           python3 -m py_compile tools/validate_model_scores.py && echo "validate_model_scores.py: ok"
+          python3 -m py_compile tools/check_release.py && echo "check_release.py: ok"
 
       - name: Validate free model list (config/free-models.yml)
         run: |
@@ -126,6 +129,10 @@ jobs:
           EOF
           python3 tools/load_config.py --config /tmp/test-argus.yml --validate-only
           echo "load_config with example .argus.yml: ok"
+
+      - name: Report release state (VERSION vs tags on origin)
+        run: |
+          python3 tools/check_release.py
 
   # ── Job 3: Fixture regression tests ────────────────────────────────────────
   fixture-tests:

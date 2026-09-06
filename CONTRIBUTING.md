@@ -37,15 +37,19 @@ cd argus
 ## Version Management
 
 ```bash
-# Bump version (automatically updates VERSION + CHANGELOG)
+# Bump version (updates VERSION + CHANGELOG + site version markers, stages the files)
 make bump-patch   # 0.4.0 → 0.4.1 (bug fixes, minor changes)
 make bump-minor   # 0.4.0 → 0.5.0 (new features)
 make bump-major   # 0.4.0 → 1.0.0 (breaking changes)
 
+# Fill in the new CHANGELOG section, review, then commit the bump:
+#   git commit -m "chore(release): prepare vX.Y.Z"
+
 # Full pre-release check
 make test
 
-# Cut a release (commit → tag → push → triggers release workflow)
+# Cut a release (release-gate → tag → push → triggers release workflow)
+# `make release` refuses to re-release an existing tag or an older version.
 make release
 ```
 
