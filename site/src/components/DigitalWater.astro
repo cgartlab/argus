@@ -1,24 +1,15 @@
 ---
 // DigitalWater — 数字水面动态背景
-// Wave 4：字符网格粒子 + 双层 sin 波浪 + 绿红流动状态机。
-// PR4：网格点阵 → 代码风横向字符串布局（token 流 + 加权缩进），
-//   密度 15000-20000（桌面 16000 / 移动 4000 / 2D 4000），
-//   波浪改整行同步（shader 与 2D 均用 baseY），状态机与鼠标物理零改动。
-// PR1：WebGL1 单批次 instanced 渲染（骨架 + 软渲染检测 + Canvas2D fallback）。
-//   · CPU 状态机完全保留（wave/状态机仍在 CPU），仅替换像素提交路径。
-//   · WebGL：atlas 纹理 + drawArraysInstancedANGLE，消除逐粒子 drawImage。
-//   · 2D：原 drawImage 路径原样封装（?water=2d 强制 / 软渲染自动回退）。
-//   · 输出像素一致（premultiplied 混合 = source-over）。
-// PR2：双层 sin wave 迁移到 vertex shader（base/phys/phase 实例 attribute + uTime）。
-//   · WebGL：wave 在 shader 内用 uTime + phase 计算，CPU 不再逐粒子 Math.sin。
-//   · amplitude/frequency/speed 作为 shader uniform 传入（数值与 CPU 旧值相同）。
-//   · 2D：仍用 CPU 计算（?water=2d 视觉基准不变）。
-// PR3：混合阶段（绿→红 / 红→琥珀）迁到 fragment shader mix()，消除双提交超绘。
-//   · WebGL：每粒子每阶段 ≤1 次 submit（maxInstances 回落 maxParticles）。
-//   · per-instance a_mix/a_mixColor 精确控制逐粒子过渡色（稳定态粒子 mix=0 不受污染）；
-//     renderer 级 uMixColor/uMixFactor 作为全局兜底（默认 uMixFactor=0 无影响）。
-//   · 2D：保留双绘叠加（?water=2d 视觉基准不变）。
-//   · 移动端调优：dpr cap 1.5 + 粒子数降级 2500（桌面行为不变）。
+// 代码风横向字符串粒子 + 双层 sin 波浪 + 绿红流动状态机。
+// 横向字符串布局：token 流 + 加权缩进，密度 15000-20000（桌面 16000 / 移动 4000 / 2D 4000），
+//   波浪整行同步（shader 与 2D 均用 baseY），状态机与鼠标物理联动。
+// WebGL1 单批次 instanced 渲染（软渲染检测 + Canvas2D fallback），
+//   CPU 状态机完整保留，仅替换像素提交路径。输出像素一致。
+// 双层 sin wave 迁移到 vertex shader（base/phys/phase 实例 attribute + uTime），
+//   amplitude/frequency/speed 作为 shader uniform 传入。2D 保留 CPU 计算。
+// 混合阶段（绿→红 / 红→琥珀）迁到 fragment shader mix()，消除双提交超绘。
+//   per-instance a_mix/a_mixColor 精确控制逐粒子过渡色。2D 保留双绘叠加。
+// 无障碍：支持 prefers-reduced-motion（静态帧降级，WCAG 2.3.3）。
 // 视觉表达 Argus 代码审查流程：检查(绿) → 发现问题(红) → 修复回归(琥珀)。
 // 纯 canvas 实现，无框架依赖。
 ---
@@ -113,16 +104,27 @@
     return fallback
   }
 
+  // tokenNumber：从 CSS 自定义属性读取数值（如 "9.5px" → 9.5；缺失/无效时回退 fallback）。
+  // 用于 canvas 布局参数从设计 token 系统读取，保持设计团队统一控制点。
+  function tokenNumber(name, fallback) {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+    const n = parseFloat(value)
+    return isFinite(n) ? n : fallback
+  }
+
   // ── 参数（集中在顶部，便于 Wave 5 抽成 props）───────────────
   // 分组说明：按语义分四组。保持扁平结构（不重构成嵌套对象，
   // 避免破坏下方大量 CONFIG.x 引用）。各组仅注释标注，不改任何值。
   const CONFIG = {
     // ── line（internal）：代码风横向字符串布局 ──
-    charAdvance: 5.0,       // 水平字距（px）
-    lineHeight: 10.0,       // 行距（px）
+    // 布局参数从设计 token 读取（global.css --ds-water-*），fallback 为当前默认值
+    charAdvance: tokenNumber('--ds-water-char-advance', 9.5), // 水平字距/字符间距（px）
+    lineHeight: tokenNumber('--ds-water-line-height', 15.0), // 行距（px）—— 密度控制点
     maxParticles: 16000,    // 粒子数上限（cap）—— 桌面目标
     mobileMaxParticles: 4000, // 移动端粒子上限（降级）
-    fillRatio: 0.88,        // 行填充率（水平铺满比例）
+    fillRatio: 0.90,        // 行填充率基准（每行实际值 0.40-0.80 随机，见 buildParticles）
+    rowSpeedMin: 15,        // 行滚动最小速度（px/s）—— 整行匀速水平移动
+    rowSpeedMax: 60,        // 行滚动最大速度（px/s）—— 每行随机速度
     indentSteps: [0, 4, 8, 12, 16, 20],       // 缩进档位（格）
     indentWeights: [0.55, 0.25, 0.12, 0.06, 0.02], // 对应 0/4/8/12/16+
     pseudoTokens: {
@@ -134,43 +136,52 @@
     },
 
     // ── wave（internal）：双层 sin 波浪（整行同步波动）──
-    amplitude1: 4.0,        // 第一层波浪振幅
-    amplitude2: 2.0,        // 第二层波浪振幅
+    amplitude1: 0,          // 第一层波浪振幅（视觉弱化：4.0→0 归零）
+    amplitude2: 0,          // 第二层波浪振幅（视觉弱化：2.0→0 归零）
     frequency1: 0.008,      // 第一层波浪空间频率
     frequency2: 0.02,       // 第二层波浪空间频率（反向）
     speed1: 0.3,            // 第一层波浪传播速度
     speed2: -0.5,           // 第二层波浪传播速度（反向）
 
-    // ── type（internal）：字号分档 ──
+    // ── type（internal）：字号分档（从设计 token 读取）──
     // 字号 3 档（红块 +1.5px 一档：9.5 / 11 / 12.5）
-    fontTiers: [8, 9.5, 11],
-    redFontOffset: 1.5,     // 红块字号 +1.5px → 9.5 / 11 / 12.5
+    fontTiers: [
+      tokenNumber('--ds-water-font-xs', 8),
+      tokenNumber('--ds-water-font-sm', 9.5),
+      tokenNumber('--ds-water-font-base', 11),
+    ],
+    redFontOffset: tokenNumber('--ds-water-font-red-offset', 1.5), // 红块字号 +1.5px
 
     // ── color（design-relevant）：三色 + 琥珀 alpha 分档 ──
-    // 5 个色块：琥珀 A/B/C（alpha 0.05/0.09/0.13 预渲染）+ 绿 + 红（alpha 1.0）
-    amber: readColorToken('--color-accent', [217, 119, 6]), // #d97706 琥珀 —— 全局 token --color-accent
-    green: readColorToken('--color-green', [101, 163, 13]), // #65a30d 柔和橄榄绿（低饱和，暖调，与琥珀和谐）
-    red: readColorToken('--color-red', [185, 28, 28]),      // #b91c1c 暗砖红（低亮低刺眼，柔和对比）
-    amberAlphas: [0.05, 0.09, 0.13],
+    // 从 CSS 设计 token 读取（--color-accent/green/red，global.css 已有暗色覆盖）；
+    // 缺失/无法解析时回退低饱和值。5 个色块：琥珀 A/B/C + 绿 + 红（alpha 1.0）
+    amber: readColorToken('--color-accent', [166, 126, 88]), // #a67e58 灰棕陶土（fallback）
+    green: readColorToken('--color-green', [122, 150, 86]), // #7a9656 灰橄榄（fallback）
+    red: readColorToken('--color-red', [176, 101, 101]),   // #b06565 灰玫瑰（fallback）
+    amberAlphas: [0.08, 0.12, 0.16],
     amberBands: [1 / 3, 2 / 3], // 粒子 y 比例分段选琥珀档
 
     // ── physics（internal）：流体弹簧/阻尼/速度 ──
-    pushRadius: 180,       // 鼠标推动基础范围（px）—— 沿轨迹从小变大
+    pushRadius: 360,       // 鼠标推动基础范围（px）—— 沿轨迹从小变大（翻倍：180→360）
     pushStrength: 0.8,     // 推动力度（翻倍：0.4→0.8，字符更强跟随箭头）
     springK: 0.015,        // 弹簧系数（减弱果冻：0.006→0.015，回弹更快）
     damping: 0.955,        // 粘性阻尼（减弱果冻：0.965→0.955，降低粘稠感）
     maxSpeed: 5,           // 速度上限
 
-    // ── timing（design-relevant）：绿→红→琥珀 状态时序 ──
-    greenInMs: 150,        // 绿淡入
-    greenMs: 600,          // 绿保持（was 350，大幅放慢）
-    redInMs: 800,          // 红淡入
-    redMs: 1200,           // 红保持（was 700）
-    fadeMs: 2200,          // 淡出完成（was 1100，大幅放慢）
-    greenAlpha: 0.7,       // 绿红 alpha
+    // ── timing（design-relevant）：粒子级独立生命周期 ──
+    // 每个粒子独立循环：NORMAL(琥珀) → GREEN_IN(淡入) → GREEN(稳定)
+    //   → RED_TRANSITION(混色) → RED(稳定) → FADE(淡出) → NORMAL(随机延迟)…
+    greenInMs: 150,        // 绿淡入时长
+    greenMs: 1500,         // 绿稳定时长
+    redTransitionMs: 300,  // 绿→红混色时长
+    redMs: 1500,           // 红稳定时长
+    fadeMs: 500,           // 淡出时长（红→模糊→琥珀）
+    activateDelayMin: 2000, // 循环完成后最短等待（ms）
+    activateDelayMax: 8000, // 循环完成后最长等待（ms）
+    greenAlpha: 0.60,      // 绿红 alpha（修复：0.40→0.60 恢复可见性）
 
     // ── blur（internal）：模糊淡出（修复闪烁）──
-    blurAlpha: 0.7,        // 预渲染 alpha（was 0.16 太低→闪烁，现提至 0.7 让模糊可见）
+    blurAlpha: 0.45,       // 预渲染 alpha（修复：0.30→0.45 恢复可见性）
     blurPx: 1.5,           // 模糊程度
     fontStack: 'ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace',
     chars: [
@@ -239,6 +250,22 @@
   let fpsWindowStart = 0
   let avgFrameMs = 0 // 每帧耗时滚动平均（EMA）
 
+  // ── 帧率限制（高刷新率显示器 60fps 上限）─────────────
+  const TARGET_FPS = 60
+  let lastRenderedTs = 0
+
+  // ── 行滚动信息（每行随机速度 + 滚动相位，整行匀速水平移动）──
+  let rowsInfo = [] // rowsInfo[row] = { speed, offset, rowMaxX }
+
+  // ── 字符滚动位置：x = ((baseX + offset) % loop) - rowMaxX ──
+  // 整行共享 offset → 行结构保持，匀速从左侧进入向右流出循环
+  function scrollXOf(p) {
+    const ri = rowsInfo[p.row]
+    if (!ri) return p.baseX
+    const loop = width + ri.rowMaxX
+    return ((p.baseX + ri.offset) % loop) - ri.rowMaxX
+  }
+
   // ── sprite sheet 元数据（buildSpriteSheet 时填充）─────────
   let sheet = null
   let sheetCtx = null
@@ -246,11 +273,11 @@
   let tilesPerRow = 0 // = tilesPerBlock
   let tileSize = 0
 
-//  ── PR1：Renderer 抽象（Canvas2D fallback / WebGL1 instanced）────
+//  ── Renderer 抽象（Canvas2D fallback / WebGL1 instanced）────
   // 两种渲染器共享同一 submit(block, charIdx, tier, dx, dy, alpha, p) 接口，
   // CPU 状态机（emitDraw）保留，仅替换像素提交路径。输出像素一致。
   // WebGL 路径：单批次 instanced drawArrays（混合阶段双绘 → 每粒子 ≤2 实例槽位）。
-  // PR2：WebGL 的 wave 计算迁到 vertex shader，submit 额外接收粒子 p
+  // WebGL 的 wave 计算迁到 vertex shader，submit 额外接收粒子 p
   // （base/phys/phase 写入实例缓冲）；2D 忽略第 7 参，仍用 dx/dy 最终位置。
 
   // WebGL 上下文属性：必须保留透明通道（alpha:true）+ premultiplied
@@ -264,9 +291,9 @@
   // 顶点着色器：单位 quad（a_corner，divisor=0）+ 每实例（divisor=1）。
   // a_base（静网格位置 CSS px）/ a_phys（流体位移）/ a_phase（双层 sin 相位）/
   // a_uv（tile 的归一化 uv 矩形）/ a_alpha。
-  // PR2：双层 sin wave 从 CPU 迁移到此 —— 用 uTime + phase 在 shader 内计算，
+  // 双层 sin wave 从 CPU 迁移到此 —— 用 uTime + phase 在 shader 内计算，
   // 加到 a_base.y + a_phys.y 上（原 draw() 的 wave 公式原样搬入，视觉一致）。
-  // PR3：a_mixColor/a_mix（每实例过渡目标色 + mix 因子）—— 稳定态粒子
+  // a_mixColor/a_mix（每实例过渡目标色 + mix 因子）—— 稳定态粒子
   // mix=0 → 目标色无影响；过渡态粒子逐实例精确混色（消除超绘）。
   // 坐标：canvas 左上原点（y 向下）→ clip space（y 向上）在 shader 内翻转。
   const VS_SRC = [
@@ -296,12 +323,16 @@
     '  v_alpha = a_alpha;',
     '  v_mixColor = a_mixColor;',
     '  v_mix = a_mix;',
-    // 双层 sin 波浪（PR2：CPU → GPU）。与旧 draw() 公式逐项一致：
+    // 双层 sin 波浪（CPU → GPU）。与旧 draw() 公式逐项一致：
     //   wave = amp1*sin(baseY*f1 + t*s1 + phase1) + amp2*sin(baseY*f2 - t*s2 + phase2)
-    //   PR4：改用 a_base.y（行 y）—— 同一行字符共享 baseY → 整行同步波动（代码风行布局）
-    '  float wave =',
-    '    uAmplitude1 * sin(a_base.y * uFrequency1 + uTime * uSpeed1 + a_phase.x) +',
-    '    uAmplitude2 * sin(a_base.y * uFrequency2 - uTime * uSpeed2 + a_phase.y);',
+    //   改用 a_base.y（行 y）—— 同一行字符共享 baseY → 整行同步波动（代码风行布局）
+    // 双层 sin 波浪：amplitude 归零时跳过 sin() 计算（uniform 分支，高效）
+    '  float wave = 0.0;',
+    '  if (uAmplitude1 > 0.0 || uAmplitude2 > 0.0) {',
+    '    wave =',
+    '      uAmplitude1 * sin(a_base.y * uFrequency1 + uTime * uSpeed1 + a_phase.x) +',
+    '      uAmplitude2 * sin(a_base.y * uFrequency2 - uTime * uSpeed2 + a_phase.y);',
+    '  }',
     // 位置 = base + phys（水平），垂直再加 wave
     '  vec2 px = a_base + a_phys;',
     '  px.y += wave;',
@@ -314,7 +345,7 @@
 
   // 片元着色器：atlas 纹理（premultiplied）× 每实例 alpha → premultiplied 输出，
   // 配合 gl.blendFunc(ONE, ONE_MINUS_SRC_ALPHA) = 2D source-over 合成语义。
-  // PR3：混合阶段（绿→红 / 红→琥珀）在 shader 内 mix() 完成 —— per-instance
+  // 混合阶段（绿→红 / 红→琥珀）在 shader 内 mix() 完成 —— per-instance
   // v_mix/v_mixColor 精确控制逐粒子过渡色（稳定态 v_mix=0 → 无混色）；
   // renderer 级 uMixColor/uMixFactor 作为全局兜底（默认 uMixFactor=0 无影响）。
   const FS_SRC = [
@@ -343,7 +374,7 @@
       this.dpr = 1
       this.width = 0
       this.height = 0
-      this.mixFactor = 0 // PR3：emitDraw 统一设置；2D 双绘路径忽略该值
+      this.mixFactor = 0 // emitDraw 统一设置；2D 双绘路径忽略该值
     }
 
     init(sheetCanvas, ts, tpr, tpb) {
@@ -380,7 +411,7 @@
   }
 
   // WebGL1 renderer：单批次 instanced drawArrays（消除逐粒子 drawImage）。
-  // PR3：混合阶段迁到 fragment shader → 每粒子每阶段 ≤1 次 submit，
+  // 混合阶段迁到 fragment shader → 每粒子每阶段 ≤1 次 submit，
   // maxInstances 从 maxParticles×2 回落 maxParticles（超绘消除）。
   class WebGLRenderer {
     constructor(canvas, gl, ext) {
@@ -396,12 +427,12 @@
       this.tilesPerBlock = 0
       this.sheetW = 1
       this.sheetH = 1
-      this.maxInstances = CONFIG.maxParticles // PR3：回落 maxParticles（无超绘）
+      this.maxInstances = CONFIG.maxParticles // 回落 maxParticles（无超绘）
       this.instanceCount = 0
-      // PR2+PR3：每实例 15 floats = base2 + phys2 + phase2 + uv4 + alpha1 + mixColor3 + mixFactor1
+      // 每实例 15 floats = base2 + phys2 + phase2 + uv4 + alpha1 + mixColor3 + mixFactor1
       // （wave 在 shader 内计算；混色 per-instance 精确控制）
       this.instanceData = new Float32Array(this.maxInstances * 15)
-      this.mixFactor = 0 // PR3：过渡态混色因子（emitDraw 设置 → submit 写入 per-instance）
+      this.mixFactor = 0 // 过渡态混色因子（emitDraw 设置 → submit 写入 per-instance）
       this.program = null
       this.tex = null
       this.quadBuffer = null
@@ -525,13 +556,13 @@
       gl.clearColor(0, 0, 0, 0)
       gl.clear(gl.COLOR_BUFFER_BIT)
       this.instanceCount = 0
-      this.mixFactor = 0 // PR3：每帧重置 —— 稳定态粒子默认无混色，仅过渡态覆盖
+      this.mixFactor = 0 // 每帧重置 —— 稳定态粒子默认无混色，仅过渡态覆盖
     }
 
     // 收集实例（CPU 状态机决定 block/tier/alpha，不迁移任何计算逻辑）。
-    // PR2：wave 计算迁到 shader —— 实例数据改为 base/phys/phase，不再传最终 drawY。
+    // wave 计算迁到 shader —— 实例数据改为 base/phys/phase，不再传最终 drawY。
     // dx/dy 仅 2D 路径使用；WebGL 从 p 读取 baseX/baseY/physX/physY/phase1/phase2。
-    // PR3：每实例写入 mixColor/mixFactor（过渡目标色由 block 推断：
+    // 每实例写入 mixColor/mixFactor（过渡目标色由 block 推断：
     // GREEN_TO_RED 用 BLOCK_GREEN → 红；RED_TO_BLUR 用 BLOCK_RED → 琥珀；
     // FADE 用 BLOCK_BLUR → 琥珀）。稳定态粒子 mixFactor=0 → 目标色无影响。
     submit(block, charIdx, tier, dx, dy, alpha, p) {
@@ -542,8 +573,10 @@
       const sy = Math.floor(spriteIdx / this.tilesPerRow) * this.tileSize
       const i = this.instanceCount * 15
       const d = this.instanceData
-      d[i] = p.baseX
-      d[i + 1] = p.baseY
+      // base = 滚动后的最终位置 - phys（shader 内再加 phys + wave）
+      // dx/dy 是 emitDraw 传入的 floor 后最终位置（含滚动 + 物理位移）
+      d[i] = dx - p.physX
+      d[i + 1] = dy - p.physY
       d[i + 2] = p.physX
       d[i + 3] = p.physY
       d[i + 4] = p.phase1
@@ -569,7 +602,7 @@
       gl.uniform2f(this.locResolution, this.width, this.height)
       gl.uniform1f(this.locTileSize, this.tileSize)
       gl.uniform2f(this.locAtlasSize, this.sheetW, this.sheetH)
-      // PR2：wave 参数（amplitude/frequency 与 CPU 旧值相同，保证视觉一致）+ 时间
+      // wave 参数（amplitude/frequency 与 CPU 旧值相同，保证视觉一致）+ 时间
       gl.uniform1f(this.locTime, this.time)
       gl.uniform1f(this.locAmplitude1, CONFIG.amplitude1)
       gl.uniform1f(this.locAmplitude2, CONFIG.amplitude2)
@@ -577,7 +610,7 @@
       gl.uniform1f(this.locFrequency2, CONFIG.frequency2)
       gl.uniform1f(this.locSpeed1, CONFIG.speed1)
       gl.uniform1f(this.locSpeed2, CONFIG.speed2)
-      // PR3：renderer 级默认 mix（全局兜底；per-instance a_mix/a_mixColor 精确控制过渡）
+      // renderer 级默认 mix（全局兜底；per-instance a_mix/a_mixColor 精确控制过渡）
       // uMixFactor=0 → 兜底分支无影响；uMixColor 上传主过渡目标色（红）
       gl.uniform3f(this.locMixColor, CONFIG.red[0] / 255, CONFIG.red[1] / 255, CONFIG.red[2] / 255)
       gl.uniform1f(this.locMixFactor, 0)
@@ -669,14 +702,10 @@
     return r
   }
 
-  // ── 自动触发（画布随机选点触发动效，不产生位移）──
-  let lastAutoTrigger = 0
-  let autoTriggerInterval = 1500 // ms（首次触发间隔）
-  const AUTO_TRIGGER_RADIUS_MIN = 50 // 触发半径最小（当前值）
-  const AUTO_TRIGGER_RADIUS_MAX = 150 // 触发半径最大（3× 当前）
+
 
   // ── 代码风横向字符串粒子构建 ───────────────────────────────
-  // PR4：网格点阵 → 横向字符串布局。每行按伪代码 token 流铺字符，
+  // 横向字符串布局。每行按伪代码 token 流铺字符，
   // 缩进按 indentSteps/indentWeights 加权采样（代码缩进感）。
   // 粒子数：桌面 maxParticles（16000）；移动端 mobileMaxParticles（4000）；
   // 2D 渲染器（软渲染/强制 ?water=2d）额外降级到 4000（CPU drawImage 保护）。
@@ -727,28 +756,41 @@
     return null // 权重未覆盖（不应发生）
   }
 
-  // sampleCharIdx：token → 粒子映射字符。
-  // identifier 取其中随机 1 字符；其余取 token 内随机 1 字符。
-  function tokenToCharIdx(token) {
-    if (!token || token.text.length === 0) return Math.floor(Math.random() * CONFIG.chars.length)
-    const c = token.text[Math.floor(Math.random() * token.text.length)]
-    return charToIndex(c)
+  // tokenToChars：token → 全部字符的粒子索引数组（逐字符展开，密集代码行）。
+  // 每个字符独立成为粒子 → 行内字符连续密排，像代码一行行写出来。
+  function tokenToChars(token) {
+    if (!token || token.text.length === 0) return [Math.floor(Math.random() * CONFIG.chars.length)]
+    const idxs = []
+    for (const c of token.text) idxs.push(charToIndex(c))
+    return idxs
   }
 
   function buildParticles() {
-    // 粒子上限：移动端/2D 降级 4000，桌面 16000
+    // 粒子上限：桌面 16000 / 移动端或 2D 4000 / 低端设备（2D+移动）2000
     const isMobile = isMobileViewport()
     const is2D = renderer && renderer.name === '2d'
-    const maxParticles = isMobile || is2D ? CONFIG.mobileMaxParticles : CONFIG.maxParticles
+    const isLowEnd = isMobile && is2D
+    const maxParticles = isLowEnd ? 2000 : (isMobile || is2D ? CONFIG.mobileMaxParticles : CONFIG.maxParticles)
 
     const rows = Math.ceil(height / CONFIG.lineHeight)
     const next = []
+    rowsInfo = []
     for (let row = 0; row < rows && next.length < maxParticles; row++) {
       const y = row * CONFIG.lineHeight + CONFIG.lineHeight / 2
       // 缩进：按权重采样档位
       const indent = sampleIndent()
       let x = indent * CONFIG.charAdvance
-      while (x < width * CONFIG.fillRatio && next.length < maxParticles) {
+      // 同行主导字号：同一行以同一 sizeTier 为主（80%+），保持代码行整齐
+      const rowTier = Math.floor(Math.random() * 3) // 3 档字号
+      // 每行随机填充率（0.40-0.80），避免所有行等长 + 更多留白
+      const rowFill = 0.40 + Math.random() * 0.40
+      // 行信息：每行随机速度（px/s），rowMaxX 在构建结束后填充
+      rowsInfo.push({
+        speed: CONFIG.rowSpeedMin + Math.random() * (CONFIG.rowSpeedMax - CONFIG.rowSpeedMin),
+        offset: 0,   // 滚动相位（px），构建结束后随机初始化
+        rowMaxX: 0,  // 该行最大字符 x（循环滚动周期基准）
+      })
+      while (x < width * rowFill && next.length < maxParticles) {
         const token = sampleToken() // 按 pseudoTokens.weights 采样
         if (token === null) {
           // space：不建粒子，仅 x 推进 1 格
@@ -758,30 +800,50 @@
         // 运算符/分隔符两侧自动补 1 空格推进（简化强制空格逻辑，保证节奏）
         const tokenLen = token.text.length
         const pad = (token.type === 'operator' || token.type === 'delimiter') ? 1 : 0
-        const charIdx = tokenToCharIdx(token)
-        const sizeTier = Math.floor(Math.random() * 3) // 3 档字号
-        next.push({
-          baseX: x,           // 静布局 x
-          baseY: y,           // 静布局 y（行中线）
-          physX: 0, physY: 0, // 流体位移（被鼠标推开后的位置偏移）
-          vx: 0, vy: 0,       // 流体速度
-          charIdx,
-          sizeTier,
-          phase1: Math.random() * Math.PI * 2,
-          phase2: Math.random() * Math.PI * 2,
-          inRadius: false,    // 鼠标影响圈内标记（边缘触发用）
-          lastActivate: -1e12, // 最近激活时间戳（很负 = 从未激活 → NORMAL）
-          newCharIdx: null,   // FADE 时抽的新字符（消失→随机换字符→浮现）
-          // 「空气动力」随机因子（build 时静态生成，帧内仅几次算术，保持 60fps）
-          sens: 0.75 + Math.random() * 0.5,  // 灵敏度 0.75-1.25 → 有效半径随机，圆边变不规则锯齿
-          delay: Math.random() * 90,         // 0-90ms 激活延迟 → 字符错落激活，像流体逐点反应
-          jitter: (Math.random() - 0.5) * 90, // -45~+45ms 绿保持期抖动 → 斑驳自然，像湍流
-        })
-        x += (tokenLen + pad) * CONFIG.charAdvance // 按 token 长度推进
+        // 逐字符展开：token 每个字符独立成为粒子（密集代码行）
+        const charIdxs = tokenToChars(token)
+        for (const charIdx of charIdxs) {
+          if (next.length >= maxParticles) break
+          next.push({
+            baseX: x,           // 行内相对 x（滚动时叠加行 offset）
+            baseY: y,           // 静布局 y（行中线）
+            physX: 0, physY: 0, // 流体位移（被鼠标推开后的位置偏移）
+            vx: 0, vy: 0,       // 流体速度
+            row,                // 行索引（读取 rowsInfo 速度/相位）
+            charIdx,
+            sizeTier: Math.random() < 0.8 ? rowTier : Math.floor(Math.random() * 3),
+            phase1: Math.random() * Math.PI * 2,
+            phase2: Math.random() * Math.PI * 2,
+            inRadius: false,    // 鼠标影响圈内标记（边缘触发用）
+            lastActivate: -1e12, // 上次激活时间戳（-1e12 = 从未激活）
+            nextActivate: performance.now() + 500 + Math.random() * 5000, // 下次激活时间戳（随机初始延迟）
+            // 「空气动力」随机因子（build 时静态生成，帧内仅几次算术，保持 60fps）
+            sens: 0.75 + Math.random() * 0.5,  // 灵敏度 0.75-1.25 → 有效半径随机，圆边变不规则锯齿
+            decayMul: 0.3 + Math.random() * 1.2, // 0.3-1.5 随机衰减倍率 → 不同粒子影响力度不同
+            delay: Math.random() * 90,         // 0-90ms 激活延迟 → 字符错落激活
+            jitter: (Math.random() - 0.5) * 90, // -45~+45ms 生命周期抖动 → 斑驳自然
+          })
+          x += CONFIG.charAdvance
+        }
+        // token 间距：token 内已逐字符推进，这里补 pad 空格
+        x += pad * CONFIG.charAdvance
+        // 随机间隔：30% 概率额外 1-3 空格，避免行过密与重叠
+        if (Math.random() < 0.3) {
+          x += CONFIG.charAdvance * (1 + Math.floor(Math.random() * 3))
+        }
       }
+      rowsInfo[row].rowMaxX = Math.max(x, indent * CONFIG.charAdvance) // 行末位置
     }
     particles = next
+    // 初始化每行滚动相位（随机），避免所有行同步从左侧进入
+    for (let row = 0; row < rowsInfo.length; row++) {
+      const ri = rowsInfo[row]
+      ri.offset = Math.random() * (width + ri.rowMaxX)
+    }
+    return rows
   }
+
+
 
   // ── 预渲染 sprite sheet（主循环 0 fillText / 0 fillStyle / 0 font）──
   function buildSpriteSheet() {
@@ -848,14 +910,14 @@
     sheetCtx.globalAlpha = 1
   }
 
-  // ── 移动端检测（PR3：dpr cap 1.5 + 粒子降级 2500，桌面行为完全不变）──
+  // ── 移动端检测（dpr cap 1.5 + 粒子降级，桌面行为完全不变）──
   function isMobileViewport() {
     return window.matchMedia('(max-width: 767px)').matches || /Mobi|Android/i.test(navigator.userAgent)
   }
 
   // ── 尺寸重建（DPR 保持锐利，不做低分辨率缩放）────────────
   function resize() {
-    // PR3：移动端 dpr cap 1.5（省 GPU 带宽），桌面 2（保持锐利）
+    // 移动端 dpr cap 1.5（省 GPU 带宽），桌面 2（保持锐利）
     const isMobile = isMobileViewport()
     dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2)
     width = canvas.clientWidth
@@ -868,21 +930,12 @@
   }
 
   // ── 从 sprite sheet 计算 tile 的像素坐标（renderer 内部使用）──
-  // PR1 起 tile 提交统一走 renderer.submit(block, charIdx, tier, dx, dy, alpha)：
+  // tile 提交统一走 renderer.submit(block, charIdx, tier, dx, dy, alpha)：
   // Canvas2DRenderer 保留原 drawImage 路径，WebGLRenderer 写入 instanced 缓冲。
 
-  // ── 状态机：给定粒子 + 当前时间 → 'normal' | 'green' | 'red' | 'fade' ──
-  function getState(p, now) {
-    const dt = now - p.lastActivate
-    if (dt < 0) return 'normal' // 未到激活时刻（延迟期，仍显琥珀）
-    const green = CONFIG.greenMs + p.jitter
-    const red = green + (CONFIG.redMs - CONFIG.greenMs)
-    const fade = green + (CONFIG.fadeMs - CONFIG.greenMs)
-    if (dt < green) return 'green'
-    if (dt < red) return 'red'
-    if (dt < fade) return 'fade'
-    return 'normal'
-  }
+  // ── 状态判断（粒子级独立生命周期）──
+  // 每个粒子独立走 green→red→fade→normal 循环，
+  // 激活时间随机分散，颜色由 emitDraw 的 per-particle 状态机决定。
 
   // ── 按 y 比例选琥珀档色块（消灭主循环 globalAlpha）────────
   function amberBlockFor(drawY) {
@@ -892,125 +945,102 @@
     return BLOCK_AMBER_C
   }
 
-  // ── 单粒子提交（7 阶段状态机 + 缓动 + 颜色混合过渡）──────
-  // CPU 状态机完全保留（决定 block/tier/alpha），仅把 ctx.globalAlpha+drawImage
-  // 换成 renderer.submit(block, charIdx, tier, dx, dy, alpha)。
-  // PR3：WebGL 分支混合阶段单提交（mix 迁到 fragment shader，消除超绘）；
-  // 2D 分支保留双绘叠加（视觉基准）。renderer.mixFactor 每粒子显式重置为 0，
-  // 仅过渡态覆盖 → 稳定态粒子不受混色污染（per-instance 精确）。
+  // ── 单粒子提交（粒子级独立生命周期）──
+  // 每个粒子独立走 6 阶段：NORMAL→GREEN_IN→GREEN→RED_TRANSITION→RED→FADE→NORMAL
+  // 激活时间随机分散，不同粒子在不同阶段，产生有机的色彩流动。
+  // 颜色由 ts - p.lastActivate 决定，不再依赖行级状态机。
+  // WebGL 分支混合阶段单提交（mix 迁到 fragment shader）；
+  // 2D 分支保留双绘叠加。renderer.mixFactor 每粒子显式重置为 0。
   function emitDraw(renderer, p, drawX, drawY, ts) {
     const dx = Math.floor(drawX)
     const dy = Math.floor(drawY)
+    renderer.mixFactor = 0 // 默认无混色（WebGL 过渡态覆盖；2D 忽略）
+
     const dt = ts - p.lastActivate
-    renderer.mixFactor = 0 // PR3：默认无混色（WebGL 过渡态覆盖；2D 忽略）
 
+    // 从未激活 / 循环已完成 → NORMAL（琥珀）
     if (dt < 0) {
-      // 延迟期：琥珀（空气动力错落感）
       renderer.submit(amberBlockFor(drawY), p.charIdx, p.sizeTier, dx, dy, 1, p)
       return
     }
 
-    // 7 阶段时间边界（含 jitter ±45ms）
+    // 阶段时间边界（含 jitter 抖动，不同粒子节奏略有差异）
     const j = p.jitter
-    const greenIn = CONFIG.greenInMs + j
-    const green = CONFIG.greenMs + j
-    const redIn = green + 200   // 绿→红混合 200ms
-    const red = green + 600     // 红保持
-    const blurIn = red + 200    // 红→模糊混合 200ms
-    const fade = green + 1600   // 模糊→新字符 1000ms（总 ~2.2s）
+    const tGreenIn = CONFIG.greenInMs + j
+    const tGreen = tGreenIn + CONFIG.greenMs
+    const tRedTrans = tGreen + CONFIG.redTransitionMs
+    const tRed = tRedTrans + CONFIG.redMs
+    const tFade = tRed + CONFIG.fadeMs
 
-    if (dt >= fade) {
-      // NORMAL：若刚完成换字符（FADE 抽了 newCharIdx），永久替换后显示新琥珀字符
-      if (p.newCharIdx !== null) {
-        p.charIdx = p.newCharIdx
-        p.newCharIdx = null
-      }
-      renderer.submit(amberBlockFor(drawY), p.charIdx, p.sizeTier, dx, dy, 1, p)
-      return
-    }
-
-    if (dt < greenIn) {
-      // 1. GREEN_IN：绿淡入（ease-in，从慢到快）
-      const k = easeInQuad(dt / greenIn)
+    if (dt < tGreenIn) {
+      // GREEN_IN：绿淡入（ease-in）
+      const k = easeInQuad(dt / tGreenIn)
       renderer.submit(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * k, p)
-
-    } else if (dt < green) {
-      // 2. GREEN：绿稳定
+    } else if (dt < tGreen) {
+      // GREEN：绿稳定
       renderer.submit(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha, p)
-
-    } else if (dt < redIn) {
-      // 3. GREEN_TO_RED：颜色混合（绿渐隐 + 红渐显，ease-in-out 叠加）
-      const blend = easeInOutCubic((dt - green) / (redIn - green))
+    } else if (dt < tRedTrans) {
+      // RED_TRANSITION：绿→红混合（easeInOutCubic）
+      const blend = easeInOutCubic((dt - tGreen) / CONFIG.redTransitionMs)
       if (renderer.name === 'webgl') {
-        // PR3：WebGL 单提交 BLOCK_GREEN + mix 到红（fragment shader 内合成，消除超绘）
         renderer.mixFactor = blend
         renderer.submit(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha, p)
       } else {
-        // 2D：双绘叠加（视觉基准不变）
-        renderer.submit(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * (1 - blend), p) // 绿渐隐
-        renderer.submit(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * blend, p) // 红渐显
+        renderer.submit(BLOCK_GREEN, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * (1 - blend), p)
+        renderer.submit(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * blend, p)
       }
-
-    } else if (dt < red) {
-      // 4. RED：红稳定
+    } else if (dt < tRed) {
+      // RED：红稳定
       renderer.submit(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha, p)
-
-    } else if (dt < blurIn) {
-      // 5. RED_TO_BLUR：红渐隐 + 模糊渐显（ease-out）
-      const blend = easeOutQuad((dt - red) / (blurIn - red))
+    } else if (dt < tFade) {
+      // FADE：红→模糊→琥珀（ease-out 淡出）
+      const k = easeOutQuad((dt - tRed) / CONFIG.fadeMs)
       if (renderer.name === 'webgl') {
-        // PR3：WebGL 单提交 BLOCK_RED + mix 到琥珀（fragment shader 内合成，消除超绘）
-        renderer.mixFactor = blend
+        renderer.mixFactor = k
         renderer.submit(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha, p)
       } else {
-        // 2D：双绘叠加（视觉基准不变）
-        renderer.submit(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * (1 - blend), p) // 红渐隐
-        renderer.submit(BLOCK_BLUR, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * 0.7 * blend, p) // 模糊渐显
+        renderer.submit(BLOCK_RED, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * (1 - k), p)
+        renderer.submit(BLOCK_BLUR, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * k, p)
       }
-
     } else {
-      // 6. FADE：模糊渐隐 + 新字符渐显（ease-in-out）
-      if (p.newCharIdx === null) p.newCharIdx = Math.floor(Math.random() * CONFIG.chars.length)
-      const k = easeInOutCubic((dt - blurIn) / (fade - blurIn))
-      if (renderer.name === 'webgl') {
-        // PR3：WebGL 单提交 BLOCK_BLUR + mix 到琥珀（newCharIdx 在 fade 结束后由 NORMAL 应用）
-        renderer.mixFactor = k
-        renderer.submit(BLOCK_BLUR, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * 0.7, p)
-      } else {
-        // 2D：双绘叠加（视觉基准不变）
-        renderer.submit(BLOCK_BLUR, p.charIdx, p.sizeTier, dx, dy, CONFIG.greenAlpha * 0.7 * (1 - k), p) // 模糊渐隐
-        renderer.submit(amberBlockFor(drawY), p.newCharIdx, p.sizeTier, dx, dy, k * 0.6, p) // 新字符渐显
-      }
+      // NORMAL：循环完成，回到琥珀
+      renderer.submit(amberBlockFor(drawY), p.charIdx, p.sizeTier, dx, dy, 1, p)
     }
   }
 
-  // ── 单帧绘制 ───────────────────────────────────────────
+  // ── 单帧绘制（粒子级遍历，行滚动 + 内容区域裁剪）──
   function draw(ts) {
     renderer.begin()
 
     for (const p of particles) {
+      // 整行滚动：字符实际 x = scrollXOf(p) + physX（鼠标推开）
+      const drawX = scrollXOf(p) + p.physX
+      const drawY = p.baseY + p.physY
+
       if (renderer.name === 'webgl') {
-        // PR2：双层 sin wave 已迁移到 vertex shader —— CPU 只传 base+phys
-        // （shader 内用 uTime + phase 计算 wave 并加到垂直位置）
-        emitDraw(renderer, p, p.baseX + p.physX, p.baseY + p.physY, ts)
-      } else {
-        // 2D：保留 CPU 双层 sin 波浪（?water=2d 视觉基准不变；PR4 起用 baseY 整行波动，与 shader 一致）
-        const wave =
-          CONFIG.amplitude1 * Math.sin(p.baseY * CONFIG.frequency1 + t * CONFIG.speed1 + p.phase1) +
-          CONFIG.amplitude2 * Math.sin(p.baseY * CONFIG.frequency2 - t * CONFIG.speed2 + p.phase2)
-        const drawX = p.baseX + p.physX // 流体水平位移
-        const drawY = p.baseY + wave + p.physY // 波浪 + 流体垂直位移
         emitDraw(renderer, p, drawX, drawY, ts)
+      } else {
+        // 2D：CPU 双层 sin 波浪（amplitude 为 0 时跳过 sin 计算）
+        const waveEnabled = (CONFIG.amplitude1 > 0 || CONFIG.amplitude2 > 0)
+        const wave = waveEnabled
+          ? (CONFIG.amplitude1 * Math.sin(p.baseY * CONFIG.frequency1 + t * CONFIG.speed1 + p.phase1) +
+            CONFIG.amplitude2 * Math.sin(p.baseY * CONFIG.frequency2 - t * CONFIG.speed2 + p.phase2))
+          : 0
+        emitDraw(renderer, p, drawX, drawY + wave, ts)
       }
     }
 
-    // PR2：uTime 同步 —— shader wave 使用与 2D 相同的 t（秒），保证视觉一致
     renderer.time = t
     renderer.end()
   }
 
   function frame(ts) {
     rafId = requestAnimationFrame(frame)
+
+    // 帧率限制：高刷新率显示器跳过多余帧（60fps 上限）
+    if (ts - lastRenderedTs < 1000 / TARGET_FPS) return
+    lastRenderedTs = ts
+
     const frameStart = performance.now()
 
     // fps 统计：rAF 实际帧（不再限帧，应趋近 60）
@@ -1039,30 +1069,25 @@
     const now = performance.now()
     while (trail.length > 0 && now - trail[0].birth > TRAIL_MAX_AGE) trail.shift()
 
-    // ── 自动触发：画布随机选点触发动效（不产生位移，纯颜色变化）──
-    if (ts - lastAutoTrigger > autoTriggerInterval) {
-      lastAutoTrigger = ts
-      autoTriggerInterval = 1000 + Math.random() * 2000 // 1-3s 随机间隔
-      // 随机位置
-      const rx = Math.random() * width
-      const ry = Math.random() * height
-      // 随机触发半径（50~150px：既有点触发也有大片触发，更自然）
-      const triggerRadius = AUTO_TRIGGER_RADIUS_MIN + Math.random() * (AUTO_TRIGGER_RADIUS_MAX - AUTO_TRIGGER_RADIUS_MIN)
-      const r2 = triggerRadius * triggerRadius
-      // 激活附近 NORMAL 态粒子（小簇/大簇随机，无物理推动）
-      for (const p of particles) {
-        const dx = p.baseX - rx
-        const dy = p.baseY - ry
-        if (dx * dx + dy * dy < r2 && getState(p, now) === 'normal') {
-          p.lastActivate = ts + p.delay
-        }
+    // ── 粒子级随机激活：每个粒子独立循环，到达 nextActivate 时激活 ──
+    const cycleTime = CONFIG.greenInMs + CONFIG.greenMs + CONFIG.redTransitionMs + CONFIG.redMs + CONFIG.fadeMs
+    for (const p of particles) {
+      if (now >= p.nextActivate) {
+        p.lastActivate = now + p.delay // 用 delay 做错落激活
+        p.nextActivate = now + cycleTime + CONFIG.activateDelayMin
+          + Math.random() * (CONFIG.activateDelayMax - CONFIG.activateDelayMin)
       }
+    }
+
+    // ── 行滚动推进：每行以随机速度匀速水平移动 ──
+    for (const ri of rowsInfo) {
+      ri.offset += ri.speed * dt
     }
 
     // 流体物理 + 边缘触发（轨迹增长 + 非线性动画）
     for (const p of particles) {
-      // 当前流体位置
-      const curX = p.baseX + p.physX
+      // 当前流体位置（基于滚动后的 x）
+      const curX = scrollXOf(p) + p.physX
       const curY = p.baseY + p.physY
 
       // ── 轨迹影响检查（沿轨迹从小变大：头部 30% → 尾部 100%）──
@@ -1072,14 +1097,16 @@
       let closestDy = 0
       for (const tp of trail) {
         const age01 = Math.min((now - tp.birth) / TRAIL_MAX_AGE, 1) // 0=最新/头部, 1=最老/尾部
-        const radius = CONFIG.pushRadius * (0.3 + age01 * 0.7) // 头部 30% → 尾部 100%
+        // sens 影响有效半径（0.75-1.25），圆边变不规则锯齿
+        const radius = CONFIG.pushRadius * (0.3 + age01 * 0.7) * p.sens
         const dx = curX - tp.x
         const dy = curY - tp.y
         const d2 = dx * dx + dy * dy
         if (d2 < radius * radius && d2 > 0.01) {
           const d = Math.sqrt(d2)
           const normDist = d / radius
-          const influence = (1 - normDist) * (1 - normDist) // 二次缓出
+          // 二次缓出 × 随机衰减倍率（不同粒子衰减率不同，效果更有机）
+          const influence = (1 - normDist) * (1 - normDist) * p.decayMul
           if (influence > maxInfluence) {
             maxInfluence = influence
             closestD = d
@@ -1108,12 +1135,14 @@
         p.vy += (-p.physY / pullDist) * pullStrength
       }
 
-      // ── 粘性阻尼（速度相关，减弱果冻）──
+      // ── 粘性阻尼（速度相关，帧率无关指数衰减）──
       const spd = Math.sqrt(p.vx ** 2 + p.vy ** 2)
       const speedRatio = Math.min(spd / CONFIG.maxSpeed, 1)
-      const dynDamp = CONFIG.damping - speedRatio * 0.02 // 0.955→0.935 at max speed
-      p.vx *= dynDamp
-      p.vy *= dynDamp
+      const dynDamp = CONFIG.damping - speedRatio * 0.02
+      // 帧率无关：Math.pow(damp, dt*60) 保证 60/120/144fps 行为一致
+      const dampFactor = Math.pow(dynDamp, dt * 60)
+      p.vx *= dampFactor
+      p.vy *= dampFactor
 
       // 速度上限
       if (spd > CONFIG.maxSpeed) {
@@ -1121,13 +1150,16 @@
         p.vy = (p.vy / spd) * CONFIG.maxSpeed
       }
 
-      // 更新流体位移
-      p.physX += p.vx
-      p.physY += p.vy
+      // 更新流体位移（帧率无关：归一化到 60fps 基准）
+      p.physX += p.vx * dt * 60
+      p.physY += p.vy * dt * 60
 
-      // 边缘触发颜色状态（轨迹影响范围）
+      // 边缘触发：鼠标划过 → 加速激活附近粒子
+      // 将 nextActivate 提前，产生"鼠标经过处字符苏醒"的视觉效果
       const inTrail = mouse.active && maxInfluence > 0
-      if (inTrail && !p.inRadius) p.lastActivate = ts + p.delay
+      if (inTrail && !p.inRadius && p.nextActivate > now + 1000) {
+        p.nextActivate = now + 100 + Math.random() * 500
+      }
       p.inRadius = inTrail
     }
 
@@ -1192,22 +1224,51 @@
     })
   }
 
+  // ── 无障碍：prefers-reduced-motion 检测（WCAG 2.3.3）──
+  // Canvas rAF 不受 CSS @media 控制，需 JS 层检测
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  // ── 静态帧渲染（reduced-motion 模式）─────────────────
+  function renderStaticFrame() {
+    if (!renderer || width <= 0 || height <= 0) return
+    renderer.begin()
+    for (const p of particles) {
+      const r = Math.random()
+      if (r < 0.15) {
+        renderer.submit(BLOCK_GREEN, p.charIdx, p.sizeTier, Math.floor(p.baseX), Math.floor(p.baseY), CONFIG.greenAlpha, p)
+      } else if (r < 0.25) {
+        renderer.submit(BLOCK_RED, p.charIdx, p.sizeTier, Math.floor(p.baseX), Math.floor(p.baseY), CONFIG.greenAlpha, p)
+      } else {
+        renderer.submit(amberBlockFor(p.baseY), p.charIdx, p.sizeTier, Math.floor(p.baseX), Math.floor(p.baseY), 1, p)
+      }
+    }
+    renderer.end()
+  }
+
   // ── 启动 ───────────────────────────────────────────────
   buildSpriteSheet() // sprite 不依赖 canvas 尺寸，只需一次
   renderer = createRenderer() // 能力检测 + context 绑定（互斥，延迟到此处）
   resize()
-  if (width > 0 && height > 0) {
+
+  if (prefersReducedMotion) {
+    // 静态帧降级：渲染一帧混合状态画面（琥珀 + 少量绿 + 少量红），不启动 rAF
+    renderStaticFrame()
+  } else if (width > 0 && height > 0) {
     startRaf()
   }
 
   const ro = new ResizeObserver(() => {
     resize()
+    if (prefersReducedMotion) renderStaticFrame()
   })
   ro.observe(canvas)
 
-  document.addEventListener('visibilitychange', onVisibility)
+  if (!prefersReducedMotion) {
+    document.addEventListener('visibilitychange', onVisibility)
+  }
 
-  // ── debug hook（验收用，可留生产，不耗性能）──────────────
+  // ── debug hook（仅 ?debug 参数时启用，避免生产环境暴露内部状态）──
+  if (new URLSearchParams(window.location.search).has('debug')) {
   window.__digitalWater = {
     get particles() {
       return particles.length
@@ -1241,10 +1302,23 @@
       }
     },
     states() {
-      const dist = { normal: 0, green: 0, red: 0, fade: 0 }
+      // 粒子级生命周期分布
       const now = performance.now()
-      for (const p of particles) dist[getState(p, now)]++
+      const cycleTime = CONFIG.greenInMs + CONFIG.greenMs + CONFIG.redTransitionMs + CONFIG.redMs + CONFIG.fadeMs
+      const dist = { NORMAL: 0, GREEN_IN: 0, GREEN: 0, RED_TRANSITION: 0, RED: 0, FADE: 0 }
+      for (const p of particles) {
+        const dt = now - p.lastActivate
+        if (dt < 0) { dist.NORMAL++; continue }
+        const j = p.jitter
+        if (dt < CONFIG.greenInMs + j) dist.GREEN_IN++
+        else if (dt < CONFIG.greenInMs + j + CONFIG.greenMs) dist.GREEN++
+        else if (dt < CONFIG.greenInMs + j + CONFIG.greenMs + CONFIG.redTransitionMs) dist.RED_TRANSITION++
+        else if (dt < CONFIG.greenInMs + j + CONFIG.greenMs + CONFIG.redTransitionMs + CONFIG.redMs) dist.RED++
+        else if (dt < cycleTime + j) dist.FADE++
+        else dist.NORMAL++
+      }
       return dist
     },
+  }
   }
 </script>

@@ -53,18 +53,37 @@ import DigitalWater from './DigitalWater.astro'
       0 0 16px rgba(var(--color-fg-invert-rgb), 0.85),
       0 0 32px rgba(var(--color-fg-invert-rgb), 0.5);
   }
+
+  /* 内容遮罩：模糊边缘椭圆半透明白色背景，遮挡背景字符动画，保证主要内容可读。
+     使用 --color-bg-rgb（随主题反转）+ --ds-mask-* token，径向渐变中心实 → 边缘透明。
+     ::before 在 .hero-content（z-10）的 stacking context 内 z-1，
+     位于内容文字之下、canvas（z-0）之上，pointer-events:none 不拦截按钮。 */
+  .hero-content::before {
+    content: '';
+    position: absolute;
+    inset: var(--ds-mask-inset-y) var(--ds-mask-inset-x);
+    border-radius: 50%;
+    background: radial-gradient(
+      ellipse var(--ds-mask-ellipse-w) var(--ds-mask-ellipse-h) at 50% 50%,
+      rgba(var(--color-bg-rgb), var(--ds-mask-alpha-1)) var(--ds-mask-stop-1),
+      rgba(var(--color-bg-rgb), var(--ds-mask-alpha-2)) var(--ds-mask-stop-2),
+      rgba(var(--color-bg-rgb), var(--ds-mask-alpha-3)) var(--ds-mask-stop-3)
+    );
+    z-index: -1;
+    pointer-events: none;
+  }
   .hero-logo {
     filter: drop-shadow(0 0 16px rgba(var(--color-fg-invert-rgb), 0.85));
   }
 
-  /* 主标题：灰白色高光叠加层跟随鼠标（不改动文字本身样式） */
+  /* 主标题：灰白色高光叠加层跟随鼠标（不改动文字本身样式），参数走 --ds-highlight-* token */
   .title-highlight {
     position: absolute;
     inset: 0;
     pointer-events: none;
-    border-radius: 0.5rem;
+    border-radius: var(--ds-highlight-corner);
     background:
-      radial-gradient(circle 160px at var(--mx, 50%) var(--my, 50%), rgba(var(--color-fg-invert-rgb), 0.4), transparent 62%);
+      radial-gradient(circle var(--ds-highlight-radius) at var(--mx, 50%) var(--my, 50%), rgba(var(--color-fg-invert-rgb), var(--ds-highlight-alpha)), transparent var(--ds-highlight-stop));
     mix-blend-mode: overlay;
   }
 </style>
