@@ -30,6 +30,32 @@
   --ds-text-sm: 0.8125rem; /* 13px 代码块字号，保持紧凑；Argus: tokenize, not resize */
   --ds-leading-relaxed: 1.65; /* 代码块行高（1.65 宽松，缓解 Shiki 紧凑行距的拥挤感） */
 
+  /* ── DigitalWater canvas 布局参数（canvas 动画从 CSS token 读取）── */
+  --ds-char-advance: 9.5px;   /* 字符水平间距（px） */
+  --ds-line-height: 15px;     /* 行距（px）—— 密度控制点 */
+  --ds-text-xs: 8px;          /* 字号档 1（px） */
+  --ds-text-sm-tier: 9.5px;   /* 字号档 2（px） */
+  --ds-text-base: 11px;       /* 字号档 3（px） */
+  --ds-text-red-offset: 1.5px; /* 红块字号偏移（px） */
+
+  /* ── Hero 椭圆内容遮罩（模糊边缘半透明白色背景，遮挡背景字符）── */
+  --ds-mask-inset-y: -8%;
+  --ds-mask-inset-x: -22%;
+  --ds-mask-ellipse-w: 75%;
+  --ds-mask-ellipse-h: 65%;
+  --ds-mask-stop-1: 0%;
+  --ds-mask-stop-2: 42%;
+  --ds-mask-stop-3: 100%;
+  --ds-mask-alpha-1: 0.92;
+  --ds-mask-alpha-2: 0.78;
+  --ds-mask-alpha-3: 0;
+
+  /* ── Hero 标题高光（鼠标跟随光斑）── */
+  --ds-highlight-radius: 160px;
+  --ds-highlight-alpha: 0.4;
+  --ds-highlight-stop: 62%;
+  --ds-highlight-corner: 0.5rem;
+
   /* presetTypography overrides (prose) */
   --un-prose-body: var(--color-fg);
   --un-prose-headings: var(--color-fg);

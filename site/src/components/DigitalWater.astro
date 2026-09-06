@@ -104,13 +104,22 @@
     return fallback
   }
 
+  // tokenNumber：从 CSS 自定义属性读取数值（如 "9.5px" → 9.5；缺失/无效时回退 fallback）。
+  // 用于 canvas 布局参数从设计 token 系统读取，保持设计团队统一控制点。
+  function tokenNumber(name, fallback) {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+    const n = parseFloat(value)
+    return isFinite(n) ? n : fallback
+  }
+
   // ── 参数（集中在顶部，便于 Wave 5 抽成 props）───────────────
   // 分组说明：按语义分四组。保持扁平结构（不重构成嵌套对象，
   // 避免破坏下方大量 CONFIG.x 引用）。各组仅注释标注，不改任何值。
   const CONFIG = {
     // ── line（internal）：代码风横向字符串布局 ──
-    charAdvance: 9.5,       // 水平字距/字符间距（px）—— 视觉弱化：加宽字符间距（8.0→9.5）
-    lineHeight: 15.0,       // 行距（px）—— 密度翻倍（30→15，行数×2）
+    // 布局参数从设计 token 读取（global.css --ds-*），fallback 为当前默认值
+    charAdvance: tokenNumber('--ds-char-advance', 9.5), // 水平字距/字符间距（px）
+    lineHeight: tokenNumber('--ds-line-height', 15.0), // 行距（px）—— 密度控制点
     maxParticles: 16000,    // 粒子数上限（cap）—— 桌面目标
     mobileMaxParticles: 4000, // 移动端粒子上限（降级）
     fillRatio: 0.90,        // 行填充率基准（每行实际值 0.40-0.80 随机，见 buildParticles）
@@ -134,16 +143,21 @@
     speed1: 0.3,            // 第一层波浪传播速度
     speed2: -0.5,           // 第二层波浪传播速度（反向）
 
-    // ── type（internal）：字号分档 ──
+    // ── type（internal）：字号分档（从设计 token 读取）──
     // 字号 3 档（红块 +1.5px 一档：9.5 / 11 / 12.5）
-    fontTiers: [8, 9.5, 11],
-    redFontOffset: 1.5,     // 红块字号 +1.5px → 9.5 / 11 / 12.5
+    fontTiers: [
+      tokenNumber('--ds-text-xs', 8),
+      tokenNumber('--ds-text-sm-tier', 9.5),
+      tokenNumber('--ds-text-base', 11),
+    ],
+    redFontOffset: tokenNumber('--ds-text-red-offset', 1.5), // 红块字号 +1.5px
 
     // ── color（design-relevant）：三色 + 琥珀 alpha 分档 ──
-    // 5 个色块：琥珀 A/B/C（alpha 0.05/0.09/0.13 预渲染）+ 绿 + 红（alpha 1.0）
-    amber: [166, 126, 88],  // #a67e58 灰棕陶土（低饱和，原 #d97706）
-    green: [122, 150, 86],  // #7a9656 灰橄榄（低饱和，原 #65a30d）
-    red: [176, 101, 101],   // #b06565 灰玫瑰（低饱和，原 #b91c1c）
+    // 从 CSS 设计 token 读取（--color-accent/green/red，global.css 已有暗色覆盖）；
+    // 缺失/无法解析时回退低饱和值。5 个色块：琥珀 A/B/C + 绿 + 红（alpha 1.0）
+    amber: readColorToken('--color-accent', [166, 126, 88]), // #a67e58 灰棕陶土（fallback）
+    green: readColorToken('--color-green', [122, 150, 86]), // #7a9656 灰橄榄（fallback）
+    red: readColorToken('--color-red', [176, 101, 101]),   // #b06565 灰玫瑰（fallback）
     amberAlphas: [0.08, 0.12, 0.16],
     amberBands: [1 / 3, 2 / 3], // 粒子 y 比例分段选琥珀档
 
