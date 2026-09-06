@@ -24,6 +24,15 @@ jobs:
         run: |
           pip install pyyaml
 
+      - name: Validate tag name matches VERSION
+        run: |
+          VER=$(cat VERSION)
+          if [ "v${VER}" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match VERSION ${VER} — refusing to release"
+            exit 1
+          fi
+          echo "ok: tag ${GITHUB_REF_NAME} matches VERSION ${VER}"
+
       - name: Validate versioning
         run: |
           python3 tools/validate_versioning.py

@@ -135,7 +135,7 @@ Argus runs in any framework that reads Markdown instructions:
 ```bash
 make bump-patch   # e.g. 0.4.0 → 0.4.1
 make test         # validate + fixture tests
-make release      # commit → tag → push → triggers release workflow
+make release      # release-gate → tag → push → triggers release workflow
 ```
 
 The release workflow (`.github/workflows/release.yml`) automatically:

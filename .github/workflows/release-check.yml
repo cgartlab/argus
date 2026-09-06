@@ -1,0 +1,21 @@
+name: Release Check
+
+on:
+  schedule:
+    - cron: "17 3 * * *"   # daily 03:17 UTC — phantom-release guard
+  workflow_dispatch:       # manual trigger
+
+# Read-only: the gate only inspects origin tags vs VERSION.
+permissions:
+  contents: read
+
+jobs:
+  release-state:
+    name: VERSION has a release tag on origin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fail when VERSION has no matching tag
+        run: |
+          python3 tools/check_release.py --expect-released

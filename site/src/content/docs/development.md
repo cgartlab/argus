@@ -118,9 +118,9 @@ python3 tools/run_fixture_tests.py --json                        # machine-reada
 ## Release process
 
 ```bash
-make bump-patch   # update VERSION + CHANGELOG
+make bump-patch   # update VERSION + CHANGELOG + site version markers, stage files
 make test         # validate + fixture tests (full pre-release check)
-make release      # commit → tag → push → triggers release workflow
+make release      # release-gate → tag → push → triggers release workflow
 ```
 
 Pushing a `v*` tag triggers the release workflow (`.github/workflows/release.yml`), which:

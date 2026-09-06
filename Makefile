@@ -1,20 +1,21 @@
 # Makefile — Argus
 
-VERSION := $(shell cat VERSION)
+# Strip CR/LF/space so Windows (CRLF checkouts) and POSIX behave identically.
+VERSION := $(shell tr -d '\r\n ' < VERSION)
 RELEASE_BRANCH := release/v$(VERSION)
 
 .PHONY: help
 help:
 	@echo "Argus Makefile"
 	@echo ""
-	@echo "  make check-version    — show current version"
+	@echo "  make check-version    — show current version + release status"
 	@echo "  make bump-patch       — bump PATCH (e.g. 0.3.0 → 0.3.1)"
 	@echo "  make bump-minor       — bump MINOR (e.g. 0.3.0 → 0.4.0)"
 	@echo "  make bump-major       — bump MAJOR (e.g. 0.3.0 → 1.0.0)"
 	@echo "  make validate         — run all quality checks (SKILL.md, CHANGELOG, files)"
 	@echo "  make test-fixtures    — run fixture regression tests (static heuristic mode)"
 	@echo "  make test             — validate + test-fixtures (full pre-release check)"
-	@echo "  make release          — commit, tag and push a release"
+	@echo "  make release          — release-gate → verify → tag → push (triggers release workflow)"
 	@echo "  make package-skill    — create skill package (argus-skill-v{VERSION}.zip)"
 	@echo "  make package          — create all release archives"
 	@echo "  make clean            — remove generated files"
@@ -22,6 +23,8 @@ help:
 .PHONY: check-version
 check-version:
 	@echo "Current version: $(VERSION)"
+	@echo "── Release status ──"
+	@python3 tools/check_release.py
 
 # ─── Version bumping ─────────────────────────────────────────────
 .PHONY: bump-patch bump-minor bump-major
@@ -29,7 +32,9 @@ bump-patch bump-minor bump-major: BUMP_KIND=$(notdir $(firstword $(MAKECMDGOALS)
 bump-patch bump-minor bump-major:
 	@python3 tools/bump_version.py $(BUMP_KIND)
 	@echo ""
-	@echo "Files staged. Review, then: make test && make release"
+	@echo "Files staged. Fill in the new CHANGELOG section, review, then:"
+	@echo "  git commit -m \"chore(release): prepare v$(VERSION)\""
+	@echo "  make test && make release"
 
 # ─── Validation ──────────────────────────────────────────────────
 .PHONY: validate
@@ -45,8 +50,8 @@ validate:
 	           CONTRIBUTING.md Makefile \
 	           tools/run_fixture_tests.py tools/load_config.py \
 	           tools/update_free_models.py tools/bump_version.py \
-	           tools/validate_versioning.py \
-	           tools/validate_model_scores.py \
+	           tools/validate_versioning.py tools/validate_model_scores.py \
+	           tools/check_release.py \
 	           config/free-models.yml \
 	           docs/argus-config-schema.md \
 	           .github/actions/argus-review/action.yml \
@@ -60,6 +65,7 @@ validate:
 	@python3 -m py_compile tools/load_config.py && echo "load_config.py ok"
 	@python3 -m py_compile tools/update_free_models.py && echo "update_free_models.py ok"
 	@python3 -m py_compile tools/validate_model_scores.py && echo "validate_model_scores.py ok"
+	@python3 -m py_compile tools/check_release.py && echo "check_release.py ok"
 	@echo "── Validate: free model list ──"
 	@python3 tools/update_free_models.py --check
 	@echo "── Validate: model-scores.yml schema ──"
@@ -93,12 +99,20 @@ test: validate test-fixtures
 # ─── Release ─────────────────────────────────────────────────────
 .PHONY: release
 release: validate
-	@echo "Creating release commit (allows empty — version may already be committed via PR)..."
-	@git commit --allow-empty -m "chore(release): v$(VERSION)"
-	@echo "Creating tag v$(VERSION)..."
-	@git tag v$(VERSION)
-	@echo "Pushing main and tag..."
-	@git push origin main && git push origin tags/v$(VERSION)
+	@echo "── Release gate ──"
+	@python3 tools/check_release.py --expect-unreleased
+	@echo "── Verify version files are committed at HEAD ──"
+	@git diff --quiet --exit-code -- VERSION CHANGELOG.md AGENTS.md SKILL.md manifest.yaml site/src/data/site.ts site/src/content/docs/index.md && git diff --cached --quiet --exit-code -- VERSION CHANGELOG.md AGENTS.md SKILL.md manifest.yaml site/src/data/site.ts site/src/content/docs/index.md || { echo "ERROR: version files have uncommitted changes — commit them first:"; echo "  git commit -m \"chore(release): prepare v$(VERSION)\""; exit 1; }
+	@echo "── Verify local main is not behind origin/main ──"
+	@git fetch -q origin main 2>/dev/null || true
+	@if git rev-parse -q --verify origin/main >/dev/null 2>&1; then git merge-base --is-ancestor origin/main main || { echo "ERROR: local main is behind origin/main — pull first"; exit 1; }; fi
+	@echo "── Creating annotated tag v$(VERSION) ──"
+	@git tag -a "v$(VERSION)" -m "Argus v$(VERSION)"
+	@echo "── Verifying tag content ──"
+	@VER="$$(tr -d '\r\n ' < VERSION)"; TAGVER="$$(git show "v$$VER:VERSION" | tr -d '\r\n ')"; test "$$TAGVER" = "$$VER" || { echo "ERROR: tag v$$VER does not contain VERSION=$$VER — aborting"; git tag -d "v$$VER" >/dev/null; exit 1; }
+	@echo "── Pushing main and tag ──"
+	@git push origin main
+	@git push origin "v$(VERSION)"
 	@echo ""
 	@echo "Released v$(VERSION) — GitHub Actions will create the Release page"
 

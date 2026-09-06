@@ -16,11 +16,11 @@ A note on `make`: `make` is a common build tool that runs commands defined in a 
 
 | Command | What it does | When you need it | New-user friendly? |
 |---|---|---|---|
-| `make check-version` | Shows the current version | Confirming a release | Yes |
+| `make check-version` | Shows the current version + release status | Confirming a release | Yes |
 | `make validate` | Runs all quality checks | Before a release, or after editing rules | Occasionally |
 | `make test-fixtures` | Runs the regression tests | After changing review rules | Occasionally |
 | `make test` | validate + test-fixtures | Before every release | For contributors |
-| `make release` | Commits, tags, and pushes a release | When cutting a new version | No — maintainers only |
+| `make release` | Release-gate, tags, and pushes a release | When cutting a new version | No — maintainers only |
 | `make package-skill` | Builds the skill package zip | Before a release | No |
 | `make package` | Builds all release archives | Before a release | No |
 | `make clean` | Removes generated files | Tidying up | Yes |
@@ -30,11 +30,11 @@ A note on `make`: `make` is a common build tool that runs commands defined in a 
 These are safe to run any time from the repository root:
 
 ```bash
-make check-version    # Show current version — e.g. "Current version: 0.4.0"
+make check-version    # Show current version + release status — e.g. "Current version: 0.4.0"
 make clean            # Remove generated files (the dist/ folder)
 ```
 
-`make check-version` is useful right before a release to confirm which version you're about to ship.
+`make check-version` is useful right before a release — it also reports whether the current `VERSION` already has a release tag (and `make release` would refuse a duplicate).
 
 ## Quality checks
 
@@ -64,10 +64,10 @@ make bump-major   # e.g. 0.4.0 → 1.0.0 (breaking changes)
 
 ```bash
 make test        # validate + fixture tests (full pre-release check)
-make release     # validate → git commit → tag → push
+make release     # release-gate → verify → tag → push
 ```
 
-**Why it matters:** `make release` creates the version tag and pushes it. Pushing a `v*.*.*` tag triggers the release workflow, which validates versioning, builds the release archives, and publishes a GitHub Release.
+**Why it matters:** `make release` refuses to re-release an existing tag or an older version, verifies the version files are committed, creates the `v*.*.*` tag, and pushes it. Pushing a `v*.*.*` tag triggers the release workflow, which validates versioning, builds the release archives, and publishes a GitHub Release. A daily **Release Check** workflow additionally fails if `VERSION` is ever bumped without a matching tag — the v0.5.0 incident (files said 0.5.0, no release or skill package ever existed).
 
 > Only maintainers should run `make release` — it pushes to the shared repository.
 
@@ -87,7 +87,7 @@ For contributors who want finer control:
 | `make validate` | `Makefile` | Trigger phrase check + CHANGELOG + required files + Python tool syntax |
 | `make test-fixtures` | `Makefile` | Static heuristic mode, no API key required |
 | `make test-fixtures-llm` | `Makefile` | LLM mode — requires OpenCode CLI + a configured model |
-| `make release` | `Makefile` | Commits, tags, and pushes; release workflow handles the rest |
+| `make release` | `Makefile` | Release-gate, tags, and pushes; release workflow handles the rest |
 | `python3 tools/run_fixture_tests.py` | `tools/` | Flags: `--dry-run`, `--category`, `--fixture`, `--verbose`, `--json` |
 | `python3 tools/load_config.py --validate-only` | `tools/` | Checks a `.argus.yml` without running a review |
 
