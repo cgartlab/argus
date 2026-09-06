@@ -53,6 +53,25 @@ import DigitalWater from './DigitalWater.astro'
       0 0 16px rgba(var(--color-fg-invert-rgb), 0.85),
       0 0 32px rgba(var(--color-fg-invert-rgb), 0.5);
   }
+
+  /* 内容遮罩：模糊边缘椭圆半透明白色背景，遮挡背景字符动画，保证主要内容可读。
+     使用 --color-bg-rgb（随主题反转），径向渐变中心实 → 边缘透明 = 柔和模糊边缘。
+     ::before 在 .hero-content（z-10）的 stacking context 内 z-1，
+     位于内容文字之下、canvas（z-0）之上，pointer-events:none 不拦截按钮。 */
+  .hero-content::before {
+    content: '';
+    position: absolute;
+    inset: -8% -22%;
+    border-radius: 50%;
+    background: radial-gradient(
+      ellipse 75% 65% at 50% 50%,
+      rgba(var(--color-bg-rgb), 0.92) 0%,
+      rgba(var(--color-bg-rgb), 0.78) 42%,
+      rgba(var(--color-bg-rgb), 0) 100%
+    );
+    z-index: -1;
+    pointer-events: none;
+  }
   .hero-logo {
     filter: drop-shadow(0 0 16px rgba(var(--color-fg-invert-rgb), 0.85));
   }

@@ -1,6 +1,7 @@
 /* ── Design tokens (light default) ────────────────────────────────────── */
 :root {
   --color-bg: #ffffff;
+  --color-bg-rgb: 255, 255, 255; /* RGB triplet for rgba() 椭圆遮罩（light）—— 必须镜像 --color-bg */
   --color-surface: #f8fafc;
   --color-surface-2: #f1f5f9;
   --color-fg: #0f172a;
@@ -45,6 +46,7 @@
 /* ── Design tokens (dark override — every token must have one) ───────── */
 [data-theme='dark'] {
   --color-bg: #0f172a;
+  --color-bg-rgb: 15, 23, 42; /* RGB triplet for rgba() 椭圆遮罩（dark）—— 必须镜像 --color-bg */
   --color-surface: #1e293b;
   --color-surface-2: #334155;
   --color-fg: #e2e8f0;
