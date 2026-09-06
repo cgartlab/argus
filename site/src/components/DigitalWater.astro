@@ -117,9 +117,9 @@
   // 避免破坏下方大量 CONFIG.x 引用）。各组仅注释标注，不改任何值。
   const CONFIG = {
     // ── line（internal）：代码风横向字符串布局 ──
-    // 布局参数从设计 token 读取（global.css --ds-*），fallback 为当前默认值
-    charAdvance: tokenNumber('--ds-char-advance', 9.5), // 水平字距/字符间距（px）
-    lineHeight: tokenNumber('--ds-line-height', 15.0), // 行距（px）—— 密度控制点
+    // 布局参数从设计 token 读取（global.css --ds-water-*），fallback 为当前默认值
+    charAdvance: tokenNumber('--ds-water-char-advance', 9.5), // 水平字距/字符间距（px）
+    lineHeight: tokenNumber('--ds-water-line-height', 15.0), // 行距（px）—— 密度控制点
     maxParticles: 16000,    // 粒子数上限（cap）—— 桌面目标
     mobileMaxParticles: 4000, // 移动端粒子上限（降级）
     fillRatio: 0.90,        // 行填充率基准（每行实际值 0.40-0.80 随机，见 buildParticles）
@@ -146,11 +146,11 @@
     // ── type（internal）：字号分档（从设计 token 读取）──
     // 字号 3 档（红块 +1.5px 一档：9.5 / 11 / 12.5）
     fontTiers: [
-      tokenNumber('--ds-text-xs', 8),
-      tokenNumber('--ds-text-sm-tier', 9.5),
-      tokenNumber('--ds-text-base', 11),
+      tokenNumber('--ds-water-font-xs', 8),
+      tokenNumber('--ds-water-font-sm', 9.5),
+      tokenNumber('--ds-water-font-base', 11),
     ],
-    redFontOffset: tokenNumber('--ds-text-red-offset', 1.5), // 红块字号 +1.5px
+    redFontOffset: tokenNumber('--ds-water-font-red-offset', 1.5), // 红块字号 +1.5px
 
     // ── color（design-relevant）：三色 + 琥珀 alpha 分档 ──
     // 从 CSS 设计 token 读取（--color-accent/green/red，global.css 已有暗色覆盖）；
