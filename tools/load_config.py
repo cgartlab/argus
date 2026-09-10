@@ -39,7 +39,7 @@ except ImportError:
 # ── Default configuration ─────────────────────────────────────────────────────
 
 DEFAULTS: dict[str, Any] = {
-    "version": "0.3",
+    "version": "0.4",
     "design-system": "auto",
     "skills": ["design-review"],
     "overrides": {
@@ -65,7 +65,7 @@ DEFAULTS: dict[str, Any] = {
 VALID_SKILLS = {"design-review", "security-review", "api-contract", "performance", "infrastructure"}
 VALID_SEVERITIES = {"P0", "P1", "P2", "P3"}
 VALID_DESIGN_SYSTEMS = {"auto", "antd5", "material3", "polaris", "custom"}
-SUPPORTED_VERSIONS = {"0.2", "0.3"}
+SUPPORTED_VERSIONS = {"0.2", "0.3", "0.4"}
 
 # P0/P1 core rules that cannot be downgraded via overrides.severity.
 # Consistent with AGENTS.md "Severity never downgraded" and the SKILL.md
@@ -157,12 +157,27 @@ def _minimal_yaml_parse(content: str) -> dict:
                 parent_indent, parent_key, parent_dict = indent_stack[-1]
                 if indent > parent_indent:
                     current_dict = parent_dict.setdefault(parent_key, {})
+                elif indent == parent_indent:
+                    # Sibling key at same level — stay in parent's context
+                    current_dict = parent_dict
                 else:
                     indent_stack.pop()
                     current_dict = result
+            elif indent == 0 and indent_stack:
+                # New top-level key — reset to root context
+                indent_stack.clear()
+                current_dict = result
 
             if value:
-                current_dict[key] = value
+                # Inline list: [a, b, c]
+                if value.startswith("[") and value.endswith("]"):
+                    inner = value[1:-1].strip()
+                    if inner:
+                        current_dict[key] = [item.strip().strip('"').strip("'") for item in inner.split(",")]
+                    else:
+                        current_dict[key] = []
+                else:
+                    current_dict[key] = value
                 current_key = None
             else:
                 # Nested block

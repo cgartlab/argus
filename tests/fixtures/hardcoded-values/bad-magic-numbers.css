@@ -4,18 +4,18 @@
  * Expected findings: see bad-magic-numbers.expected
  */
 
-/* BAD: hardcoded spacing → P1 */
+/* BAD: hardcoded spacing → P2 */
 .card {
   padding: 16px;         /* line 9 — should be var(--ds-space-4) */
   margin-bottom: 24px;   /* line 10 — should be var(--ds-space-6) */
 }
 
-/* BAD: hardcoded border-radius → P1 */
+/* BAD: hardcoded border-radius → P2 */
 .modal {
   border-radius: 8px;    /* line 15 — should be var(--ds-radius-lg) */
 }
 
-/* BAD: hardcoded font-size → P1 */
+/* BAD: hardcoded font-size → P2 */
 .label {
   font-size: 14px;       /* line 20 — should be var(--ds-text-sm) */
 }

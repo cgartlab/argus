@@ -27,7 +27,6 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
-import configparser
 import json
 import os
 import re
@@ -539,7 +538,7 @@ def _static_heuristic_scan(fixture_path: Path) -> str:
                 ]:
                     m = re.match(rf"^\s*{re.escape(prop)}\s*:\s*(\d+px)", stripped)
                     if m and m.group(1) != "0px":
-                        emit("P1", i, f"Hardcoded {prop} — use a design token",
+                        emit("P2", i, f"Hardcoded {prop} — use a design token",
                              m.group(1), "var(--ds-*)")
 
             # Duplicate property detection (within same selector block).
