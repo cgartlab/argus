@@ -129,6 +129,7 @@ Pushing a `v*` tag triggers the release workflow (`.github/workflows/release.yml
 2. Builds the full archive (`dist/argus-v{VERSION}.tar.gz` + `.zip`)
 3. Builds the skill package (`dist/argus-skill-v{VERSION}.zip`)
 4. Creates a GitHub Release with all artifacts
+5. Publishes the skill package to SkillHub when `SKILLHUB_API_KEY` is configured
 
 ## Pull request checklist
 

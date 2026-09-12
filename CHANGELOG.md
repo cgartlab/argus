@@ -1,3 +1,21 @@
+## [0.5.4] — 2026-09-12
+
+### Added
+
+- **SkillHub Auto Publish** — `release.yml` now publishes the Argus skill package to SkillHub after the GitHub Release job succeeds, using the repository `SKILLHUB_API_KEY` secret.
+- **SkillHub Publish Prep** — `tools/publish_skillhub.py` validates SkillHub frontmatter, extracts the skill package into a publishable directory, and writes the current changelog summary.
+- **SkillHub Frontmatter** — `SKILL.md` now includes the required `slug`, `displayName`, `summary`, `license`, and `homepage` metadata for SkillHub publishing.
+
+### Changed
+
+- **Release Docs** — Release and development docs now document the SkillHub publishing step and the `make prepare-skillhub` maintainer check.
+
+### Fixed
+
+### Removed
+
+---
+
 ## [0.5.3] — 2026-09-12
 
 ### Fixed

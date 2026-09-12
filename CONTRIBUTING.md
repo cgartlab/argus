@@ -58,6 +58,7 @@ Pushing a `v*.*.*` tag triggers `.github/workflows/release.yml` which:
 2. Builds full archive (`dist/argus-v{VERSION}.tar.gz` + `.zip`)
 3. Builds skill package (`dist/argus-skill-v{VERSION}.zip`)
 4. Creates a GitHub Release with all artifacts
+5. Publishes the same skill package to SkillHub when `SKILLHUB_API_KEY` is configured
 
 ## Branch Naming
 
@@ -73,4 +74,5 @@ Pushing a `v*.*.*` tag triggers `.github/workflows/release.yml` which:
 - [ ] VERSION bumped if this is a meaningful change
 - [ ] No emoji decorations in prose
 - [ ] SKILL.md description has 3+ trigger phrases
+- [ ] SKILL.md has SkillHub frontmatter: `slug`, `displayName`, `version`, `description`
 - [ ] New review rules have severity assigned with rationale

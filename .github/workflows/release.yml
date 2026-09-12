@@ -73,3 +73,54 @@ jobs:
             dist/argus-skill-v*.zip
             dist/argus-v*.tar.gz
             dist/argus-v*.zip
+
+  skillhub:
+    name: Publish to SkillHub
+    runs-on: ubuntu-latest
+    needs: release
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install SkillHub CLI
+        run: |
+          curl -fsSL https://skillhub.cn/install/install.sh | bash -s -- --cli-only
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          skillhub --version
+
+      - name: Build skill package
+        run: make package-skill
+
+      - name: Prepare SkillHub publish directory
+        id: prepare
+        run: |
+          VERSION=$(cat VERSION)
+          python3 tools/publish_skillhub.py prepare \
+            dist/argus-skill-v${VERSION}.zip \
+            --out dist/skillhub-argus \
+            --changelog-out dist/skillhub-changelog.txt
+          echo "skill_path=dist/skillhub-argus" >> "$GITHUB_OUTPUT"
+          echo "changelog_path=dist/skillhub-changelog.txt" >> "$GITHUB_OUTPUT"
+
+      - name: Login to SkillHub
+        env:
+          SKILLHUB_KEY: ${{ secrets.SKILLHUB_API_KEY }}
+        run: |
+          if [ -z "$SKILLHUB_KEY" ]; then
+            echo "::error::SKILLHUB_API_KEY secret is required"
+            exit 1
+          fi
+          skillhub login --key "$SKILLHUB_KEY" --host "https://api.skillhub.cn"
+
+      - name: Validate SkillHub publish payload
+        run: |
+          skillhub publish dist/skillhub-argus --host "https://api.skillhub.cn" --dry-run
+
+      - name: Publish Skill to SkillHub
+        run: |
+          skillhub publish dist/skillhub-argus --host "https://api.skillhub.cn" --changelog "$(cat dist/skillhub-changelog.txt)"

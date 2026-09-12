@@ -18,6 +18,7 @@ help:
 	@echo "  make release          — release-gate → verify → tag → push (triggers release workflow)"
 	@echo "  make package-skill    — create skill package (argus-skill-v{VERSION}.zip)"
 	@echo "  make package          — create all release archives"
+	@echo "  make prepare-skillhub — prepare SkillHub publish directory from skill package"
 	@echo "  make clean            — remove generated files"
 
 .PHONY: check-version
@@ -51,7 +52,7 @@ validate:
 	           tools/run_fixture_tests.py tools/load_config.py \
 	           tools/update_free_models.py tools/bump_version.py \
 	           tools/validate_versioning.py tools/validate_model_scores.py \
-	           tools/check_release.py \
+	           tools/check_release.py tools/publish_skillhub.py \
 	           config/free-models.yml \
 	           docs/argus-config-schema.md \
 	           .github/actions/argus-review/action.yml \
@@ -66,6 +67,7 @@ validate:
 	@python3 -m py_compile tools/update_free_models.py && echo "update_free_models.py ok"
 	@python3 -m py_compile tools/validate_model_scores.py && echo "validate_model_scores.py ok"
 	@python3 -m py_compile tools/check_release.py && echo "check_release.py ok"
+	@python3 -m py_compile tools/publish_skillhub.py && echo "publish_skillhub.py ok"
 	@echo "── Validate: free model list ──"
 	@python3 tools/update_free_models.py --check
 	@echo "── Validate: model-scores.yml schema ──"
@@ -138,6 +140,13 @@ package: package-skill
 	     -x '.git/*' -x 'dist/*' \
 	     -x 'site/node_modules/*' -x 'site/dist/*' -x 'site/.astro/*'
 	@echo "Packages created: dist/argus-skill-v$(VERSION).zip dist/argus-v$(VERSION).tar.gz dist/argus-v$(VERSION).zip"
+
+# ─── SkillHub Publish Prep ───────────────────────────────────────
+.PHONY: prepare-skillhub
+prepare-skillhub: package-skill
+	@python3 tools/publish_skillhub.py prepare dist/argus-skill-v$(VERSION).zip \
+		--out dist/skillhub-argus \
+		--changelog-out dist/skillhub-changelog.txt
 
 # ─── Clean ───────────────────────────────────────────────────────
 .PHONY: clean

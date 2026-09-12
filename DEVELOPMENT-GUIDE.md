@@ -143,6 +143,7 @@ The release workflow (`.github/workflows/release.yml`) automatically:
 - Builds `dist/argus-v{VERSION}.tar.gz` and `.zip` (full archive)
 - Builds `dist/argus-skill-v{VERSION}.zip` (skill package)
 - Creates a GitHub Release with all artifacts
+- Publishes the skill package to SkillHub when `SKILLHUB_API_KEY` is configured
 
 ## Adding a New Review Rule
 

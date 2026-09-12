@@ -23,6 +23,7 @@ A note on `make`: `make` is a common build tool that runs commands defined in a 
 | `make release` | Release-gate, tags, and pushes a release | When cutting a new version | No — maintainers only |
 | `make package-skill` | Builds the skill package zip | Before a release | No |
 | `make package` | Builds all release archives | Before a release | No |
+| `make prepare-skillhub` | Prepares the SkillHub publish directory and changelog file | Maintainer prep/check | No |
 | `make clean` | Removes generated files | Tidying up | Yes |
 
 ## Daily commands

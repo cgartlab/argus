@@ -1,6 +1,6 @@
 # AGENTS.md — Argus
 
-**Version:** 0.5.3 | **Project:** https://github.com/cgartlab/argus | **License:** MIT
+**Version:** 0.5.4 | **Project:** https://github.com/cgartlab/argus | **License:** MIT
 **Updated:** 2026-09-03
 
 ---
@@ -259,4 +259,4 @@ cd site && npm run build  # Build marketing site (site/ subproject)
 - **Composite action** — `.github/actions/argus-review/action.yml` wraps OpenCode CLI + rule injection + config loading. Referenced as `cgartlab/argus/.github/actions/argus-review@main` from any repo.
 - **Version bumping** — run `make bump-patch` (or bump-minor/bump-major), fill in the new CHANGELOG section, commit (`chore(release): prepare vX.Y.Z`), then `make test && make release`. `make release` refuses duplicate/older releases and requires version files committed; the daily `Release Check` workflow fails when `VERSION` is bumped without a tag.
 - **Fixture tests** — run without an API key in static heuristic mode; full LLM mode reads the primary model from `config/free-models.yml` (requires `OPENCODE_API_KEY` for `opencode/` providers).
-- **Release workflow** — pushing a `v*.*.*` tag triggers `.github/workflows/release.yml` which validates versioning, builds packages, and publishes a GitHub Release with both the full archive and the skill package (`argus-skill-v{VERSION}.zip`).
+- **Release workflow** — pushing a `v*.*.*` tag triggers `.github/workflows/release.yml` which validates versioning, builds packages, publishes a GitHub Release with both the full archive and the skill package (`argus-skill-v{VERSION}.zip`), then publishes the skill package to SkillHub when `SKILLHUB_API_KEY` is configured.
