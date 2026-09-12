@@ -25,8 +25,12 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.ARGUS_FLASH_APP_ID }}
+          client-id: ${{ secrets.ARGUS_FLASH_APP_ID }}
           private-key: ${{ secrets.ARGUS_FLASH_PRIVATE_KEY }}
+          permissions: |
+            contents: write
+            pull-requests: write
+            issues: write
 
       - uses: cgartlab/argus/.github/actions/argus-review@main
         with:
