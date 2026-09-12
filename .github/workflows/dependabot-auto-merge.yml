@@ -45,7 +45,7 @@ jobs:
       - name: Wait for CI checks to pass
         if: steps.metadata.outputs.update-type != 'version-update:semver-major'
         run: |
-          gh pr checks "${{ github.event.pull_request.number }}" \
+          gh pr checks "${{ github.event.pull_request.number }}" -R "${{ github.repository }}" \
             --watch \
             --interval 10
         env:
