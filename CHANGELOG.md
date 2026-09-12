@@ -1,3 +1,25 @@
+## [0.5.2] — 2026-09-12
+
+### Added
+
+- **Release Gate** — `tools/check_release.py` now verifies whether the current `VERSION` has a matching `vX.Y.Z` tag on `origin`; `make release` uses it to refuse duplicate or older releases, and CI can use `--expect-released` to catch phantom version bumps.
+- **Daily Release Check** — `.github/workflows/release-check.yml` fails when `VERSION` is ahead of the latest release tag, making unreleased version bumps visible without waiting for a release attempt.
+
+### Changed
+
+- **Safer Release Flow** — `make release` now validates release state, requires version files to be committed at `HEAD`, refuses to run when local `main` is behind `origin/main`, creates an annotated tag, verifies the tag's `VERSION`, then pushes `main` and the tag.
+- **Expanded Version Sync** — `make bump-*` and version validation now keep `site/src/data/site.ts` and `site/src/content/docs/index.md` in sync with `VERSION`, alongside `CHANGELOG.md`, `AGENTS.md`, `SKILL.md`, and `manifest.yaml`.
+- **CI Release Coverage** — CI now validates `tools/check_release.py`, compiles it, includes `release-check.yml` in workflow YAML validation, and reports release status from `VERSION` vs origin tags.
+
+### Fixed
+
+- **Review Workflow Permissions** — `Argus-Flash Review` now uses the repository `GITHUB_TOKEN` for PR comments, avoiding installation-token permission failures on bot-created PRs.
+- **PR Automation Bot Assignment** — PR automation no longer attempts to assign `argus-flash[bot]`, avoiding GitHub App installation-token assignee failures.
+- **Model Refresh PR Creation** — The scheduled model refresh workflow creates its PR with an argus-flash installation token, preventing `GITHUB_TOKEN` PR-creation permission failures.
+- **Dependabot Check Context** — Dependabot auto-merge explicitly runs `gh pr checks -R "${{ github.repository }}"` so the check wait uses the correct repository context.
+
+---
+
 ## [0.5.1] — 2026-09-06
 
 ### Added
