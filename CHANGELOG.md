@@ -1,3 +1,17 @@
+## [0.5.5] — 2026-09-12
+
+### Added
+
+### Changed
+
+### Fixed
+
+- **SkillHub Changelog Parsing** — `tools/publish_skillhub.py` now correctly extracts the first bullet from CHANGELOG sections that use `### Added`, `### Changed`, or other subheadings.
+
+### Removed
+
+---
+
 ## [0.5.4] — 2026-09-12
 
 ### Added
