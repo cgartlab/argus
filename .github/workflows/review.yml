@@ -21,18 +21,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Generate argus-flash token
-        id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.ARGUS_FLASH_APP_ID }}
-          private-key: ${{ secrets.ARGUS_FLASH_PRIVATE_KEY }}
-          permissions: |
-            contents: write
-            pull-requests: write
-            issues: write
-
       - uses: cgartlab/argus/.github/actions/argus-review@main
         with:
-          github-token: ${{ steps.app-token.outputs.token }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           api-key: ${{ secrets.OPENCODE_API_KEY }}
