@@ -30,7 +30,7 @@ jobs:
       # Gate 1: actor check (the job-level `if` above) + fetch dependabot metadata.
       - name: Fetch dependabot metadata
         id: metadata
-        uses: dependabot/fetch-metadata@v2
+        uses: dependabot/fetch-metadata@v3
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
