@@ -86,12 +86,16 @@ def extract_skill_zip(archive: Path, out_dir: Path) -> None:
 
 def changelog_summary(changelog_path: Path, version: str) -> str:
     text = changelog_path.read_text(encoding="utf-8")
-    pattern = rf"^## \[{re.escape(version)}\].*\n(?P<body>.*?)(?=^## |\Z)"
-    match = re.search(pattern, text, re.DOTALL | re.MULTILINE)
-    if not match:
+    parts = re.split(r"^## ", text, flags=re.MULTILINE)
+    body = ""
+    for part in parts[1:]:
+        if part.startswith(f"[{version}]"):
+            body = "\n".join(part.splitlines()[1:])
+            break
+    if not body:
         fail(f"CHANGELOG.md has no section for v{version}")
 
-    for line in match.group("body").splitlines():
+    for line in body.splitlines():
         stripped = line.strip()
         if stripped.startswith("- "):
             return re.sub(r"\s+", " ", stripped[2:]).strip()[:500]
