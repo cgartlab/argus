@@ -1,3 +1,17 @@
+## [0.5.6] — 2026-09-12
+
+### Added
+
+### Changed
+
+- **Unique SkillHub Slug** — `SKILL.md` now publishes to SkillHub with the globally unique slug `cgartlab-argus-design-review`, avoiding a conflict with the existing public slug `argus-design-review`.
+
+### Fixed
+
+### Removed
+
+---
+
 ## [0.5.5] — 2026-09-12
 
 ### Added
