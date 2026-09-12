@@ -34,10 +34,18 @@ jobs:
           python3 tools/update_free_models.py --check
         shell: bash
 
+      - name: Generate argus-flash token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.ARGUS_FLASH_APP_ID }}
+          private-key: ${{ secrets.ARGUS_FLASH_PRIVATE_KEY }}
+
       - name: Create Pull Request
         id: cpr
         uses: peter-evans/create-pull-request@v8
         with:
+          token: ${{ steps.app-token.outputs.token }}
           branch: models-auto/refresh
           delete-branch: true
           commit-message: "chore(models): refresh free model list from opencode [skip changelog]"
