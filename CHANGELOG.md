@@ -1,3 +1,11 @@
+## [0.5.3] — 2026-09-12
+
+### Fixed
+
+- **Site Lockfile for npm 10** — Regenerated `site/package-lock.json` with npm `10.9.8` so the GitHub Pages workflow can run `npm ci` successfully and include the expected `crossws@0.4.12` lockfile entry.
+
+---
+
 ## [0.5.2] — 2026-09-12
 
 ### Added

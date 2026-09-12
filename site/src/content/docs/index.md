@@ -58,7 +58,7 @@ Argus reads every line of frontend code, flags issues with a severity level (P0 
 | | |
 |---|---|
 | License | MIT |
-| Version | 0.5.2 |
+| Version | 0.5.3 |
 | Made by | [CGArtLab](https://github.com/cgartlab) |
 | Repository | [github.com/cgartlab/argus](https://github.com/cgartlab/argus) |
 | GitHub App | [github.com/apps/argus-flash](https://github.com/apps/argus-flash) |
