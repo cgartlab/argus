@@ -29,7 +29,8 @@ argus/
 ├── site/                              # Astro marketing site (docs, legal, 404)
 ├── docs/
 │   ├── argus-config-schema.md         # .argus.yml consumer config reference
-│   └── men-integration.md             # Optional men agent team integration protocol
+│   ├── men-integration.md             # Optional men agent team integration protocol
+│   └── strategic-plan.md              # Commercial product strategy + roadmap status (§14)
 ├── tests/
 │   └── fixtures/                      # Fixture-based regression test suite
 │       ├── README.md                  # How to add/run fixtures
@@ -76,6 +77,7 @@ argus/
 | Skill execution | `SKILL.md` | Trigger phrases, review dimensions |
 | Agent manifest | `manifest.yaml` | Name, version, capabilities, inputs/outputs |
 | Consumer configuration | `docs/argus-config-schema.md` | Full `.argus.yml` field reference |
+| Product strategy / roadmap | `docs/strategic-plan.md` | Commercial plan + §14 roadmap status table |
 | Token mapping data | `.github/tokens/` | Per-system design token JSON (antd5/material3/polaris/custom) |
 | Config loader | `tools/load_config.py` | Merges defaults + consumer `.argus.yml` |
 | Fixture test suite | `tests/fixtures/` | Regression tests for review rules |
@@ -260,3 +262,4 @@ cd site && npm run build  # Build marketing site (site/ subproject)
 - **Version bumping** — run `make bump-patch` (or bump-minor/bump-major), fill in the new CHANGELOG section, commit (`chore(release): prepare vX.Y.Z`), then `make test && make release`. `make release` refuses duplicate/older releases and requires version files committed; the daily `Release Check` workflow fails when `VERSION` is bumped without a tag.
 - **Fixture tests** — run without an API key in static heuristic mode; full LLM mode reads the primary model from `config/free-models.yml` (requires `OPENCODE_API_KEY` for `opencode/` providers).
 - **Release workflow** — pushing a `v*.*.*` tag triggers `.github/workflows/release.yml` which validates versioning, builds packages, publishes a GitHub Release with both the full archive and the skill package (`argus-skill-v{VERSION}.zip`), then publishes the skill package to SkillHub when `SKILLHUB_API_KEY` is configured.
+- **Roadmap complete** — all P1/P2/P3 items from `docs/strategic-plan.md` are delivered (quality engine, config schema, CLI/report/WCAG, GitLab, rules DSL, webhook API); see `docs/strategic-plan.md` §14 for the delivery table.

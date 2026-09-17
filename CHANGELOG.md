@@ -1,3 +1,17 @@
+## [Unreleased]
+
+### Added
+
+- **Roadmap completion** — all P1/P2/P3 items from `docs/strategic-plan.md` delivered (quality engine + gates, severity matrix, FP appeal loop, `.argus.yml` schema, local CLI, GitLab template, HTML/WCAG reports, custom rules DSL, webhook API); `docs/strategic-plan.md` §14 carries the delivery table and the roadmap is consolidated in the core docs (README toolchain/status, DEVELOPMENT-GUIDE).
+
+### Changed
+
+### Fixed
+
+### Removed
+
+---
+
 ## [0.5.6] — 2026-09-12
 
 ### Added

@@ -145,6 +145,20 @@ The release workflow (`.github/workflows/release.yml`) automatically:
 - Creates a GitHub Release with all artifacts
 - Publishes the skill package to SkillHub when `SKILLHUB_API_KEY` is configured
 
+## Roadmap Status
+
+Argus's commercial roadmap ([docs/strategic-plan.md](docs/strategic-plan.md), §14 status table) is **fully delivered** as of the 2026-09 consolidation. What exists today, beyond the GitHub App:
+
+| Area | Deliverables |
+|---|---|
+| Quality engine | `eval_quality.py` (precision/recall/F1 + CI gates), `validate_severity_matrix.py`, `add_fp_appeal.py` |
+| Config | `argus-config.schema.json` + zero-dep validator; hardened minimal YAML parser |
+| CLI / reports / compliance | `argus_review.py` (complexity-routed), `argus_report.py` (+ `--wcag`), GitLab template |
+| Extensibility | custom rules DSL (`argus_rules.py`), webhook API (`argus_webhook.py`) |
+| GTM | Marketplace prep + self-hosting guides |
+
+Maintenance bar: `make test` and `make eval-gate` stay green; every rule change ships a fixture; every severity change passes `make validate-severity`.
+
 ## Adding a New Review Rule
 
 1. Identify the review dimension (token, a11y, dark mode, etc.)

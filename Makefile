@@ -54,7 +54,7 @@ validate:
 	           tools/validate_versioning.py tools/validate_model_scores.py \
 	           tools/check_release.py tools/publish_skillhub.py \
 	           config/free-models.yml \
-	           docs/argus-config-schema.md \
+	           docs/argus-config-schema.md docs/strategic-plan.md \
 	           .github/actions/argus-review/action.yml \
 	           .github/workflows/update-free-models.yml \
 	           .github/workflows/pr-automation.yml \

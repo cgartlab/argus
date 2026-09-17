@@ -22,6 +22,23 @@ The **argus-flash** GitHub App (`github.com/apps/argus-flash`) runs Argus as an 
 - HTML structure validation (semantic elements, link vs button)
 - Framework API usage validation (React, Vue, Angular, Svelte, Astro)
 
+## Local Toolchain & Integrations
+
+Beyond the GitHub App, Argus ships a zero-dependency local toolchain (all under `tools/`, stdlib-only):
+
+| Tool | What it does |
+|---|---|
+| `argus_review.py` | Local review CLI — same rules as the App, static or LLM (`--mode auto` complexity routing) |
+| `argus_report.py` | Findings JSON → shareable static HTML report; `--wcag` adds a WCAG 2.2 compliance summary |
+| `argus_rules.py` | Team-defined custom rules (rule DSL) — `config/argus-rules.schema.json` |
+| `argus_webhook.py` | Forward findings reports to any webhook (Slack / Feishu / dashboards) |
+| `eval_quality.py` | Precision / recall / F1 metrics + regression gates vs `config/quality-baseline.json` |
+| `validate_argus_schema.py` | `.argus.yml` JSON Schema validation (zero-dep) |
+| `validate_severity_matrix.py` | rule-id × severity matrix consistency |
+| `add_fp_appeal.py` | File a false-positive appeal as a regression fixture |
+
+Integrations: GitHub App (PR reviews) · GitLab MR template (`.gitlab/argus-review.yml`) · skill registries (SkillHub / ClawHub / skills.sh) · men agent team.
+
 ## Architecture
 
 ```
@@ -177,6 +194,19 @@ Argus and Kold are companion agents:
 - **Argus** — reviews frontend code
 
 They share design principles and can work in a Kold → Argus workflow, or independently. In the automated review setup, Argus acts as a gate without requiring Kold.
+
+## Project Status
+
+Argus tracks a commercial product roadmap in [docs/strategic-plan.md](docs/strategic-plan.md) (version governance: the product version stays `0.x` until the owner approves `1.0`). All P1/P2/P3 roadmap items are delivered as of the 2026-09 consolidation:
+
+- **Trust & quality engine** — fixture regression suite (incl. golden eval set), precision/recall/F1 CI gates, severity matrix, FP appeal loop
+- **Config experience** — `.argus.yml` JSON Schema + zero-dep validator
+- **CLI, reports & compliance** — local review CLI, shareable HTML reports, WCAG 2.2 compliance
+- **Platforms** — GitHub App, GitLab MR template, multi-registry skill publishing
+- **Extensibility** — custom rules DSL, webhook API
+- **GTM** — Marketplace listing prep ([docs/marketplace-listing.md](docs/marketplace-listing.md)), self-hosting guide ([docs/self-hosting.md](docs/self-hosting.md))
+
+Quality gates: `make test` (validate + fixture regression) and `make eval-gate` (precision/recall vs baseline) must stay green on every change.
 
 ## License
 
