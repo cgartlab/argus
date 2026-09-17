@@ -1,3 +1,18 @@
+## [Unreleased]
+
+### Added
+
+- **Marketplace listing prep** — `docs/marketplace-listing.md`: the full checklist to list argus-flash on the GitHub Marketplace (App permissions, listing content, Community/Pro/Enterprise pricing plans, submission + go-live), grounded in the commercial strategy plan's §6 pricing.
+- **Self-hosting guide** — `docs/self-hosting.md`: private deployment — self-hosted runners (GitHub Actions / GitLab) and a private model endpoint, with a data-handling summary and security notes for regulated/enterprise use.
+
+### Changed
+
+### Fixed
+
+### Removed
+
+---
+
 ## [0.5.6] — 2026-09-12
 
 ### Added

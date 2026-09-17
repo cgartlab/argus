@@ -29,7 +29,9 @@ argus/
 ├── site/                              # Astro marketing site (docs, legal, 404)
 ├── docs/
 │   ├── argus-config-schema.md         # .argus.yml consumer config reference
-│   └── men-integration.md             # Optional men agent team integration protocol
+│   ├── men-integration.md             # Optional men agent team integration protocol
+│   ├── marketplace-listing.md         # GitHub Marketplace listing prep + checklist
+│   └── self-hosting.md                # Private runner + private model endpoint guide
 ├── tests/
 │   └── fixtures/                      # Fixture-based regression test suite
 │       ├── README.md                  # How to add/run fixtures
@@ -76,6 +78,8 @@ argus/
 | Skill execution | `SKILL.md` | Trigger phrases, review dimensions |
 | Agent manifest | `manifest.yaml` | Name, version, capabilities, inputs/outputs |
 | Consumer configuration | `docs/argus-config-schema.md` | Full `.argus.yml` field reference |
+| Marketplace listing | `docs/marketplace-listing.md` | GitHub Marketplace prep + checklist |
+| Self-hosting | `docs/self-hosting.md` | Private runner + private model endpoint |
 | Token mapping data | `.github/tokens/` | Per-system design token JSON (antd5/material3/polaris/custom) |
 | Config loader | `tools/load_config.py` | Merges defaults + consumer `.argus.yml` |
 | Fixture test suite | `tests/fixtures/` | Regression tests for review rules |
