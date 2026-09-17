@@ -68,10 +68,14 @@ jobs:
             tools/check_release.py
             tools/publish_skillhub.py
             tools/validate_argus_schema.py
+            tools/argus_rules.py
             config/free-models.yml
             config/argus-config.schema.json
             config/argus.example.yml
+            config/argus-rules.schema.json
+            config/argus-rules.example.yml
             docs/argus-config-schema.md
+            docs/argus-rules.md
             .github/actions/argus-review/action.yml
             .github/workflows/update-free-models.yml
             .github/workflows/pr-automation.yml
@@ -106,6 +110,7 @@ jobs:
           python3 -m py_compile tools/check_release.py && echo "check_release.py: ok"
           python3 -m py_compile tools/publish_skillhub.py && echo "publish_skillhub.py: ok"
           python3 -m py_compile tools/validate_argus_schema.py && echo "validate_argus_schema.py: ok"
+          python3 -m py_compile tools/argus_rules.py && echo "argus_rules.py: ok"
 
       - name: Validate free model list (config/free-models.yml)
         run: |
@@ -141,6 +146,11 @@ jobs:
           python3 tools/validate_argus_schema.py --check-schema
           python3 tools/validate_argus_schema.py --config config/argus.example.yml
           echo "argus-config.schema.json: valid JSON + example conforms"
+
+      - name: Validate custom-rules schema + example rules
+        run: |
+          python3 tools/argus_rules.py --validate --rules config/argus-rules.example.yml
+          echo "argus-rules.schema.json: example rules conform"
 
       - name: Report release state (VERSION vs tags on origin)
         run: |

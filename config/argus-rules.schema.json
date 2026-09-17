@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://argus.cgartlab.com/schemas/argus-rules.schema.json",
+  "title": "Argus Custom Rules",
+  "description": "Team-defined review rules (custom token mappings / keyword rules) for Argus. Consumed by tools/argus_rules.py; validated with `--validate` (zero-dependency subset engine) or any full JSON Schema tool.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["rules"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": ["1"],
+      "default": "1"
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "severity", "match", "message"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "description": "Rule id (kebab-case)."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["P0", "P1", "P2", "P3"]
+          },
+          "match": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Case-insensitive substring scanned against each code line."
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Finding description (shown verbatim)."
+          },
+          "token": {
+            "type": "string",
+            "description": "Design token to suggest in the fix (optional)."
+          },
+          "files": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Filename filters (e.g. '.html'); empty = all files."
+          }
+        }
+      }
+    }
+  }
+}

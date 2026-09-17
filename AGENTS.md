@@ -48,11 +48,14 @@ argus/
 │   ├── bump_version.py                # Automated semver bumping
 │   ├── check_release.py               # Release gate (tag vs VERSION, dup/older-version refusal)
 │   ├── validate_versioning.py         # VERSION / CHANGELOG consistency check
-│   └── validate_argus_schema.py       # .argus.yml JSON Schema validator (zero-dep subset)
+│   ├── validate_argus_schema.py       # .argus.yml JSON Schema validator (zero-dep subset)
+│   └── argus_rules.py                 # Team-defined custom rules engine (rule DSL)
 ├── config/
 │   ├── free-models.yml                # Auto-refreshed fallback model queue (weekly, reviewable PR)
 │   ├── argus-config.schema.json       # .argus.yml JSON Schema (draft-07, editor/CI validation)
-│   └── argus.example.yml              # Full-featured .argus.yml example (validated in CI)
+│   ├── argus.example.yml              # Full-featured .argus.yml example (validated in CI)
+│   ├── argus-rules.schema.json        # Custom-rules JSON Schema (draft-07)
+│   └── argus-rules.example.yml        # Custom-rules example (validated in CI)
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml                     # Lint + tool validation + fixture tests
@@ -82,6 +85,7 @@ argus/
 | Token mapping data | `.github/tokens/` | Per-system design token JSON (antd5/material3/polaris/custom) |
 | Config loader | `tools/load_config.py` | Merges defaults + consumer `.argus.yml` |
 | Config schema | `config/argus-config.schema.json` + `tools/validate_argus_schema.py` | JSON Schema (draft-07) + zero-dep validator; `make validate-schema` |
+| Custom rules | `config/argus-rules.schema.json` + `tools/argus_rules.py` | Team rule DSL; `make validate-rules`; ref in `docs/argus-rules.md` |
 | Fixture test suite | `tests/fixtures/` | Regression tests for review rules |
 | False-positive benchmarks | `tests/fixtures/false-positives/` | Code that must NOT be flagged; mirror pairs in should-flag/ |
 | Fixture runner | `tools/run_fixture_tests.py` | `make test-fixtures` or directly |
@@ -244,6 +248,7 @@ make bump-minor       # Bump MINOR version (0.3.0 → 0.4.0)
 make bump-major       # Bump MAJOR version (0.3.0 → 1.0.0)
 make validate         # Run SKILL.md trigger phrase check + CHANGELOG + versioning + action.yml
 make validate-schema  # Validate argus-config.schema.json + example .argus.yml conformance
+make validate-rules   # Validate argus-rules.schema.json + example custom rules
 make test-fixtures    # Run fixture regression tests (static heuristic mode, no API key needed)
 make test-fixtures-llm # Run fixture tests in LLM mode (model read from config/free-models.yml primary)
 make test             # validate + test-fixtures (full pre-release check)

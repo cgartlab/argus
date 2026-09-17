@@ -1,0 +1,21 @@
+# argus-rules.yml — team-defined review rules for Argus (rule DSL)
+#
+# Validated against config/argus-rules.schema.json:
+#   python3 tools/argus_rules.py --validate --rules argus-rules.yml
+#
+# Applied to a file:
+#   python3 tools/argus_rules.py apply src/ --rules argus-rules.yml
+#
+# Portable format (parses identically with PyYAML and the minimal fallback):
+#   "<id>|<severity>|<match>|<message>|<token>|<file-filter(s)>"
+#   - id        kebab-case rule id
+#   - severity  P0 | P1 | P2 | P3
+#   - match     case-insensitive substring scanned against each code line
+#   - message   finding description
+#   - token     design token to suggest (optional; empty = none)
+#   - files     comma-separated filename filters (optional; empty = all files)
+version: "1"
+rules:
+  - "brand-primary-bare|P2|#f43f5e|Bare brand color - use var(--brand-primary)|--brand-primary|"
+  - "no-inline-style|P2|style=|Inline style attribute - move to a class with design tokens||.html"
+  - "legacy-space-mixin|P3|px-|Legacy spacing helper - use the space token scale||"
