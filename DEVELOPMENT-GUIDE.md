@@ -145,6 +145,28 @@ The release workflow (`.github/workflows/release.yml`) automatically:
 - Creates a GitHub Release with all artifacts
 - Publishes the skill package to SkillHub when `SKILLHUB_API_KEY` is configured
 
+## Quality Engine (precision / recall / F1 + gates)
+
+The quality engine (`tools/eval_quality.py`) turns the fixture suite into
+machine-readable quality metrics and a regression gate:
+
+- **TP** = matched expected `[findings]` keywords across fixtures
+- **FN** = unmatched expected `[findings]` keywords
+- **FP** = `must-not-flag` violations plus every finding in a zero-expectation
+  fixture (false-positives/ fixtures declare all-zero counts)
+- **Precision** = TP / (TP + FP) · **Recall** = TP / (TP + FN) · **F1** = 2·P·R / (P + R)
+
+```bash
+make eval            # print the quality report (static heuristic mode)
+make eval-gate       # enforce gates vs config/quality-baseline.json (CI)
+make eval-baseline   # refresh the baseline after verified improvements
+```
+
+Gate policy: precision / recall / F1 must not drop more than 0.01 vs the
+committed baseline (`config/quality-baseline.json`), and FP must never
+increase. The gate runs in CI right after the fixture tests. Raise the
+baseline only after an intentional, verified improvement.
+
 ## Adding a New Review Rule
 
 1. Identify the review dimension (token, a11y, dark mode, etc.)

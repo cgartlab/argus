@@ -47,9 +47,11 @@ argus/
 │   ├── update_free_models.py          # Refresh config/free-models.yml from live OpenCode Zen API (ranked)
 │   ├── bump_version.py                # Automated semver bumping
 │   ├── check_release.py               # Release gate (tag vs VERSION, dup/older-version refusal)
-│   └── validate_versioning.py         # VERSION / CHANGELOG consistency check
+│   ├── validate_versioning.py         # VERSION / CHANGELOG consistency check
+│   └── eval_quality.py                # Quality engine: precision/recall/F1 + regression gates
 ├── config/
-│   └── free-models.yml                # Auto-refreshed fallback model queue (weekly, reviewable PR)
+│   ├── free-models.yml                # Auto-refreshed fallback model queue (weekly, reviewable PR)
+│   └── quality-baseline.json          # Quality engine baseline (precision/recall/F1 gate)
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml                     # Lint + tool validation + fixture tests
@@ -81,7 +83,8 @@ argus/
 | Fixture test suite | `tests/fixtures/` | Regression tests for review rules |
 | False-positive benchmarks | `tests/fixtures/false-positives/` | Code that must NOT be flagged; mirror pairs in should-flag/ |
 | Fixture runner | `tools/run_fixture_tests.py` | `make test-fixtures` or directly |
-| CI pipeline | `.github/workflows/ci.yml` | Lint + tool validation + fixture tests |
+| Quality engine | `tools/eval_quality.py` | `make eval` (report) / `make eval-gate` (CI gate) / `make eval-baseline`; baseline in `config/quality-baseline.json` |
+| CI pipeline | `.github/workflows/ci.yml` | Lint + tool validation + fixture tests + quality gates |
 | PR review automation | `.github/workflows/review.yml` | Triggers argus-flash App |
 | Release automation | `.github/workflows/release.yml` | Tag-push → validates → packages → GitHub Release |
 | Release gate | `tools/check_release.py` | `--expect-unreleased` in `make release`; `--expect-released` in daily `release-check.yml` |
@@ -148,6 +151,7 @@ Argus is fully self-contained: standalone agent runs, the argus-flash GitHub App
 - **Consumer config respected** — `.argus.yml` in the consumer repo adjusts token prefix, severity overrides, ignore paths, and failure thresholds. Hard rules (P0 color violations, a11y) cannot be fully disabled.
 - **Stack-aware review** — detect technology stack and reference official documentation for API usage validation.
 - **Codex-style fixes** — always provide copy-ready code fixes, never just describe the problem.
+- **Quality never regresses** — precision/recall/F1 are gated in CI (`make eval-gate`); any rule or model change that lowers a metric must be justified, and intentional improvements refresh the baseline (`make eval-baseline`).
 
 ---
 
@@ -158,6 +162,7 @@ Argus is fully self-contained: standalone agent runs, the argus-flash GitHub App
 - **Approving without full review** — Argus never approves unseen PRs.
 - **Bypassing review** — Kold never bypasses Argus review gate.
 - **Skipping fixture tests** — every rule change must be accompanied by a fixture update.
+- **Merging without quality gates** — rule/model changes must pass `make eval-gate`; raising the baseline requires an intentional, verified improvement.
 - **Describing without fixing** — never just describe the problem; always provide the fix.
 
 ---
@@ -240,6 +245,9 @@ make bump-minor       # Bump MINOR version (0.3.0 → 0.4.0)
 make bump-major       # Bump MAJOR version (0.3.0 → 1.0.0)
 make validate         # Run SKILL.md trigger phrase check + CHANGELOG + versioning + action.yml
 make test-fixtures    # Run fixture regression tests (static heuristic mode, no API key needed)
+make eval             # Run quality engine — precision/recall/F1 report
+make eval-gate        # Enforce quality regression gates vs baseline (runs in CI)
+make eval-baseline    # Refresh quality baseline after verified improvements
 make test-fixtures-llm # Run fixture tests in LLM mode (model read from config/free-models.yml primary)
 make test             # validate + test-fixtures (full pre-release check)
 make release          # release-gate → verify → tag → push (triggers release workflow)
@@ -260,3 +268,4 @@ cd site && npm run build  # Build marketing site (site/ subproject)
 - **Version bumping** — run `make bump-patch` (or bump-minor/bump-major), fill in the new CHANGELOG section, commit (`chore(release): prepare vX.Y.Z`), then `make test && make release`. `make release` refuses duplicate/older releases and requires version files committed; the daily `Release Check` workflow fails when `VERSION` is bumped without a tag.
 - **Fixture tests** — run without an API key in static heuristic mode; full LLM mode reads the primary model from `config/free-models.yml` (requires `OPENCODE_API_KEY` for `opencode/` providers).
 - **Release workflow** — pushing a `v*.*.*` tag triggers `.github/workflows/release.yml` which validates versioning, builds packages, publishes a GitHub Release with both the full archive and the skill package (`argus-skill-v{VERSION}.zip`), then publishes the skill package to SkillHub when `SKILLHUB_API_KEY` is configured.
+- **Quality engine** — `tools/eval_quality.py` aggregates TP/FP/FN across fixtures into precision/recall/F1 and gates regressions in CI against `config/quality-baseline.json` (epsilon 0.01; FP must never increase). Refresh the baseline only after intentional, verified improvements.

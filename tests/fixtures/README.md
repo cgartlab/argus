@@ -110,3 +110,27 @@ A fixture failure blocks merge just like a YAML lint failure.
 > **Note:** Because Argus is an LLM-based agent, fixture tests run in **heuristic mode**:
 > they check that the *count* and *severity* of findings fall within acceptable ranges,
 > not that exact line numbers match. This makes the suite stable across minor model updates.
+
+## Quality Engine (precision / recall / F1)
+
+The **quality engine** (`tools/eval_quality.py`) aggregates the suite into
+machine-readable quality metrics and enforces regression gates:
+
+- **TP** = matched expected `[findings]` keywords across fixtures
+- **FN** = unmatched expected `[findings]` keywords
+- **FP** = `must-not-flag` violations, plus **every finding in a zero-expectation
+  fixture** (false-positives/ fixtures declare all-zero counts, so any finding
+  there is a false positive)
+- **Precision** = TP / (TP + FP) · **Recall** = TP / (TP + FN) · **F1** = 2·P·R / (P + R)
+
+Commands:
+
+```bash
+make eval            # print the quality report (static heuristic mode)
+make eval-gate       # enforce gates vs config/quality-baseline.json (CI)
+make eval-baseline   # refresh the baseline after verified improvements
+```
+
+Gate policy: precision / recall / F1 must not drop more than 0.01 vs the
+committed baseline (`config/quality-baseline.json`), and FP must never
+increase. The gate runs in CI right after the fixture tests.

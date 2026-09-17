@@ -14,6 +14,9 @@ help:
 	@echo "  make bump-major       — bump MAJOR (e.g. 0.3.0 → 1.0.0)"
 	@echo "  make validate         — run all quality checks (SKILL.md, CHANGELOG, files)"
 	@echo "  make test-fixtures    — run fixture regression tests (static heuristic mode)"
+	@echo "  make eval             — run quality engine (precision/recall/F1 report)"
+	@echo "  make eval-gate        — enforce quality regression gates vs baseline (CI)"
+	@echo "  make eval-baseline    — refresh quality baseline after verified improvements"
 	@echo "  make test             — validate + test-fixtures (full pre-release check)"
 	@echo "  make release          — release-gate → verify → tag → push (triggers release workflow)"
 	@echo "  make package-skill    — create skill package (argus-skill-v{VERSION}.zip)"
@@ -52,8 +55,8 @@ validate:
 	           tools/run_fixture_tests.py tools/load_config.py \
 	           tools/update_free_models.py tools/bump_version.py \
 	           tools/validate_versioning.py tools/validate_model_scores.py \
-	           tools/check_release.py tools/publish_skillhub.py \
-	           config/free-models.yml \
+	           tools/check_release.py tools/publish_skillhub.py tools/eval_quality.py \
+	           config/free-models.yml config/quality-baseline.json \
 	           docs/argus-config-schema.md \
 	           .github/actions/argus-review/action.yml \
 	           .github/workflows/update-free-models.yml \
@@ -68,6 +71,7 @@ validate:
 	@python3 -m py_compile tools/validate_model_scores.py && echo "validate_model_scores.py ok"
 	@python3 -m py_compile tools/check_release.py && echo "check_release.py ok"
 	@python3 -m py_compile tools/publish_skillhub.py && echo "publish_skillhub.py ok"
+	@python3 -m py_compile tools/eval_quality.py && echo "eval_quality.py ok"
 	@echo "── Validate: free model list ──"
 	@python3 tools/update_free_models.py --check
 	@echo "── Validate: model-scores.yml schema ──"
@@ -90,6 +94,25 @@ test-fixtures:
 test-fixtures-llm:
 	@echo "── Fixture Tests (LLM mode) ──"
 	@python3 tools/run_fixture_tests.py $(if $(MODEL),--model $(MODEL)) $(if $(FALLBACK_MODELS),--fallback-models "$(FALLBACK_MODELS)")
+	@echo ""
+
+# ─── Quality Engine (precision / recall / F1 + gates) ────────────
+.PHONY: eval
+eval:
+	@echo "── Quality Engine (static heuristic mode) ──"
+	@python3 tools/eval_quality.py
+	@echo ""
+
+.PHONY: eval-gate
+eval-gate:
+	@echo "── Quality Engine: regression gates ──"
+	@python3 tools/eval_quality.py --gate
+	@echo ""
+
+.PHONY: eval-baseline
+eval-baseline:
+	@echo "── Quality Engine: refresh baseline ──"
+	@python3 tools/eval_quality.py --update-baseline
 	@echo ""
 
 # ─── Combined pre-release check ──────────────────────────────────

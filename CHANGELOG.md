@@ -1,3 +1,18 @@
+## [Unreleased]
+
+### Added
+
+- **Quality Engine V1** — `tools/eval_quality.py` computes suite-level precision / recall / F1 from the fixture regression suite and enforces regression gates against a committed baseline (`config/quality-baseline.json`). `make eval` reports quality, `make eval-gate` enforces the gates (runs in CI after fixture tests), `make eval-baseline` refreshes the baseline after verified improvements.
+- **AGENTS.md next-phase conventions** — "Quality never regresses" (CONVENTIONS) and "Merging without quality gates" (ANTI-PATTERNS); quality engine entries in STRUCTURE / WHERE TO LOOK / COMMANDS / NOTES.
+
+### Changed
+
+### Fixed
+
+### Removed
+
+---
+
 ## [0.5.6] — 2026-09-12
 
 ### Added
