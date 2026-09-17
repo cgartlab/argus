@@ -22,6 +22,21 @@ The **argus-flash** GitHub App (`github.com/apps/argus-flash`) runs Argus as an 
 - HTML structure validation (semantic elements, link vs button)
 - Framework API usage validation (React, Vue, Angular, Svelte, Astro)
 
+## Local Review (CLI)
+
+Run the same review rules locally, without GitHub or a workflow:
+
+```bash
+# Review a file (static heuristic scanner — no API key needed)
+python3 tools/argus_review.py src/components/Card.css
+
+# Batch + design-system aware + structured report
+python3 tools/argus_review.py --dir src/ --stack antd5 --json review.json
+```
+
+Uses the OpenCode CLI when installed (with the free-model fallback queue),
+otherwise the static scanner.
+
 ## Architecture
 
 ```

@@ -14,6 +14,7 @@ help:
 	@echo "  make bump-major       — bump MAJOR (e.g. 0.3.0 → 1.0.0)"
 	@echo "  make validate         — run all quality checks (SKILL.md, CHANGELOG, files)"
 	@echo "  make test-fixtures    — run fixture regression tests (static heuristic mode)"
+	@echo "  make review FILE=...  — run local Argus review (python3 tools/argus_review.py FILE)"
 	@echo "  make test             — validate + test-fixtures (full pre-release check)"
 	@echo "  make release          — release-gate → verify → tag → push (triggers release workflow)"
 	@echo "  make package-skill    — create skill package (argus-skill-v{VERSION}.zip)"
@@ -52,7 +53,7 @@ validate:
 	           tools/run_fixture_tests.py tools/load_config.py \
 	           tools/update_free_models.py tools/bump_version.py \
 	           tools/validate_versioning.py tools/validate_model_scores.py \
-	           tools/check_release.py tools/publish_skillhub.py \
+	           tools/check_release.py tools/publish_skillhub.py tools/argus_review.py \
 	           config/free-models.yml \
 	           docs/argus-config-schema.md \
 	           .github/actions/argus-review/action.yml \
@@ -68,6 +69,7 @@ validate:
 	@python3 -m py_compile tools/validate_model_scores.py && echo "validate_model_scores.py ok"
 	@python3 -m py_compile tools/check_release.py && echo "check_release.py ok"
 	@python3 -m py_compile tools/publish_skillhub.py && echo "publish_skillhub.py ok"
+	@python3 -m py_compile tools/argus_review.py && echo "argus_review.py ok"
 	@echo "── Validate: free model list ──"
 	@python3 tools/update_free_models.py --check
 	@echo "── Validate: model-scores.yml schema ──"
@@ -97,6 +99,12 @@ test-fixtures-llm:
 test: validate test-fixtures
 	@echo ""
 	@echo "All checks passed — ready to release ✓"
+
+# ─── Local review CLI ────────────────────────────────────────────
+.PHONY: review
+review:
+	@echo "── Local Argus review ──"
+	@python3 tools/argus_review.py $(FILE)
 
 # ─── Release ─────────────────────────────────────────────────────
 .PHONY: release

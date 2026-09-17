@@ -112,6 +112,32 @@ Prerequisites:
 2. Add `ARGUS_FLASH_APP_ID` and `ARGUS_FLASH_PRIVATE_KEY` to repo Secrets
 3. Create a minimal `review.yml` workflow
 
+## Local Review CLI
+
+Review files locally with the exact same rules as the GitHub App / composite
+action — no GitHub, no workflow needed:
+
+```bash
+# Review a single file (uses the OpenCode CLI if installed, else the static
+# heuristic scanner — no API key required for static mode)
+python3 tools/argus_review.py src/components/Card.css
+
+# Batch + stack-aware
+python3 tools/argus_review.py --dir src/ --ignore '*.test.*' --stack antd5
+
+# Structured report (feeds the future report-link / CI-comment service)
+python3 tools/argus_review.py src/App.tsx --json review.json
+
+# Or via make
+make review FILE=src/components/Card.css
+```
+
+The CLI reuses the same prompt builder, model queue (config/free-models.yml),
+and static scanner as the fixture runner, so local output matches what the
+GitHub App produces. `--json` emits a structured findings report
+(`total_issues`, `by_severity`, per-finding `severity`/`file`/`line`/
+`description`/`found`/`expected`) ready for any consumer.
+
 ## Branch Strategy for Composite Action
 
 | Ref | Behavior | Recommendation |

@@ -1,3 +1,17 @@
+## [Unreleased]
+
+### Added
+
+- **Local review CLI** — `tools/argus_review.py` reviews frontend files with the exact same rules as the GitHub App / composite action, anywhere Python runs: OpenCode CLI when installed, static heuristic scanner otherwise (no API key needed). `make review FILE=...` convenience target; `--stack` / `--model` / `--dir` / `--ignore`; `--json` emits a structured findings report (the payload a future report-link / CI-comment service consumes).
+
+### Changed
+
+### Fixed
+
+### Removed
+
+---
+
 ## [0.5.6] — 2026-09-12
 
 ### Added
