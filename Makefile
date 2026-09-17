@@ -15,6 +15,7 @@ help:
 	@echo "  make validate         — run all quality checks (SKILL.md, CHANGELOG, files)"
 	@echo "  make test-fixtures    — run fixture regression tests (static heuristic mode)"
 	@echo "  make review FILE=...  — run local Argus review (python3 tools/argus_review.py FILE)"
+	@echo "  make report JSON=...  — turn findings JSON into a shareable HTML report"
 	@echo "  make test             — validate + test-fixtures (full pre-release check)"
 	@echo "  make release          — release-gate → verify → tag → push (triggers release workflow)"
 	@echo "  make package-skill    — create skill package (argus-skill-v{VERSION}.zip)"
@@ -53,7 +54,7 @@ validate:
 	           tools/run_fixture_tests.py tools/load_config.py \
 	           tools/update_free_models.py tools/bump_version.py \
 	           tools/validate_versioning.py tools/validate_model_scores.py \
-	           tools/check_release.py tools/publish_skillhub.py tools/argus_review.py \
+	           tools/check_release.py tools/publish_skillhub.py tools/argus_review.py tools/argus_report.py \
 	           .gitlab/argus-review.yml .gitlab/argus-review.sh \
 	           config/free-models.yml \
 	           docs/argus-config-schema.md \
@@ -71,6 +72,7 @@ validate:
 	@python3 -m py_compile tools/check_release.py && echo "check_release.py ok"
 	@python3 -m py_compile tools/publish_skillhub.py && echo "publish_skillhub.py ok"
 	@python3 -m py_compile tools/argus_review.py && echo "argus_review.py ok"
+	@python3 -m py_compile tools/argus_report.py && echo "argus_report.py ok"
 	@echo "── Validate: free model list ──"
 	@python3 tools/update_free_models.py --check
 	@echo "── Validate: model-scores.yml schema ──"
@@ -106,6 +108,12 @@ test: validate test-fixtures
 review:
 	@echo "── Local Argus review ──"
 	@python3 tools/argus_review.py $(FILE)
+
+# ─── HTML report generation ─────────────────────────────────────
+.PHONY: report
+report:
+	@echo "── Argus HTML report ──"
+	@python3 tools/argus_report.py --json $(JSON) $(if $(OUT),--out $(OUT)) $(if $(TITLE),--title "$(TITLE)")
 
 # ─── Release ─────────────────────────────────────────────────────
 .PHONY: release

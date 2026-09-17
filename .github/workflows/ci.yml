@@ -68,6 +68,7 @@ jobs:
             tools/check_release.py
             tools/publish_skillhub.py
             tools/argus_review.py
+            tools/argus_report.py
             .gitlab/argus-review.yml
             .gitlab/argus-review.sh
             config/free-models.yml
@@ -106,6 +107,7 @@ jobs:
           python3 -m py_compile tools/check_release.py && echo "check_release.py: ok"
           python3 -m py_compile tools/publish_skillhub.py && echo "publish_skillhub.py: ok"
           python3 -m py_compile tools/argus_review.py && echo "argus_review.py: ok"
+          python3 -m py_compile tools/argus_report.py && echo "argus_report.py: ok"
 
       - name: Validate free model list (config/free-models.yml)
         run: |

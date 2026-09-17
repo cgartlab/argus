@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+"""
+argus_report.py — turn a findings JSON report into a shareable static HTML
+
+Consumes the structured JSON emitted by `tools/argus_review.py --json` (or
+any compatible `{"findings": [...]}` document) and produces a single
+self-contained HTML file — no server, no external assets — ready to share in
+a PR comment, team channel, or compliance handoff. This is the artifact a
+future hosted report-link / Pro hook serves.
+
+Usage:
+  python3 tools/argus_review.py src/ --json review.json
+  python3 tools/argus_report.py review.json                  # -> dist/argus-report.html
+  python3 tools/argus_report.py review.json --out report.html --title "Checkout UI"
+
+Options:
+  --json FILE   findings JSON (from argus_review.py --json)
+  --out FILE    output HTML path (default: dist/argus-report.html)
+  --title TEXT  report title (default: "Argus Design Review")
+
+Exit codes:
+  0 — report written
+  1 — error (missing file, invalid JSON, no findings)
+  2 — usage error
+"""
+
+from __future__ import annotations
+
+import argparse
+import html
+import json
+import sys
+from pathlib import Path
+
+SEVERITY_ORDER = ["P0", "P1", "P2", "P3"]
+SEVERITY_META = {
+    "P0": ("Blocking Issues", "#b42318", "#fef3f2"),
+    "P1": ("High Priority", "#b54708", "#fffaeb"),
+    "P2": ("Medium Priority", "#854d0e", "#fefce8"),
+    "P3": ("Low Priority", "#475467", "#f2f4f7"),
+}
+
+
+def _esc(value: object) -> str:
+    return html.escape(str(value if value is not None else ""))
+
+
+def build_html(report: dict, title: str) -> str:
+    findings = report.get("findings") or []
+    by_severity = report.get("by_severity") or {}
+    meta = {
+        "generated_at": report.get("generated_at", ""),
+        "stack": report.get("stack", ""),
+        "model": report.get("model", ""),
+        "files_reviewed": report.get("files_reviewed", 0),
+        "total_issues": report.get("total_issues", len(findings)),
+    }
+
+    groups: dict[str, list[dict]] = {s: [] for s in SEVERITY_ORDER}
+    for finding in findings:
+        groups.setdefault(finding.get("severity", "P3"), []).append(finding)
+
+    counts = " | ".join(f"{s}: {by_severity.get(s, 0)}" for s in SEVERITY_ORDER)
+
+    sections = []
+    for severity in SEVERITY_ORDER:
+        label, fg, bg = SEVERITY_META[severity]
+        items = groups.get(severity, [])
+        badge = f'<span style="background:{bg};color:{fg};font-weight:700;padding:2px 10px;border-radius:999px;font-size:12px">{severity}</span>'
+        if not items:
+            sections.append(
+                f'<section style="margin-bottom:28px"><h2 style="margin:0 0 8px">{badge} {_esc(label)}</h2>'
+                f'<p style="margin:0;color:#667085">No issues found.</p></section>'
+            )
+            continue
+        cards = []
+        for item in items:
+            cards.append(
+                f'<article style="border:1px solid #eaecf0;border-left:4px solid {fg};'
+                f'border-radius:8px;padding:14px 16px;margin:10px 0;background:#fff">'
+                f'<code style="color:{fg};font-weight:600">{_esc(item.get("severity", ""))}</code> '
+                f'<code style="color:#344054">{_esc(item.get("file", ""))}:{_esc(item.get("line", ""))}</code>'
+                f'<p style="margin:8px 0 6px;font-weight:600;color:#101828">{_esc(item.get("description", ""))}</p>'
+                f'<pre style="background:#f9fafb;border:1px solid #eaecf0;border-radius:6px;'
+                f'padding:8px 10px;margin:4px 0;font-size:12px;white-space:pre-wrap;color:#344054">'
+                f'Found:    {_esc(item.get("found", ""))}\n'
+                f'Expected: {_esc(item.get("expected", ""))}</pre>'
+                f'</article>'
+            )
+        sections.append(
+            f'<section style="margin-bottom:28px"><h2 style="margin:0 0 8px">{badge} {_esc(label)} '
+            f'({len(items)})</h2>{"".join(cards)}</section>'
+        )
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{_esc(title)}</title>
+</head>
+<body style="margin:0;background:#fcfcfd;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#101828">
+<div style="max-width:860px;margin:0 auto;padding:32px 20px 64px">
+  <header style="border-bottom:1px solid #eaecf0;padding-bottom:16px;margin-bottom:24px">
+    <h1 style="margin:0 0 4px;font-size:24px">&#128065; {_esc(title)}</h1>
+    <p style="margin:0;color:#667085;font-size:13px">
+      Total Issues: <strong>{meta['total_issues']}</strong> ({_esc(counts)}) &middot;
+      Files Reviewed: {meta['files_reviewed']}
+    </p>
+    <p style="margin:6px 0 0;color:#98a2b3;font-size:12px">
+      {_esc(meta['generated_at'])} &middot; stack={_esc(meta['stack'])} &middot; model={_esc(meta['model'])}
+    </p>
+  </header>
+  {"".join(sections)}
+  <footer style="margin-top:32px;padding-top:12px;border-top:1px solid #eaecf0;color:#98a2b3;font-size:12px">
+    Generated by Argus — frontend design code review agent.
+  </footer>
+</div>
+</body>
+</html>
+"""
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Turn a findings JSON report into a shareable static HTML file",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--json", required=True, metavar="FILE", help="Findings JSON (from argus_review.py --json)")
+    parser.add_argument("--out", default=None, metavar="FILE", help="Output HTML path (default: dist/argus-report.html)")
+    parser.add_argument("--title", default="Argus Design Review", help="Report title")
+    args = parser.parse_args()
+
+    json_path = Path(args.json)
+    if not json_path.is_file():
+        print(f"[error] findings JSON not found: {json_path}", file=sys.stderr)
+        return 1
+    try:
+        report = json.loads(json_path.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        print(f"[error] invalid JSON in {json_path}: {exc}", file=sys.stderr)
+        return 1
+    if not isinstance(report, dict) or "findings" not in report:
+        print(f"[error] {json_path} has no 'findings' list — expected argus_review.py --json output", file=sys.stderr)
+        return 1
+
+    out_path = Path(args.out) if args.out else Path("dist") / "argus-report.html"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(build_html(report, args.title), encoding="utf-8")
+    print(f"Report written to {out_path} ({out_path.stat().st_size} bytes)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

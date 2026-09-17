@@ -138,6 +138,17 @@ GitHub App produces. `--json` emits a structured findings report
 (`total_issues`, `by_severity`, per-finding `severity`/`file`/`line`/
 `description`/`found`/`expected`) ready for any consumer.
 
+`tools/argus_report.py` turns that JSON into a single self-contained,
+shareable HTML file (no server, no external assets):
+
+```bash
+python3 tools/argus_review.py src/ --json review.json
+python3 tools/argus_report.py review.json --out report.html --title "Checkout UI"
+# or: make report JSON=review.json
+```
+
+This is the artifact a future hosted report-link / Pro hook will serve.
+
 ## GitLab Integration (Second Platform)
 
 GitLab MRs get the same review via an include template — proving the
