@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Checkout</title>
+</head>
+<body>
+  <!-- Icon-only action button missing aria-label (P1) -->
+  <button class="icon-btn" type="button">
+    <svg viewBox="0 0 24 24"><path d="M12 5v14"/></svg>
+  </button>
+
+  <!-- Product image missing alt text (P1) -->
+  <img src="/img/sneaker.png" class="thumb" width="64" height="64">
+
+  <!-- <a> used as a button, no href (P1) -->
+  <a class="add-to-cart" onclick="addToCart('sku-1')">Add</a>
+
+  <!-- GOOD: labeled button — must not be flagged -->
+  <button class="submit" type="submit" aria-label="Place order">
+    <svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>
+    Place order
+  </button>
+
+  <!-- GOOD: img with alt — must not be flagged -->
+  <img src="/img/banner.png" alt="Spring sale banner">
+
+  <!-- GOOD: real link with href — must not be flagged -->
+  <a href="/cart">View cart</a>
+</body>
+</html>

@@ -1,0 +1,23 @@
+[meta]
+fixture = golden/product-card.css
+description = Realistic product-card stylesheet: bare hex (P0), missing dark override (P0), hardcoded padding/font-size/margin (P1), duplicate padding (P2). Token source and correct var() usages must not be flagged.
+
+[findings]
+P0 | | #e94560
+P0 | | --ds-color-accent
+P1 | | Hardcoded padding
+P1 | | Hardcoded font-size
+P1 | | Hardcoded margin
+P2 | | Duplicate property
+
+[must-not-flag]
+:root
+var(--ds-color-surface)
+var(--ds-color-fg)
+var(--ds-color-accent)
+
+[counts]
+P0 = 2
+P1 = 3
+P2 = 1
+P3 = 0

@@ -38,7 +38,8 @@ argus/
 │       ├── hardcoded-values/          # Magic number spacing/radii/font-size
 │       ├── css-quality/               # Duplicate rules, BEM violations
 │       ├── false-positives/           # Legal code that must NOT be flagged (FP benchmarks)
-│       └── should-flag/               # Mirror pairs that MUST be flagged (proof of scope)
+│       ├── should-flag/               # Mirror pairs that MUST be flagged (proof of scope)
+│       └── golden/                    # Golden eval set: realistic multi-violation files
 ├── src/
 │   └── components/                    # Test components for review validation
 ├── tools/

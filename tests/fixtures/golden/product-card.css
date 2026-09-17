@@ -1,0 +1,46 @@
+/*
+ * FIXTURE: golden/product-card
+ * Purpose: Realistic component stylesheet (product card) with MIXED design
+ * violations — bare colors, hardcoded spacing, duplicate props, and a
+ * dark-mode gap. Golden eval-set fixtures exercise realistic multi-violation
+ * scenarios beyond the single-rule fixtures.
+ */
+
+/* Token source — ALLOWED, not flagged */
+:root {
+  --ds-color-surface: oklch(99% 0.005 80);
+  --ds-color-fg: oklch(20% 0.02 60);
+  --ds-color-accent: oklch(60% 0.2 25);
+}
+
+/* Dark overrides — accent is MISSING here (dark-mode gap → P0) */
+[data-theme="dark"] {
+  --ds-color-surface: oklch(15% 0.005 80);
+  --ds-color-fg: oklch(90% 0.02 60);
+}
+
+/* Component rule — bare hex (P0) + duplicate padding (P2) */
+.product-card {
+  color: #e94560;
+  padding: var(--ds-space-4);
+  padding: 12px;
+  background: var(--ds-color-surface);
+}
+
+/* Hardcoded font-size (P1) */
+.product-card__title {
+  font-size: 18px;
+  color: var(--ds-color-fg);
+}
+
+/* Hardcoded margin (P1) */
+.product-card__price {
+  margin: 12px;
+  color: var(--ds-color-accent);
+}
+
+/* GOOD: token usage — must not be flagged */
+.product-card__badge {
+  background: var(--ds-color-accent);
+  border-radius: var(--ds-radius-md);
+}
