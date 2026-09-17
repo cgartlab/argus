@@ -67,7 +67,9 @@ jobs:
             tools/validate_model_scores.py
             tools/check_release.py
             tools/publish_skillhub.py
+            tools/validate_severity_matrix.py
             config/free-models.yml
+            config/severity-matrix.yml
             docs/argus-config-schema.md
             .github/actions/argus-review/action.yml
             .github/workflows/update-free-models.yml
@@ -102,6 +104,7 @@ jobs:
           python3 -m py_compile tools/validate_model_scores.py && echo "validate_model_scores.py: ok"
           python3 -m py_compile tools/check_release.py && echo "check_release.py: ok"
           python3 -m py_compile tools/publish_skillhub.py && echo "publish_skillhub.py: ok"
+          python3 -m py_compile tools/validate_severity_matrix.py && echo "validate_severity_matrix.py: ok"
 
       - name: Validate free model list (config/free-models.yml)
         run: |
@@ -135,6 +138,11 @@ jobs:
       - name: Report release state (VERSION vs tags on origin)
         run: |
           python3 tools/check_release.py
+
+      - name: Validate severity matrix (config / SKILL.md / load_config)
+        run: |
+          python3 tools/validate_severity_matrix.py
+          echo "Severity matrix: consistent (config <-> SKILL.md <-> load_config)"
 
   # ── Job 3: Fixture regression tests ────────────────────────────────────────
   fixture-tests:

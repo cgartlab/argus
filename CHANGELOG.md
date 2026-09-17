@@ -1,3 +1,17 @@
+## [Unreleased]
+
+### Added
+
+- **Severity matrix calibration** — `config/severity-matrix.yml` is now the canonical rule-id × severity matrix; `tools/validate_severity_matrix.py` (`make validate-severity`, runs in CI) enforces that it never drifts from the SKILL.md "## Issue Severity" table or `load_config.NON_DOWNGRADABLE_RULES`. Negative check verified: downgrading `bare-color` to P2 is caught on both the docs and enforcement axes.
+
+### Changed
+
+### Fixed
+
+### Removed
+
+---
+
 ## [0.5.6] — 2026-09-12
 
 ### Added

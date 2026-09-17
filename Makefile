@@ -52,8 +52,8 @@ validate:
 	           tools/run_fixture_tests.py tools/load_config.py \
 	           tools/update_free_models.py tools/bump_version.py \
 	           tools/validate_versioning.py tools/validate_model_scores.py \
-	           tools/check_release.py tools/publish_skillhub.py \
-	           config/free-models.yml \
+	           tools/check_release.py tools/publish_skillhub.py tools/validate_severity_matrix.py \
+	           config/free-models.yml config/severity-matrix.yml \
 	           docs/argus-config-schema.md \
 	           .github/actions/argus-review/action.yml \
 	           .github/workflows/update-free-models.yml \
@@ -68,14 +68,24 @@ validate:
 	@python3 -m py_compile tools/validate_model_scores.py && echo "validate_model_scores.py ok"
 	@python3 -m py_compile tools/check_release.py && echo "check_release.py ok"
 	@python3 -m py_compile tools/publish_skillhub.py && echo "publish_skillhub.py ok"
+	@python3 -m py_compile tools/validate_severity_matrix.py && echo "validate_severity_matrix.py ok"
 	@echo "── Validate: free model list ──"
 	@python3 tools/update_free_models.py --check
 	@echo "── Validate: model-scores.yml schema ──"
 	@python3 tools/validate_model_scores.py
 	@echo "── Validate: load_config defaults ──"
 	@python3 tools/load_config.py --validate-only
+	@echo "── Validate: severity matrix (config ↔ SKILL.md ↔ load_config) ──"
+	@python3 tools/validate_severity_matrix.py
 	@echo ""
 	@echo "All validation checks passed ✓"
+
+# ─── Severity matrix validation ──────────────────────────────────
+.PHONY: validate-severity
+validate-severity:
+	@echo "── Validate: rule-id x severity matrix consistency ──"
+	@python3 tools/validate_severity_matrix.py
+	@echo "Severity matrix validation passed ✓"
 
 # ─── Fixture regression tests ─────────────────────────────────────
 .PHONY: test-fixtures

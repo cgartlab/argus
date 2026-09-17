@@ -47,9 +47,11 @@ argus/
 │   ├── update_free_models.py          # Refresh config/free-models.yml from live OpenCode Zen API (ranked)
 │   ├── bump_version.py                # Automated semver bumping
 │   ├── check_release.py               # Release gate (tag vs VERSION, dup/older-version refusal)
-│   └── validate_versioning.py         # VERSION / CHANGELOG consistency check
+│   ├── validate_versioning.py         # VERSION / CHANGELOG consistency check
+│   └── validate_severity_matrix.py    # Rule-id x severity matrix consistency (config/SKILL/loader)
 ├── config/
-│   └── free-models.yml                # Auto-refreshed fallback model queue (weekly, reviewable PR)
+│   ├── free-models.yml                # Auto-refreshed fallback model queue (weekly, reviewable PR)
+│   └── severity-matrix.yml            # Canonical rule-id x severity matrix (single source of truth)
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml                     # Lint + tool validation + fixture tests
@@ -78,6 +80,7 @@ argus/
 | Consumer configuration | `docs/argus-config-schema.md` | Full `.argus.yml` field reference |
 | Token mapping data | `.github/tokens/` | Per-system design token JSON (antd5/material3/polaris/custom) |
 | Config loader | `tools/load_config.py` | Merges defaults + consumer `.argus.yml` |
+| Severity matrix | `config/severity-matrix.yml` + `tools/validate_severity_matrix.py` | Canonical rule-id × severity; `make validate-severity` |
 | Fixture test suite | `tests/fixtures/` | Regression tests for review rules |
 | False-positive benchmarks | `tests/fixtures/false-positives/` | Code that must NOT be flagged; mirror pairs in should-flag/ |
 | Fixture runner | `tools/run_fixture_tests.py` | `make test-fixtures` or directly |
@@ -239,6 +242,7 @@ make bump-patch       # Bump PATCH version (0.3.0 → 0.3.1)
 make bump-minor       # Bump MINOR version (0.3.0 → 0.4.0)
 make bump-major       # Bump MAJOR version (0.3.0 → 1.0.0)
 make validate         # Run SKILL.md trigger phrase check + CHANGELOG + versioning + action.yml
+make validate-severity # Enforce rule-id × severity matrix (config ↔ SKILL.md ↔ load_config)
 make test-fixtures    # Run fixture regression tests (static heuristic mode, no API key needed)
 make test-fixtures-llm # Run fixture tests in LLM mode (model read from config/free-models.yml primary)
 make test             # validate + test-fixtures (full pre-release check)
