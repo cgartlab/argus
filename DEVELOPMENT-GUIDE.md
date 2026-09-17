@@ -138,6 +138,35 @@ GitHub App produces. `--json` emits a structured findings report
 (`total_issues`, `by_severity`, per-finding `severity`/`file`/`line`/
 `description`/`found`/`expected`) ready for any consumer.
 
+## GitLab Integration (Second Platform)
+
+GitLab MRs get the same review via an include template — proving the
+composite-action pattern is replicable outside GitHub:
+
+```yaml
+# .gitlab-ci.yml
+include:
+  - remote: https://raw.githubusercontent.com/cgartlab/argus/main/.gitlab/argus-review.yml
+```
+
+The job (`.gitlab/argus-review.yml`) clones `cgartlab/argus`, runs
+`tools/argus_review.py --mode auto` on the MR's changed frontend files, and
+posts the review as an MR note via the GitLab API. The runner logic lives in
+`.gitlab/argus-review.sh` (testable with `ARGUS_DRY_RUN=1`).
+
+Optional variables: `ARGUS_MR_TOKEN` (api-scope token for MR notes; falls
+back to `CI_JOB_TOKEN` for same-project MRs), `ARGUS_MODE` (auto|static|llm —
+complexity routing), `ARGUS_STACK`, `ARGUS_REF`. No API key is required in
+auto/static mode (built-in heuristic scanner).
+
+### Complexity Routing (cost control)
+
+`tools/argus_review.py --mode auto` (default) routes each file by size:
+files ≤ `--min-lines` (default 200) are reviewed by the static heuristic
+scanner (fast, free), larger files by the LLM. `--mode static` / `--mode llm`
+force either path. This is the roadmap's model-cost-routing control: small
+diffs never pay model tokens.
+
 ## Branch Strategy for Composite Action
 
 | Ref | Behavior | Recommendation |

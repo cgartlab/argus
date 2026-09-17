@@ -123,6 +123,12 @@ def main() -> int:
     parser.add_argument("--dir", default=None, metavar="PATH", help="Review every frontend file under PATH")
     parser.add_argument("--ignore", action="append", default=[], metavar="GLOB",
                         help="Skip files whose path contains GLOB (repeatable)")
+    parser.add_argument("--mode", default="auto", choices=["auto", "static", "llm"],
+                        help="Review mode: auto (complexity routing — small files static, "
+                             "large files LLM), static (heuristic scanner only), "
+                             "llm (OpenCode CLI, falls back to static if absent) (default: auto)")
+    parser.add_argument("--min-lines", type=int, default=200, metavar="N",
+                        help="In auto mode, files with <= N lines are reviewed statically (default: 200)")
     args = parser.parse_args()
 
     if not args.paths and not args.dir:
@@ -138,6 +144,13 @@ def main() -> int:
 
     all_findings: list[dict] = []
     print(f"Argus review — {len(files)} file(s), stack={args.stack}, model={model}\n")
+    opencode_ok = rft._find_opencode() is not None
+
+    def _run_llm(f: Path) -> str:
+        return rft.run_argus_on_fixture(f, model=model, verbose=False,
+                                        fallback_models=fallback,
+                                        token_system=args.stack)
+
     for f in files:
         try:
             rel = f.resolve().relative_to(REPO_ROOT)
@@ -145,12 +158,27 @@ def main() -> int:
             rel = f
         print(f"── {rel} ──")
         try:
-            output = rft.run_argus_on_fixture(f, model=model, verbose=False,
-                                              fallback_models=fallback,
-                                              token_system=args.stack)
+            if args.mode == "static":
+                output = rft._static_heuristic_scan(f)
+                routed = "static (forced)"
+            elif not opencode_ok:
+                output = rft._static_heuristic_scan(f)
+                routed = "static (no opencode CLI)"
+            elif args.mode == "llm":
+                output = _run_llm(f)
+                routed = "llm (forced)"
+            else:  # auto — complexity routing (small files static, large files LLM)
+                line_count = len(f.read_text(encoding="utf-8", errors="ignore").splitlines())
+                if line_count > args.min_lines:
+                    output = _run_llm(f)
+                    routed = f"llm (complexity: {line_count} lines > {args.min_lines})"
+                else:
+                    output = rft._static_heuristic_scan(f)
+                    routed = f"static (complexity: {line_count} lines <= {args.min_lines})"
         except Exception as exc:  # never let one file abort the run
             print(f"  [error] {exc}")
             continue
+        print(f"  [{routed}]")
         print(output)
         print()
         all_findings.extend(parse_findings(output, str(rel)))

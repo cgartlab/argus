@@ -3,6 +3,8 @@
 ### Added
 
 - **Local review CLI** — `tools/argus_review.py` reviews frontend files with the exact same rules as the GitHub App / composite action, anywhere Python runs: OpenCode CLI when installed, static heuristic scanner otherwise (no API key needed). `make review FILE=...` convenience target; `--stack` / `--model` / `--dir` / `--ignore`; `--json` emits a structured findings report (the payload a future report-link / CI-comment service consumes).
+- **GitLab MR review (second platform)** — `.gitlab/argus-review.yml` is an include template any `.gitlab-ci.yml` can pull: it clones cgartlab/argus, runs `tools/argus_review.py` on the MR's changed frontend files, and posts the review as an MR note (runner: `.gitlab/argus-review.sh`, testable with `ARGUS_DRY_RUN=1`).
+- **Complexity routing (cost control)** — `tools/argus_review.py --mode auto` routes each file by size: ≤ `--min-lines` (default 200) → static heuristic scanner (free), larger → LLM; `--mode static|llm` force either path.
 
 ### Changed
 

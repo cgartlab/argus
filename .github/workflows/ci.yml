@@ -68,6 +68,8 @@ jobs:
             tools/check_release.py
             tools/publish_skillhub.py
             tools/argus_review.py
+            .gitlab/argus-review.yml
+            .gitlab/argus-review.sh
             config/free-models.yml
             docs/argus-config-schema.md
             .github/actions/argus-review/action.yml

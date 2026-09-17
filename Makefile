@@ -54,6 +54,7 @@ validate:
 	           tools/update_free_models.py tools/bump_version.py \
 	           tools/validate_versioning.py tools/validate_model_scores.py \
 	           tools/check_release.py tools/publish_skillhub.py tools/argus_review.py \
+	           .gitlab/argus-review.yml .gitlab/argus-review.sh \
 	           config/free-models.yml \
 	           docs/argus-config-schema.md \
 	           .github/actions/argus-review/action.yml \

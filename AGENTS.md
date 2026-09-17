@@ -49,6 +49,8 @@ argus/
 │   ├── check_release.py               # Release gate (tag vs VERSION, dup/older-version refusal)
 │   ├── validate_versioning.py         # VERSION / CHANGELOG consistency check
 │   └── argus_review.py                # Local review CLI (same rules, runs anywhere)
+├── .gitlab/
+│   └── argus-review.yml               # GitLab MR review template (second platform)
 ├── config/
 │   └── free-models.yml                # Auto-refreshed fallback model queue (weekly, reviewable PR)
 ├── .github/
@@ -83,6 +85,7 @@ argus/
 | False-positive benchmarks | `tests/fixtures/false-positives/` | Code that must NOT be flagged; mirror pairs in should-flag/ |
 | Fixture runner | `tools/run_fixture_tests.py` | `make test-fixtures` or directly |
 | Local review CLI | `tools/argus_review.py` | `make review FILE=...` — same rules, local/static or LLM |
+| GitLab MR review | `.gitlab/argus-review.yml` + `.gitlab/argus-review.sh` | Second-platform template; `include:` it in any `.gitlab-ci.yml` |
 | CI pipeline | `.github/workflows/ci.yml` | Lint + tool validation + fixture tests |
 | PR review automation | `.github/workflows/review.yml` | Triggers argus-flash App |
 | Release automation | `.github/workflows/release.yml` | Tag-push → validates → packages → GitHub Release |
