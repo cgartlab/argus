@@ -69,6 +69,7 @@ jobs:
             tools/publish_skillhub.py
             tools/validate_argus_schema.py
             tools/argus_rules.py
+            tools/argus_webhook.py
             config/free-models.yml
             config/argus-config.schema.json
             config/argus.example.yml
@@ -111,6 +112,7 @@ jobs:
           python3 -m py_compile tools/publish_skillhub.py && echo "publish_skillhub.py: ok"
           python3 -m py_compile tools/validate_argus_schema.py && echo "validate_argus_schema.py: ok"
           python3 -m py_compile tools/argus_rules.py && echo "argus_rules.py: ok"
+          python3 -m py_compile tools/argus_webhook.py && echo "argus_webhook.py: ok"
 
       - name: Validate free model list (config/free-models.yml)
         run: |

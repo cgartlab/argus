@@ -49,7 +49,8 @@ argus/
 │   ├── check_release.py               # Release gate (tag vs VERSION, dup/older-version refusal)
 │   ├── validate_versioning.py         # VERSION / CHANGELOG consistency check
 │   ├── validate_argus_schema.py       # .argus.yml JSON Schema validator (zero-dep subset)
-│   └── argus_rules.py                 # Team-defined custom rules engine (rule DSL)
+│   ├── argus_rules.py                 # Team-defined custom rules engine (rule DSL)
+│   └── argus_webhook.py               # Forward findings reports to a webhook (public API)
 ├── config/
 │   ├── free-models.yml                # Auto-refreshed fallback model queue (weekly, reviewable PR)
 │   ├── argus-config.schema.json       # .argus.yml JSON Schema (draft-07, editor/CI validation)
@@ -86,6 +87,7 @@ argus/
 | Config loader | `tools/load_config.py` | Merges defaults + consumer `.argus.yml` |
 | Config schema | `config/argus-config.schema.json` + `tools/validate_argus_schema.py` | JSON Schema (draft-07) + zero-dep validator; `make validate-schema` |
 | Custom rules | `config/argus-rules.schema.json` + `tools/argus_rules.py` | Team rule DSL; `make validate-rules`; ref in `docs/argus-rules.md` |
+| Webhook API | `tools/argus_webhook.py` | Forward findings reports to a webhook (`make webhook-send REPORT=... URL=...`) |
 | Fixture test suite | `tests/fixtures/` | Regression tests for review rules |
 | False-positive benchmarks | `tests/fixtures/false-positives/` | Code that must NOT be flagged; mirror pairs in should-flag/ |
 | Fixture runner | `tools/run_fixture_tests.py` | `make test-fixtures` or directly |
@@ -249,6 +251,7 @@ make bump-major       # Bump MAJOR version (0.3.0 → 1.0.0)
 make validate         # Run SKILL.md trigger phrase check + CHANGELOG + versioning + action.yml
 make validate-schema  # Validate argus-config.schema.json + example .argus.yml conformance
 make validate-rules   # Validate argus-rules.schema.json + example custom rules
+make webhook-send REPORT=... URL=... # Forward a findings report to a webhook (tools/argus_webhook.py)
 make test-fixtures    # Run fixture regression tests (static heuristic mode, no API key needed)
 make test-fixtures-llm # Run fixture tests in LLM mode (model read from config/free-models.yml primary)
 make test             # validate + test-fixtures (full pre-release check)

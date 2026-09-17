@@ -5,6 +5,7 @@
 - **`.argus.yml` JSON Schema** — `config/argus-config.schema.json` (draft-07) for editor autocomplete and CI validation; `tools/validate_argus_schema.py` is a zero-dependency subset validator. `make validate-schema` checks the schema file and validates `config/argus.example.yml`.
 - **Config parser hardening** — the `tools/load_config.py` minimal YAML fallback (used when PyYAML is unavailable) now handles arbitrary-depth nesting, inline lists (`[a, b]`), and bool/int scalar coercion; config `version` `"0.4"` is accepted (and is the new default), aligning docs with code.
 - **Custom rules (rule DSL)** — `config/argus-rules.schema.json` (draft-07) + `tools/argus_rules.py`: teams define their own review rules (custom token mappings, banned patterns) as `"<id>|<severity>|<match>|<message>|<token>|<files>"` entries, validate them (`--validate`, zero-dep engine) and apply them to files (`apply`, standard Argus output + `--json`). Reference: `docs/argus-rules.md`; example: `config/argus-rules.example.yml`.
+- **Webhook forwarding (public API)** — `tools/argus_webhook.py` POSTs a findings report to any HTTP endpoint (`POST application/json`, optional `Authorization: Bearer`); `--dry-run` prints the request without sending; `make webhook-send REPORT=... URL=...`.
 
 ### Changed
 
