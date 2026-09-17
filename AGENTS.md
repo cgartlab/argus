@@ -47,7 +47,9 @@ argus/
 │   ├── update_free_models.py          # Refresh config/free-models.yml from live OpenCode Zen API (ranked)
 │   ├── bump_version.py                # Automated semver bumping
 │   ├── check_release.py               # Release gate (tag vs VERSION, dup/older-version refusal)
-│   └── validate_versioning.py         # VERSION / CHANGELOG consistency check
+│   ├── validate_versioning.py         # VERSION / CHANGELOG consistency check
+│   ├── publish_skillhub.py            # SkillHub publish prep (extract + frontmatter validate)
+│   └── publish_clawhub.py             # ClawHub publish prep (extract + frontmatter validate)
 ├── config/
 │   └── free-models.yml                # Auto-refreshed fallback model queue (weekly, reviewable PR)
 ├── .github/
@@ -57,7 +59,8 @@ argus/
 │   │   ├── release.yml                # Automated release workflow (tag-push triggers)
 │   │   ├── update-free-models.yml     # Weekly scheduled refresh (reviewable PR)
 │   │   ├── pr-automation.yml          # Auto-label/assign/project on PR open
-│   │   └── deploy-site.yml            # Build + deploy site/ to GitHub Pages
+│   │   ├── deploy-site.yml            # Build + deploy site/ to GitHub Pages
+│   │   └── skills-sh-submit.yml       # Manual: submit skills.sh index request (vercel-labs/skills issue)
 │   ├── tokens/                        # Design-token mappings (antd5/material3/polaris/custom)
 │   └── actions/
 │       └── argus-review/
@@ -85,6 +88,10 @@ argus/
 | PR review automation | `.github/workflows/review.yml` | Triggers argus-flash App |
 | Release automation | `.github/workflows/release.yml` | Tag-push → validates → packages → GitHub Release |
 | Release gate | `tools/check_release.py` | `--expect-unreleased` in `make release`; `--expect-released` in daily `release-check.yml` |
+| SkillHub publish prep | `tools/publish_skillhub.py` | Extract skill zip + validate SkillHub frontmatter (`make prepare-skillhub`) |
+| ClawHub publish prep | `tools/publish_clawhub.py` | Extract skill zip + validate ClawHub frontmatter (`make prepare-clawhub`) |
+| ClawHub auto-publish | `release.yml` `clawhub` job | Publishes to ClawHub when `CLAWHUB_TOKEN` secret + `vars.CLAWHUB_OWNER` variable are set |
+| skills.sh index request | `.github/workflows/skills-sh-submit.yml` | Manual dispatch: ensure topics + file `vercel-labs/skills` index issue (needs `SKILLS_SH_GH_TOKEN` PAT) |
 | Reusable review action | `.github/actions/argus-review/action.yml` | Dynamic rule + config injection |
 | Free model config | `config/free-models.yml` | Single source of truth for fallback model queue |
 | Free model updater | `tools/update_free_models.py` | Refreshes config from live OpenCode Zen API (ranked) |
@@ -245,6 +252,8 @@ make test             # validate + test-fixtures (full pre-release check)
 make release          # release-gate → verify → tag → push (triggers release workflow)
 make package-skill    # Create skill package only (argus-skill-v{VERSION}.zip)
 make package          # Create all release archives (full + skill package)
+make prepare-skillhub # Prepare SkillHub publish directory (extract + validate frontmatter)
+make prepare-clawhub  # Prepare ClawHub publish directory (extract + validate frontmatter)
 make clean            # Remove dist/
 cd site && npm run build  # Build marketing site (site/ subproject)
 ```
@@ -259,4 +268,4 @@ cd site && npm run build  # Build marketing site (site/ subproject)
 - **Composite action** — `.github/actions/argus-review/action.yml` wraps OpenCode CLI + rule injection + config loading. Referenced as `cgartlab/argus/.github/actions/argus-review@main` from any repo.
 - **Version bumping** — run `make bump-patch` (or bump-minor/bump-major), fill in the new CHANGELOG section, commit (`chore(release): prepare vX.Y.Z`), then `make test && make release`. `make release` refuses duplicate/older releases and requires version files committed; the daily `Release Check` workflow fails when `VERSION` is bumped without a tag.
 - **Fixture tests** — run without an API key in static heuristic mode; full LLM mode reads the primary model from `config/free-models.yml` (requires `OPENCODE_API_KEY` for `opencode/` providers).
-- **Release workflow** — pushing a `v*.*.*` tag triggers `.github/workflows/release.yml` which validates versioning, builds packages, publishes a GitHub Release with both the full archive and the skill package (`argus-skill-v{VERSION}.zip`), then publishes the skill package to SkillHub when `SKILLHUB_API_KEY` is configured.
+- **Release workflow** — pushing a `v*.*.*` tag triggers `.github/workflows/release.yml` which validates versioning, builds packages, publishes a GitHub Release with both the full archive and the skill package (`argus-skill-v{VERSION}.zip`), then publishes the skill package to SkillHub when `SKILLHUB_API_KEY` is configured, and to ClawHub when the `CLAWHUB_TOKEN` secret + `vars.CLAWHUB_OWNER` variable are set. skills.sh indexing is a separate one-time manual step via `skills-sh-submit.yml` (files an issue in `vercel-labs/skills`, needs a `SKILLS_SH_GH_TOKEN` PAT).

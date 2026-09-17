@@ -59,6 +59,18 @@ Pushing a `v*.*.*` tag triggers `.github/workflows/release.yml` which:
 3. Builds skill package (`dist/argus-skill-v{VERSION}.zip`)
 4. Creates a GitHub Release with all artifacts
 5. Publishes the same skill package to SkillHub when `SKILLHUB_API_KEY` is configured
+6. Publishes the skill package to ClawHub when `CLAWHUB_TOKEN` secret + `CLAWHUB_OWNER` variable are set
+
+skills.sh indexing is a separate one-time manual step: run the **skills.sh Index Request** workflow (Actions tab → "Run workflow") after a release is public. It ensures discovery topics on this repo and files an index-request issue in `vercel-labs/skills` (needs a `SKILLS_SH_GH_TOKEN` PAT with `repo` scope; without it, only topics are synced).
+
+### Multi-Registry Secrets/Variables
+
+| Name | Kind | Purpose |
+|---|---|---|
+| `SKILLHUB_API_KEY` | secret | SkillHub auto-publish (`release.yml` skillhub job) |
+| `CLAWHUB_TOKEN` | secret | ClawHub auto-publish (`release.yml` clawhub job); a `clh_...` API token |
+| `CLAWHUB_OWNER` | variable | ClawHub owner handle (org/personal); publishes as `@<owner>/argus-design-review` |
+| `SKILLS_SH_GH_TOKEN` | secret | PAT with `repo` scope, for the cross-org `vercel-labs/skills` index issue |
 
 ## Branch Naming
 
@@ -75,4 +87,5 @@ Pushing a `v*.*.*` tag triggers `.github/workflows/release.yml` which:
 - [ ] No emoji decorations in prose
 - [ ] SKILL.md description has 3+ trigger phrases
 - [ ] SKILL.md has SkillHub frontmatter: `slug`, `displayName`, `version`, `description`
+- [ ] SKILL.md has ClawHub-required frontmatter: `name` (kebab), `description`, `version`
 - [ ] New review rules have severity assigned with rationale
