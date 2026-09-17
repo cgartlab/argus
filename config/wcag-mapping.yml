@@ -1,0 +1,20 @@
+# WCAG 2.2 success-criterion mapping for Argus a11y findings.
+#
+# Consumed by tools/argus_report.py --wcag to annotate findings with their
+# governing success criterion and produce a compliance summary.
+#
+# Format (per entry): "<keyword>|<SC>|<level>|<name>"
+#   keyword — case-insensitive substring of the finding description; the
+#             first match wins, so order matters (specific before broad).
+#   SC      — WCAG 2.2 success criterion id (e.g. 2.5.8)
+#   level   — A or AA conformance level
+#   name    — short criterion name
+criteria:
+  - "touch target|2.5.8|AA|Target Size (Minimum)"
+  - "alt|1.1.1|A|Non-text Content"
+  - "aria-label|4.1.2|A|Name, Role, Value"
+  - "button|4.1.2|A|Name, Role, Value"
+  - "contrast|1.4.3|AA|Contrast (Minimum)"
+  - "focus|2.4.7|AA|Focus Visible"
+  - "lang|3.1.1|A|Language of Page"
+  - "heading|1.3.1|A|Info and Relationships"

@@ -149,6 +149,21 @@ python3 tools/argus_report.py review.json --out report.html --title "Checkout UI
 
 This is the artifact a future hosted report-link / Pro hook will serve.
 
+### WCAG 2.2 Compliance Reports
+
+`argus_report.py --wcag` annotates each a11y finding with its governing WCAG
+2.2 success criterion (mapping: `config/wcag-mapping.yml`) and adds a
+**WCAG 2.2 Compliance Summary** to the report — unique criteria covered,
+A/AA counts, and per-criterion finding counts — for compliance handoff:
+
+```bash
+python3 tools/argus_review.py src/ --json review.json
+python3 tools/argus_report.py review.json --wcag --out compliance.html
+```
+
+Findings that don't map to a criterion (e.g. bare colors) get no badge and no
+summary section, so reports stay focused.
+
 ## GitLab Integration (Second Platform)
 
 GitLab MRs get the same review via an include template — proving the

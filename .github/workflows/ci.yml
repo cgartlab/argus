@@ -72,6 +72,7 @@ jobs:
             .gitlab/argus-review.yml
             .gitlab/argus-review.sh
             config/free-models.yml
+            config/wcag-mapping.yml
             docs/argus-config-schema.md
             .github/actions/argus-review/action.yml
             .github/workflows/update-free-models.yml

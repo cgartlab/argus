@@ -53,7 +53,8 @@ argus/
 ├── .gitlab/
 │   └── argus-review.yml               # GitLab MR review template (second platform)
 ├── config/
-│   └── free-models.yml                # Auto-refreshed fallback model queue (weekly, reviewable PR)
+│   ├── free-models.yml                # Auto-refreshed fallback model queue (weekly, reviewable PR)
+│   └── wcag-mapping.yml               # WCAG 2.2 SC mapping for a11y findings (--wcag reports)
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml                     # Lint + tool validation + fixture tests
@@ -87,6 +88,7 @@ argus/
 | Fixture runner | `tools/run_fixture_tests.py` | `make test-fixtures` or directly |
 | Local review CLI | `tools/argus_review.py` | `make review FILE=...` — same rules, local/static or LLM |
 | HTML report | `tools/argus_report.py` | Findings JSON → shareable static HTML (`make report JSON=...`) |
+| WCAG compliance | `config/wcag-mapping.yml` + `tools/argus_report.py --wcag` | Annotates a11y findings with WCAG 2.2 SC + compliance summary |
 | GitLab MR review | `.gitlab/argus-review.yml` + `.gitlab/argus-review.sh` | Second-platform template; `include:` it in any `.gitlab-ci.yml` |
 | CI pipeline | `.github/workflows/ci.yml` | Lint + tool validation + fixture tests |
 | PR review automation | `.github/workflows/review.yml` | Triggers argus-flash App |
