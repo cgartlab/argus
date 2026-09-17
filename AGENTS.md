@@ -47,7 +47,8 @@ argus/
 │   ├── update_free_models.py          # Refresh config/free-models.yml from live OpenCode Zen API (ranked)
 │   ├── bump_version.py                # Automated semver bumping
 │   ├── check_release.py               # Release gate (tag vs VERSION, dup/older-version refusal)
-│   └── validate_versioning.py         # VERSION / CHANGELOG consistency check
+│   ├── validate_versioning.py         # VERSION / CHANGELOG consistency check
+│   └── add_fp_appeal.py               # File a false-positive appeal as a regression fixture
 ├── config/
 │   └── free-models.yml                # Auto-refreshed fallback model queue (weekly, reviewable PR)
 ├── .github/
@@ -80,6 +81,7 @@ argus/
 | Config loader | `tools/load_config.py` | Merges defaults + consumer `.argus.yml` |
 | Fixture test suite | `tests/fixtures/` | Regression tests for review rules |
 | False-positive benchmarks | `tests/fixtures/false-positives/` | Code that must NOT be flagged; mirror pairs in should-flag/ |
+| FP appeal loop | `tools/add_fp_appeal.py` | File a false positive as a regression fixture; detects real FPs via the static scanner |
 | Fixture runner | `tools/run_fixture_tests.py` | `make test-fixtures` or directly |
 | CI pipeline | `.github/workflows/ci.yml` | Lint + tool validation + fixture tests |
 | PR review automation | `.github/workflows/review.yml` | Triggers argus-flash App |

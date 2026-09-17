@@ -1,3 +1,18 @@
+## [Unreleased]
+
+### Added
+
+- **False-positive appeal loop** — `tools/add_fp_appeal.py` turns a "this isn't a bug" report into a permanent zero-expectation regression fixture under `tests/fixtures/false-positives/` (with `[must-not-flag]` guards) and runs the static scanner to detect real false positives.
+- **Fixed a real false positive found by the appeal loop** — the static scanner no longer flags `filter: drop-shadow(... rgba ...)` as a bare color; shadow colors (`box-shadow` / `text-shadow` / `filter: drop-shadow`) are exempt. Guarded by the new `drop-shadow-color` appeal fixture.
+
+### Changed
+
+### Fixed
+
+### Removed
+
+---
+
 ## [0.5.6] — 2026-09-12
 
 ### Added

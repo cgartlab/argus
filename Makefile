@@ -52,7 +52,7 @@ validate:
 	           tools/run_fixture_tests.py tools/load_config.py \
 	           tools/update_free_models.py tools/bump_version.py \
 	           tools/validate_versioning.py tools/validate_model_scores.py \
-	           tools/check_release.py tools/publish_skillhub.py \
+	           tools/check_release.py tools/publish_skillhub.py tools/add_fp_appeal.py \
 	           config/free-models.yml \
 	           docs/argus-config-schema.md \
 	           .github/actions/argus-review/action.yml \
@@ -68,6 +68,7 @@ validate:
 	@python3 -m py_compile tools/validate_model_scores.py && echo "validate_model_scores.py ok"
 	@python3 -m py_compile tools/check_release.py && echo "check_release.py ok"
 	@python3 -m py_compile tools/publish_skillhub.py && echo "publish_skillhub.py ok"
+	@python3 -m py_compile tools/add_fp_appeal.py && echo "add_fp_appeal.py ok"
 	@echo "── Validate: free model list ──"
 	@python3 tools/update_free_models.py --check
 	@echo "── Validate: model-scores.yml schema ──"

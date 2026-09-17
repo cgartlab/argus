@@ -75,4 +75,5 @@ Pushing a `v*.*.*` tag triggers `.github/workflows/release.yml` which:
 - [ ] No emoji decorations in prose
 - [ ] SKILL.md description has 3+ trigger phrases
 - [ ] SKILL.md has SkillHub frontmatter: `slug`, `displayName`, `version`, `description`
+- [ ] FP appeals are filed via `tools/add_fp_appeal.py` (creates the false-positives fixture pair + scanner check)
 - [ ] New review rules have severity assigned with rationale

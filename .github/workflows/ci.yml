@@ -67,6 +67,7 @@ jobs:
             tools/validate_model_scores.py
             tools/check_release.py
             tools/publish_skillhub.py
+            tools/add_fp_appeal.py
             config/free-models.yml
             docs/argus-config-schema.md
             .github/actions/argus-review/action.yml
@@ -102,6 +103,7 @@ jobs:
           python3 -m py_compile tools/validate_model_scores.py && echo "validate_model_scores.py: ok"
           python3 -m py_compile tools/check_release.py && echo "check_release.py: ok"
           python3 -m py_compile tools/publish_skillhub.py && echo "publish_skillhub.py: ok"
+          python3 -m py_compile tools/add_fp_appeal.py && echo "add_fp_appeal.py: ok"
 
       - name: Validate free model list (config/free-models.yml)
         run: |

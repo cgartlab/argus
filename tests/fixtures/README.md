@@ -102,6 +102,33 @@ python3 tools/run_fixture_tests.py --verbose
 4. If Argus output diverges from expected, update either the fixture or the `.expected` file
    and document the change in `CHANGELOG.md`.
 
+## Filing a False-Positive Appeal
+
+Found a finding on **legally correct code** (a false positive)? The appeal loop
+turns it into a permanent regression guard:
+
+1. Save the offending snippet to a temp file.
+2. Run the appeal tool:
+
+   ```bash
+   python3 tools/add_fp_appeal.py --name <kebab-name> \
+     --file /tmp/snippet.css \
+     --reason "why this code is legal" \
+     --forbidden "<construct that must never be flagged>"
+   ```
+
+3. The tool creates a zero-expectation fixture pair under
+   `tests/fixtures/false-positives/` and runs the static scanner on it:
+   - **exit 0** — scanner is clean; commit the fixture pair.
+   - **exit 1** — the scanner still flags it → **real false positive**: fix the
+     rule / exemption (see SKILL.md non-blocking context), then re-run
+     `python3 tools/run_fixture_tests.py --fixture tests/fixtures/false-positives/<name>.<ext>`.
+
+Example: `drop-shadow-color.css` was filed because the static scanner flagged
+`filter: drop-shadow(... rgba ...)` as a bare color — shadow colors are legal
+values. The exemption now covers `filter` + `drop-shadow`, and the fixture
+guards it from regressing.
+
 ## CI Integration
 
 The fixture test suite runs as the `fixture-test` job in `.github/workflows/ci.yml`.
