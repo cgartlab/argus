@@ -335,3 +335,31 @@ design-system: antd5
 5. If `.argus.yml` contains validation errors, the action fails immediately with a clear error message.
 
 > **Tip:** Run `python3 tools/load_config.py --validate-only` locally (from your repo root, pointing to the Argus tools directory) to validate your config before pushing.
+
+---
+
+## JSON Schema & Editor Integration
+
+A machine-readable JSON Schema lives at [`config/argus-config.schema.json`](../config/argus-config.schema.json) (JSON Schema draft-07). Use it for:
+
+- **IDE/editor validation & autocomplete** — point your editor at the schema. Example for VS Code (`settings.json`):
+
+  ```json
+  {
+    "yaml.schemas": {
+      "https://argus.cgartlab.com/schemas/argus-config.schema.json": [".argus.yml"]
+    }
+  }
+  ```
+
+- **CI / local validation** — the repo ships a zero-dependency validator (no `jsonschema` install needed):
+
+  ```bash
+  # Validate your config against the schema
+  python3 tools/validate_argus_schema.py --config .argus.yml
+
+  # Validate the repo's example config + schema file
+  make validate-schema
+  ```
+
+The schema mirrors `tools/load_config.py`'s runtime validation (types, enums, unknown-key rejection, bounds). `load_config.py` additionally enforces semantic rules the schema cannot express — e.g. the P0/P1 core rules (`dark-mode-coverage`, `bare-color`, `missing-alt`, `button-aria-label`) cannot be downgraded.

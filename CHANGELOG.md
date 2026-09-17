@@ -1,3 +1,18 @@
+## [Unreleased]
+
+### Added
+
+- **`.argus.yml` JSON Schema** — `config/argus-config.schema.json` (draft-07) for editor autocomplete and CI validation; `tools/validate_argus_schema.py` is a zero-dependency subset validator. `make validate-schema` checks the schema file and validates `config/argus.example.yml`.
+- **Config parser hardening** — the `tools/load_config.py` minimal YAML fallback (used when PyYAML is unavailable) now handles arbitrary-depth nesting, inline lists (`[a, b]`), and bool/int scalar coercion; config `version` `"0.4"` is accepted (and is the new default), aligning docs with code.
+
+### Changed
+
+### Fixed
+
+### Removed
+
+---
+
 ## [0.5.6] — 2026-09-12
 
 ### Added

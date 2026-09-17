@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -39,7 +40,7 @@ except ImportError:
 # ── Default configuration ─────────────────────────────────────────────────────
 
 DEFAULTS: dict[str, Any] = {
-    "version": "0.3",
+    "version": "0.4",
     "design-system": "auto",
     "skills": ["design-review"],
     "overrides": {
@@ -65,7 +66,7 @@ DEFAULTS: dict[str, Any] = {
 VALID_SKILLS = {"design-review", "security-review", "api-contract", "performance", "infrastructure"}
 VALID_SEVERITIES = {"P0", "P1", "P2", "P3"}
 VALID_DESIGN_SYSTEMS = {"auto", "antd5", "material3", "polaris", "custom"}
-SUPPORTED_VERSIONS = {"0.2", "0.3"}
+SUPPORTED_VERSIONS = {"0.2", "0.3", "0.4"}
 
 # P0/P1 core rules that cannot be downgraded via overrides.severity.
 # Consistent with AGENTS.md "Severity never downgraded" and the SKILL.md
@@ -118,59 +119,89 @@ def load_raw_yaml(config_path: Path) -> dict:
 def _minimal_yaml_parse(content: str) -> dict:
     """
     Minimal YAML parser for .argus.yml when PyYAML is unavailable.
-    Handles: top-level keys, string values, simple lists, one-level nesting.
-    Does NOT handle multi-line strings, anchors, or complex nesting.
+
+    Handles: top-level keys, string / bool / int scalar values, quoted
+    strings, inline lists ([a, b]), dash-list items (- item), and
+    arbitrary-depth nesting via indentation.
+    Does NOT handle anchors, multi-line strings, or flow mappings ({...}).
+
+    Stack entries are (indent, container, owner_dict, owner_key) so a block
+    that turns out to be a dash list can be converted in its owner.
     """
-    result: dict = {}
-    current_key: str | None = None
-    current_list: list | None = None
-    indent_stack: list[tuple[int, str, dict]] = []  # (indent, key, parent_dict)
-    current_dict = result
+
+    def coerce(value: str) -> Any:
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+            return value[1:-1]
+        low = value.lower()
+        if low == "true":
+            return True
+        if low == "false":
+            return False
+        if re.fullmatch(r"-?\d+", value):
+            return int(value)
+        return value
+
+    def parse_value(value: str) -> Any:
+        value = value.strip()
+        if value.startswith("[") and value.endswith("]"):
+            inner = value[1:-1].strip()
+            return [coerce(part) for part in inner.split(",")] if inner else []
+        return coerce(value)
+
+    root: dict = {}
+    # (indent, container, owner_dict, owner_key)
+    stack: list[tuple[int, Any, dict | None, str | None]] = [(-1, root, None, None)]
 
     for raw in content.splitlines():
-        if raw.strip().startswith("#") or not raw.strip():
+        if not raw.strip() or raw.strip().startswith("#"):
             continue
-
         indent = len(raw) - len(raw.lstrip())
         line = raw.strip()
 
-        # List item
+        # Pop containers that are at or deeper than this line's indent.
+        while len(stack) > 1 and stack[-1][0] >= indent:
+            stack.pop()
+
+        container = stack[-1][1]
+
         if line.startswith("- "):
-            value = line[2:].strip().strip('"').strip("'")
-            if current_list is None:
-                current_list = []
-                if current_key:
-                    current_dict[current_key] = current_list
-            current_list.append(value)
-            continue
-        else:
-            current_list = None
-
-        # Key: value
-        if ":" in line:
-            key, _, value = line.partition(":")
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
-
-            # Handle indented nesting (one level)
-            if indent > 0 and indent_stack:
-                parent_indent, parent_key, parent_dict = indent_stack[-1]
-                if indent > parent_indent:
-                    current_dict = parent_dict.setdefault(parent_key, {})
+            item = parse_value(line[2:])
+            cur_indent, cur, owner, owner_key = stack[-1]
+            if isinstance(cur, list):
+                cur.append(item)
+            elif isinstance(cur, dict) and not cur and owner is not None:
+                # A block that turned out to be a dash list → convert in owner.
+                lst = [item]
+                owner[owner_key] = lst  # type: ignore[index]
+                stack[-1] = (cur_indent, lst, owner, owner_key)
+            elif isinstance(cur, dict):
+                # Dash item in a dict scope: append to the last list value if any.
+                last_key = next(reversed(cur)) if cur else None
+                if last_key is not None and isinstance(cur[last_key], list):
+                    cur[last_key].append(item)
                 else:
-                    indent_stack.pop()
-                    current_dict = result
+                    continue  # malformed for the minimal parser — ignore
+            continue
 
-            if value:
-                current_dict[key] = value
-                current_key = None
-            else:
-                # Nested block
-                current_key = key
-                indent_stack.append((indent, key, current_dict))
-                current_list = None
+        if ":" not in line:
+            continue
+        key, _, value = line.partition(":")
+        key = key.strip()
+        value = value.strip()
 
-    return result
+        if value:
+            if isinstance(container, dict):
+                container[key] = parse_value(value)
+            continue
+
+        # Nested block (no value after the colon).
+        if isinstance(container, dict):
+            new_block: dict = {}
+            container[key] = new_block
+            stack.append((indent, new_block, container, key))
+
+    return root
 
 
 def validate_config(config: dict) -> list[str]:

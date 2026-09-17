@@ -67,7 +67,10 @@ jobs:
             tools/validate_model_scores.py
             tools/check_release.py
             tools/publish_skillhub.py
+            tools/validate_argus_schema.py
             config/free-models.yml
+            config/argus-config.schema.json
+            config/argus.example.yml
             docs/argus-config-schema.md
             .github/actions/argus-review/action.yml
             .github/workflows/update-free-models.yml
@@ -102,6 +105,7 @@ jobs:
           python3 -m py_compile tools/validate_model_scores.py && echo "validate_model_scores.py: ok"
           python3 -m py_compile tools/check_release.py && echo "check_release.py: ok"
           python3 -m py_compile tools/publish_skillhub.py && echo "publish_skillhub.py: ok"
+          python3 -m py_compile tools/validate_argus_schema.py && echo "validate_argus_schema.py: ok"
 
       - name: Validate free model list (config/free-models.yml)
         run: |
@@ -131,6 +135,12 @@ jobs:
           EOF
           python3 tools/load_config.py --config /tmp/test-argus.yml --validate-only
           echo "load_config with example .argus.yml: ok"
+
+      - name: Validate .argus.yml JSON schema + example config
+        run: |
+          python3 tools/validate_argus_schema.py --check-schema
+          python3 tools/validate_argus_schema.py --config config/argus.example.yml
+          echo "argus-config.schema.json: valid JSON + example conforms"
 
       - name: Report release state (VERSION vs tags on origin)
         run: |
