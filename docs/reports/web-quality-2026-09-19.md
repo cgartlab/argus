@@ -115,7 +115,7 @@
 
 ## P3 — Low Priority
 
-✓ **No issues found.** (Dimensions 3–12 not yet audited — see Progress)
+✓ **No issues found.** (Dimensions 4–12 not yet audited — see Progress. Dimension 3 (!important): 9 instances found, all legitimate — see Dimension table.)
 
 ---
 
@@ -125,7 +125,7 @@
 |---|-----------|--------|----------|
 | 1 | 断链 (broken links) | ✓ Done | 0 broken internal links; all 8 internal routes verified against page files and content collection. 16 external links verified for format. |
 | 2 | 空实现 (empty href="#") | ✓ Done | 0 `href="#"` found. `#main` (BaseLayout.astro:41→43) and `/#capabilities` (site.ts→CapabilityList.astro:11) are valid in-page anchors. |
-| 3 | !important | ⏳ Pending | — |
+| 3 | !important | ✓ Done | 0 findings. 9 `!important` instances found: 3 in global.css:143-145 (inside `@media (prefers-reduced-motion: reduce)` — WCAG 2.3.3 best practice for accessibility) and 6 in CodeBlock.astro:86-91 (overriding Shiki's `.astro-code` third-party styles via `:global()` — documented exception). Both are legitimate, documented uses. |
 | 4 | 裸色值 (bare color values) | ⏳ Pending | — |
 | 5 | 标题层级 (heading hierarchy) | ⏳ Pending | — |
 | 6 | 对比度 (contrast) | ⏳ Pending | — |
@@ -142,7 +142,7 @@
 
 | Cluster | Status | Scope checked |
 |---------|--------|---------------|
-| 样式代码 | ⏳ Pending | — |
+| 样式代码 | ⏳ Partial | !important: 9 instances, all legitimate (reduced-motion + Shiki override). Remaining: bare color values, inline styles, dead code, breakpoint consistency, dark-mode token consistency, long-text layout. |
 | 信息排版 | ⏳ Pending | — |
 | 元素一致性 | ⏳ Pending | — |
 | 交互体验 | ⏳ Pending | — |
