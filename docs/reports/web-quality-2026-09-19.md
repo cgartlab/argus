@@ -317,7 +317,7 @@
 | 4 | 裸色值 (bare color values) | ✓ Done | 0 findings. 29 matches for hex/rgb/rgba/hsl/hsla across all `.astro`, `.css`, `.ts`, `.mjs`, `.js` files in `site/src/` and `site/`. All matches are: (a) design token definitions in global.css `:root` (lines 3-19) and `[data-theme="dark"]` (lines 74-89) — excluded per constraint "不报令牌中的裸值定义"; (b) `rgba(var(--color-...-rgb), alpha)` pattern in Hero.astro (lines 53,54,68-70,76,86) — references design tokens with variable alpha, not bare values; (c) JS fallback constants in DigitalWater.astro (lines 158-160) — canvas rendering fallbacks, not CSS; (d) description string in content.ts:12 — text describing what Argus detects, not actual color values. |
 | 5 | 标题层级 (heading hierarchy) | ✓ Done | 0 findings. 26 `<h[1-6]>` matches across 13 `.astro` files + 95 `^#{1,6}\s` matches across 8 `.md` content files. All 5 pages (index, docs/index, docs/[...slug], legal, 404) have exactly one `<h1>`. No heading level skips: hierarchy is always h1→h2→h3 (no h1→h3, no h2→h4, etc.). Code-block comments in configuration.md (lines 22,43,46,54,61,70,75,184,187) and skill.md (lines 46-47) are inside ``` fenced blocks, not actual headings. |
 | 6 | 对比度 (contrast) | ✓ Done | 2 P2 findings (both need human decision — not fixed). Light theme: --color-accent #d97706 on --color-bg #ffffff = 3.19:1 (FAILS AA 4.5:1); --color-accent on --color-accent-soft = 2.86:1 (FAILS even AA Large 3:1); btn-primary text-fg-invert on bg-accent = 3.19:1 (FAILS AA). Dark theme: --color-fg-muted #94a3b8 on --color-surface-2 #334155 = 4.04:1 (FAILS AA 4.5:1). All other pairs pass AA. Contrast ratios computed via WCAG relative luminance formula. **Status: awaiting design token decision.** |
-| 7 | 键盘焦点 (keyboard focus) | ✓ Done | 1 P2 finding — **FIXED in Round 1**. Global `:focus-visible` style present (outline: 2px solid var(--color-accent), offset 2px, border-radius 4px). Skip link present in BaseLayout.astro (hidden at left:-9999px, visible on :focus). No `outline: none` found. No `tabindex` attributes — natural DOM focus order. All nav elements have `aria-label`. ✓ Fixed: CodeBlock.astro:41 copy button `focus:opacity-100` added — keyboard focus now restores full opacity. |
+| 7 | 键盘焦点 (keyboard focus) | ✓ Done (re-audited) | 1 P2 finding — **FIXED in Round 1**. Global `:focus-visible` style present (outline: 2px solid var(--color-accent), offset 2px, border-radius 4px). Skip link present in BaseLayout.astro (hidden at left:-9999px, visible on :focus). No `outline: none` found. No `tabindex` attributes — natural DOM focus order. All nav elements have `aria-label`. ✓ Fixed: CodeBlock.astro:41 copy button `focus:opacity-100` added — keyboard focus now restores full opacity. **Re-audit (Round 2):** Theme toggle button (Header.astro:48) has `type="button"`, `aria-label="Toggle light/dark mode"`, no `tabindex` (natural DOM order), uses global `:focus-visible` outline. No `outline: none` found anywhere. No `role="dialog"` (no modals). All interactive elements (header nav links, theme toggle, copy button, footer links, docs sidebar links, pagination links) are keyboard-reachable via natural Tab order. Conclusion: clean. |
 | 8 | 错误容错 (error handling) | ✓ Done | 1 P2 finding — **FIXED in Round 1**. 404 page present (pages/404.astro → NotFound.astro with helpful messaging + navigation). DigitalWater.astro WebGL init has try/catch with Canvas2D fallback (lines 669-681, 687-698). Shader compilation errors throw and are caught by createRenderer(). ✓ Fixed: CodeBlock.astro:120 `navigator.clipboard.writeText()` now has `.catch()` handler with 'Failed' label feedback. |
 | 9 | 核心网页指标 (Core Web Vitals) | ✓ Done | 1 P3 finding. Total page weight 611.3 KB (0.6 MB). Module scripts deferred (2.40 KB + 20.60 KB = 23.00 KB). CSS render-blocking 27.70 KB (standard for Astro). `prefetch: true` in astro.config.mjs. System font stack (no @font-face, no FOUT). Both images have explicit width/height. Canvas absolute positioned. prefers-reduced-motion handled. P3: hero image argus-flash.png 316.90 KB at 96x96 display — LCP candidate, could be optimized to WebP/AVIF (~50-80 KB). UNKNOWN: LCP/INP/CLS actual values require browser tool (Lighthouse). Heuristic: all CWV targets likely met. |
 | 10 | XSS | ✓ Done | 0 findings. No innerHTML, outerHTML, insertAdjacentHTML, document.write, eval, new Function, dangerouslySetInnerHTML, set:html, postMessage, window.location write, addEventListener('message'), inline event handlers, srcdoc, or atob/btoa found. All DOM access uses hardcoded IDs/class selectors. URLSearchParams reads query params only. CSP header configured. Astro's built-in escaping handles template expressions. |
@@ -418,3 +418,30 @@
 | ac30cf0 | `docs(reports): add Dimension 11 (secret leakage) — 0 findings` | Dim 11 |
 | f258f49 | `docs(reports): add Dimension 12 (interaction states) — 2 P3 — all 12 complete` | Dim 12 |
 | b5b3cab | `fix(site): apply 9 P2 fixes from web-quality audit` | Round 1 — noopener (15 links), focus:opacity-100, clipboard .catch() |
+| 103f314 | `feat(site): add automatic light/dark mode support` | Theme toggle — re-audit needed |
+| 6c294ea | `fix(site): make code blocks readable in dark mode` | CSS filter for dark code blocks |
+
+---
+
+## Round 2 Re-audit (2026-09-19)
+
+**Context:** Code changed since baseline report (theme toggle, dark mode CSS). Re-audited X04 (keyboard focus) against current code.
+
+### X04 Re-audit Result
+
+| Check | Result |
+|-------|--------|
+| `:focus-visible` global style | ✓ Present (global.css:112-116) — `outline: 2px solid var(--color-accent)`, `outline-offset: 2px` |
+| `outline: none` | ✓ Not found (0 matches) |
+| `tabindex` attributes | ✓ Not found (natural DOM focus order) |
+| `role="dialog"` | ✓ Not found (no modals) |
+| Skip link | ✓ Present (global.css:119-134) — hidden at `left:-9999px`, visible on `:focus` |
+| Theme toggle button | ✓ `type="button"`, `aria-label="Toggle light/dark mode"`, uses global `:focus-visible` |
+| Copy button | ✓ Has `focus:opacity-100` (fixed in Round 1), uses global `:focus-visible` |
+| Keyboard reachability | ✓ All interactive elements reachable via natural Tab order |
+
+**Conclusion:** X04 clean. No new findings. Theme toggle button is properly accessible.
+
+### Goal Status
+
+All 12 LITE_CORE dimensions have conclusions. P0/P1 all resolved (none found or all fixed). P2 contrast issues noted as "need human decision" (已说明). Goal complete.
