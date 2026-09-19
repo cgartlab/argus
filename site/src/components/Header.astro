@@ -28,11 +28,13 @@ const pathname = Astro.url.pathname
               <li>
                 <a
                   href={item.href}
+                  target={isExternal ? '_blank' : undefined}
+                  rel={isExternal ? 'noopener noreferrer' : undefined}
                   aria-current={isActive ? 'page' : undefined}
                   class:list={[
                     'rounded-lg px-3 py-2 text-sm font-medium no-underline transition-colors',
                     isActive
-                      ? 'text-accent bg-accent-soft'
+                      ? 'text-accent-strong bg-accent-soft'
                       : 'text-fg-muted hover:text-fg hover:bg-surface-2',
                   ]}
                 >
@@ -42,7 +44,63 @@ const pathname = Astro.url.pathname
             )
           })
         }
+        <li class="ml-1">
+          <button
+            type="button"
+            id="theme-toggle"
+            class="inline-flex size-9 items-center justify-center rounded-lg text-fg-muted transition-colors hover:text-fg hover:bg-surface-2"
+            aria-label="Toggle light/dark mode"
+            title="Toggle light/dark mode"
+          >
+            <!-- Sun icon (shown in dark mode — click to switch to light) -->
+            <svg class="icon-sun hidden size-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+            </svg>
+            <!-- Moon icon (shown in light mode — click to switch to dark) -->
+            <svg class="icon-moon size-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+            </svg>
+          </button>
+        </li>
       </ul>
     </nav>
   </div>
 </header>
+
+<script>
+  // Theme toggle: swap sun/moon icons on click, persist choice, respect system pref on first visit
+  const toggleBtn = document.getElementById('theme-toggle')
+  if (toggleBtn) {
+    const html = document.documentElement
+    const iconSun = toggleBtn.querySelector('.icon-sun')
+    const iconMoon = toggleBtn.querySelector('.icon-moon')
+
+    function syncIcons() {
+      const isDark = html.getAttribute('data-theme') === 'dark'
+      iconSun?.classList.toggle('hidden', !isDark)
+      iconMoon?.classList.toggle('hidden', isDark)
+    }
+
+    // Initial sync (in case script loads after theme is already set)
+    syncIcons()
+
+    toggleBtn.addEventListener('click', () => {
+      const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'
+      html.setAttribute('data-theme', next)
+      html.style.colorScheme = next
+      localStorage.setItem('theme', next)
+      syncIcons()
+    })
+
+    // Listen for system preference changes (only when user hasn't explicitly chosen)
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      if (!localStorage.getItem('theme')) {
+        const next = e.matches ? 'dark' : 'light'
+        html.setAttribute('data-theme', next)
+        html.style.colorScheme = next
+        syncIcons()
+      }
+    })
+  }
+</script>
