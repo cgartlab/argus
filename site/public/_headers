@@ -1,0 +1,23 @@
+# GitHub Pages custom headers — applied to all static pages served by argus.cgartlab.com
+# Reference: https://docs.github.com/en/pages/optimizing-your-site-for-performance-and-browseability
+
+# Deny framing (clickjacking mitigation — the marketing site is not embedded in iframes)
+X-Frame-Options: DENY
+# Prevent MIME-sniffing on static assets
+X-Content-Type-Options: nosniff
+# Only disclose the origin (full path) to linked pages
+Referrer-Policy: strict-origin-when-cross-origin
+# Cross-Origin Resource Policy: same-origin assets only (CSP fallback for old browsers)
+Cross-Origin-Resource-Policy: same-origin
+# Permissions-Policy: disable all unused browser features (site is static)
+Permissions-Policy: acceleration=(), autoplay=(), camera=(), encrypted-media=(), fullscreen=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), proximity=(), screen-wake-lock=(), serial=(), web-share=()
+# Content-Security-Policy: allow only self-hosted scripts/styles/fonts/images.
+# The site's <script> tags are inline Astro-provided (vanilla JS, no fetch/XHR);
+# 'unsafe-inline' is required for those inline handlers. No external origins,
+# no eval, no plugins, no forms. No img-src 'data:' (images are self-hosted).
+# The DigitalWater background uses canvas (no src), and CodeBlock/Hero use
+# inline <script> (no src attribute).
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-src 'self'; form-src 'self'; frame-ancestors 'none'
+
+# HTTPS-only for all assets
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
