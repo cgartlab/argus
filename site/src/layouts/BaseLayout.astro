@@ -17,7 +17,7 @@ const ogImage = new URL('/argus-flash.png', site.url).href
 ---
 
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -36,6 +36,17 @@ const ogImage = new URL('/argus-flash.png', site.url).href
     <meta property="og:image" content={ogImage} />
 
     <meta name="generator" content={Astro.generator} />
+
+    <!-- Theme: apply before CSS renders to prevent flash of wrong theme -->
+    <script is:inline>
+      (function () {
+        var stored = localStorage.getItem('theme')
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        var theme = stored === 'dark' || (stored !== 'light' && prefersDark) ? 'dark' : 'light'
+        document.documentElement.setAttribute('data-theme', theme)
+        document.documentElement.style.colorScheme = theme
+      })()
+    </script>
   </head>
   <body class="min-h-screen bg-bg text-fg">
     <a class="skip-link" href="#main">Skip to content</a>
