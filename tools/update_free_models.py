@@ -311,7 +311,6 @@ def print_ranking() -> None:
     print(f"{'─'*5} {'─'*45} {'─'*8} {'─'*22} {'─'*10}")
     for i, mid in enumerate(ranked, 1):
         entry = scores[mid]
-        raw = entry.get("score", 0.0) or 0.0
         cscore = composite_score(mid)
         benchmark = entry.get("benchmark", "none")
         conf = entry.get("confidence", "none")
