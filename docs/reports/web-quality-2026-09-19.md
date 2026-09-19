@@ -417,4 +417,4 @@
 | 9cf7a14 | `docs(reports): add Dimension 10 (XSS) — 0 findings` | Dim 10 |
 | ac30cf0 | `docs(reports): add Dimension 11 (secret leakage) — 0 findings` | Dim 11 |
 | f258f49 | `docs(reports): add Dimension 12 (interaction states) — 2 P3 — all 12 complete` | Dim 12 |
-| — | `Round 1 verification (this session)` | Report verified accurate; spot-checked CodeBlock.astro:41,120 + global.css:14,79,143-145 — all findings match source. All 12 dimensions ✓ Done, 0 P0/P1. Goal complete. |
+| b5b3cab | `fix(site): apply 9 P2 fixes from web-quality audit` | Round 1 — noopener (15 links), focus:opacity-100, clipboard .catch() |
