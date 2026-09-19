@@ -73,7 +73,14 @@ runs:
       shell: bash
 
     - name: Install OpenCode CLI
-      run: curl -fsSL https://opencode.ai/install | bash
+      # Download the installer to a temp file before executing (CWE-494: no
+      # integrity check on pipe-to-bash). opencode.ai does not publish a
+      # checksum URL, so full verification is not yet possible — this at
+      # least breaks the pipe-to-bash pattern so the script is inspectable.
+      run: |
+        curl -fsSL https://opencode.ai/install -o /tmp/opencode-install.sh
+        test -s /tmp/opencode-install.sh
+        bash /tmp/opencode-install.sh
       shell: bash
 
     - name: Load consumer configuration (.argus.yml)

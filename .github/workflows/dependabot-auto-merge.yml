@@ -42,14 +42,53 @@ jobs:
           exit 0
 
       # Gate 3: wait for CI to pass, then auto-merge.
-      - name: Wait for CI checks to pass
+      #
+      # 不能用 `gh pr checks --watch`：它把本工作流自身的 `auto-merge` check 也算进去，
+      # 而该 check 在本步骤运行期间恒为 pending —— 工作流于是在等待自己，直到被取消
+      # （日志里能看到 "auto-merge  pending" 与自己并列，随后 "The operation was canceled."）。
+      # 这也解释了为什么症状只出现在 patch/minor PR：semver-major 在 Gate 2 就退出了，
+      # 根本走不到这一步。
+      # 这里改为显式轮询，并按 workflow 名排除自己的 check。
+      - name: Wait for other CI checks to pass
         if: steps.metadata.outputs.update-type != 'version-update:semver-major'
-        run: |
-          gh pr checks "${{ github.event.pull_request.number }}" -R "${{ github.repository }}" \
-            --watch \
-            --interval 10
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR="${{ github.event.pull_request.number }}"
+          REPO="${{ github.repository }}"
+          SELF_WORKFLOW="Dependabot Auto-Merge"
+
+          # 先留出注册时间，避免「其它 workflow 还没出现」被误判成「全部通过」。
+          sleep 20
+
+          for attempt in $(seq 1 90); do
+            # gh pr checks 在有失败/待定检查时退出码非 0，用 `|| true` 兜住 set -e。
+            others=$(gh pr checks "$PR" -R "$REPO" --json name,workflow,bucket 2>/dev/null \
+              | jq --arg self "$SELF_WORKFLOW" \
+                  '[.[] | select(.workflow != $self) | select(.name != "auto-merge")]') || true
+
+            total=$(echo "${others:-[]}" | jq 'length')
+            pending=$(echo "${others:-[]}" | jq '[.[] | select(.bucket == "pending")] | length')
+            failed=$(echo "${others:-[]}" | jq '[.[] | select(.bucket == "fail" or .bucket == "cancel")] | length')
+
+            if [ "$failed" -gt 0 ]; then
+              echo "::error::存在失败检查，放弃自动合并："
+              echo "${others:-[]}" | jq -r '.[] | select(.bucket == "fail" or .bucket == "cancel") | "  - \(.name): \(.bucket)"'
+              exit 1
+            fi
+
+            if [ "$total" -gt 0 ] && [ "$pending" -eq 0 ]; then
+              echo "✅ 其它检查全部通过（已排除本工作流自身），继续自动合并："
+              echo "${others:-[]}" | jq -r '.[] | "  - \(.name): \(.bucket)"'
+              exit 0
+            fi
+
+            echo "[$attempt/90] 其它检查共 $total 个，$pending 个仍在进行 —— 10 秒后重试…"
+            sleep 10
+          done
+
+          echo "::error::等待其它检查超时（约 15 分钟），本次不自动合并。"
+          exit 1
 
       - name: Approve pull request
         if: steps.metadata.outputs.update-type != 'version-update:semver-major'

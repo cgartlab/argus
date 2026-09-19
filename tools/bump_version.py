@@ -165,7 +165,7 @@ def main() -> None:
 
     print(f"Next: write CHANGELOG entries for [{new_ver}], review, then commit:")
     print(f"  git commit -m \"chore(release): prepare v{new_ver}\"")
-    print(f"Then: make test && make release")
+    print("Then: make test && make release")
 
 
 if __name__ == "__main__":
