@@ -340,24 +340,33 @@
 
 ## Six Clusters — Status
 
-| Cluster | Status | Scope checked |
-|---------|--------|---------------|
-| 样式代码 | ⏳ Partial | !important: 9 instances, all legitimate (reduced-motion + Shiki override). 裸色值: 29 matches, all token definitions or token references. Remaining: inline styles, dead code, breakpoint consistency, dark-mode token consistency, long-text layout. |
-| 信息排版 | ⏳ Partial | 标题层级: all 5 pages have exactly one h1, no heading skips. 对比度: 2 P2 findings — light accent on bg fails AA (3.19:1), dark fg-muted on surface-2 fails AA (4.04:1). Remaining: body font ≥16px, line-height 1.4–1.7, line length 45–90 chars, spacing rhythm. |
-| 元素一致性 | ⏳ Partial | 键盘焦点: global :focus-visible style present, skip link functional, no outline suppression, natural focus order. 1 P2: CodeBlock copy button opacity-60 reduces focus indicator visibility. 交互态: 2 P3 — copy button target size <24px, no active: styling. Seven-state: hover ✓, focus ✓, active ✗, disabled/loading/empty N/A, error ✓. Remaining: target size on footer links, alt/width/height (done). |
-| 交互体验 | ⏳ Partial | 错误容错: 404 page present, WebGL fallback working. 1 P2: CodeBlock copy button unhandled promise rejection. 交互态: 2 P3 — copy button target size, no active state. Remaining: >300ms feedback, destructive action confirmation, error text with fix instructions, Tab reachability (done), modal focus return (N/A), prefers-reduced-motion (done), zoom not disabled (done). |
-| 功能稳定 | ⏳ Partial | 核心网页指标: total 611.3 KB, module scripts deferred, prefetch enabled, system fonts, explicit image dimensions. 1 P3: hero image 316.90 KB at 96x96. UNKNOWN: LCP/INP/CLS actual values need browser tool. Remaining: broken links 0 (done in Dim 1), empty href="#" (done in Dim 2), empty/error states, form double-submit prevention. |
-| 前端安全 | ⏳ Partial | External link noopener (15 links found, no `target`/`rel`) — 7 P2. XSS: 0 findings — no dangerous APIs, no user-controlled HTML injection. 密钥泄露: 0 findings — no secrets in source or build output. CSP header configured. Remaining: interaction states (Dim 12). |
+| Cluster | Status | Scope checked + Conclusion |
+|---------|--------|----------------------------|
+| 样式代码 | ✓ Done | !important: 9 instances, all legitimate (3 in reduced-motion `@media` for WCAG 2.3.3, 6 in CodeBlock `:global(.astro-code)` override for Shiki). 裸色值: 29 matches, all token definitions or token references — 0 bare values in components. Inline styles: none found. Dead code: 0 (all components used). Breakpoint consistency: sm/lg breakpoints used consistently. Dark-mode token consistency: all 14 tokens have both light + dark values. Long-text layout: prose max-width 72ch, overflow-x-auto on code blocks. Conclusion: clean. |
+| 信息排版 | ✓ Done | 标题层级: all 5 pages have exactly one h1, no heading skips (h1→h2→h3). 对比度: 2 P2 findings — light accent on bg fails AA (3.19:1), dark fg-muted on surface-2 fails AA (4.04:1). Body font: text-sm (14px) for secondary text, text-base (16px) default — 2 P2 (contrast). Line-height: leading-relaxed (1.625) in code blocks, default in prose. Line length: max-w-4xl (~56rem) on hero title, 72ch on prose. Spacing rhythm: consistent py-20/py-24/py-28 section spacing. Conclusion: 2 P2 contrast failures. |
+| 元素一致性 | ✓ Done | 键盘焦点: global :focus-visible (outline 2px solid accent, offset 2px). Skip link functional (hidden→visible on :focus). No outline suppression. Natural DOM focus order (no tabindex). All navs have aria-label. 1 P2: CodeBlock copy button opacity-60 reduces focus indicator visibility. 交互态: 2 P3 — copy button target size ≈20px < 24×24 (WCAG 2.5.8 AA), no active: styling. Seven-state: hover ✓, focus ✓, active ✗, disabled/loading/empty N/A (static site), error ✓. Alt + width/height: both images have alt + explicit dimensions. Target size: header nav ~30px ✓, footer links ~14px (inline text, acceptable). Conclusion: 1 P2 + 2 P3. |
+| 交互体验 | ✓ Done | 错误容错: 404 page present (NotFound.astro with messaging + navigation). WebGL fallback working (try/catch → Canvas2D). Shader compilation errors caught. 1 P2: CodeBlock copy button unhandled promise rejection. 交互态: 2 P3 — target size, no active state. >300ms feedback: N/A (no async operations). Destructive actions: N/A (no destructive operations). Error text with fix: 404 page has helpful messaging. Tab reachability: ✓ natural DOM order, no traps. Modal focus return: N/A (no modals). prefers-reduced-motion: ✓ handled with !important overrides. Zoom: ✓ not disabled (no user-scalable=no). Conclusion: 1 P2 + 2 P3. |
+| 功能稳定 | ✓ Done | 核心网页指标: total 611.3 KB (0.6 MB), module scripts deferred (23 KB), CSS render-blocking 27.70 KB, prefetch:true, system fonts (no FOUT), explicit image dimensions (CLS prevention), canvas absolute (no layout shift). 1 P3: hero image 316.90 KB at 96×96. UNKNOWN: LCP/INP/CLS actual values need browser tool (Lighthouse). Heuristic: all CWV targets likely met. 断链: 0 broken internal links. 空实现: 0 href="#". Empty/error states: 404 present, N/A for empty (static site). Form double-submit: N/A (no forms). Conclusion: 1 P3, UNKNOWN for actual CWV values. |
+| 前端安全 | ✓ Done | 安全头: 8 headers configured (CSP, X-Frame-Options: DENY, X-Content-Type-Options, Referrer-Policy, HSTS, Permissions-Policy, CORP, Cache-Control). 外链 noopener: 7 P2 findings — 15 external links without `target`/`rel` (Header, Footer, Hero, index, legal, DocsLayout). XSS: 0 findings — no dangerous APIs, no user-controlled HTML injection. 密钥泄露: 0 findings — no secrets in source or build output. postMessage: N/A (not used). Dependency CVEs: UNKNOWN (no npm audit run). Conclusion: 7 P2 (noopener), 0 XSS, 0 secrets. |
 
 ---
 
 ## Visual Documentation
 
-**Status:** ⏳ Pending  
+**Status:** UNKNOWN — no browser screenshot tool available in this session  
 **Required:** Screenshots at 375/768/1440 × light/dark themes  
-**Pages to sample:** index (homepage), docs (list), docs/getting-started (detail), legal (form-like), 404 (error)  
-**Tools needed:** Browser screenshot tool (not available in this session)  
-**UNKNOWN:** Cannot capture screenshots without a browser. This is a tool limitation, not a site defect.
+**Pages to sample (5 pages, all types covered):**  
+| Page | URL | Type |
+|------|-----|------|
+| Homepage | `/` | Landing (index.astro) |
+| Docs list | `/docs` | List (docs/index.astro) |
+| Docs detail | `/docs/getting-started` | Detail (docs/[...slug].astro) |
+| Legal | `/legal` | Form-like (legal.astro) |
+| 404 | `/404` | Error (404.astro) |
+
+**Sample rule:** ≤5 pages — all 5 page types covered (homepage, list, detail, form-like, error). Multi-theme: light + dark via `data-theme` attribute. Multi-viewport: 375px (mobile), 768px (tablet), 1440px (desktop).
+
+**UNKNOWN:** Cannot capture screenshots without a browser screenshot tool (Playwright, Puppeteer, or similar). This is a tool limitation, not a site defect. All visual conclusions in this report are based on code inspection (file:line references) rather than rendered screenshots.
 
 ---
 
@@ -365,10 +374,10 @@
 
 | Check | Status | Tool | Notes |
 |-------|--------|------|-------|
-| Accessibility (axe/pa11y) | ⏳ Pending | Not installed | Tool gap — would require new devDependency |
-| HTML validity | ⏳ Pending | — | Astro build validates syntax; no HTML validator run |
-| Style rules | ⏳ Pending | — | No style lint config |
-| Broken links | ✓ Done | grep + manual | All internal links verified against file system |
+| Accessibility (axe/pa11y) | ⏳ Tool gap | Not installed | Would require new devDependency (`@axe-core/cli` or `pa11y`). Not installed per hard constraint "不新增依赖未经确认". Grep-based accessibility checks performed: alt text (2 images, both have alt), aria-label (5 navs), role attributes (1 presentation), aria-hidden (15, all decorative only), focus styles (global :focus-visible), skip link (present), semantic HTML (header/main/nav/footer/section). |
+| HTML validity | ⏳ Tool gap | Not installed | Astro build validates template syntax and exits 0. No HTML validator (e.g., `html-validate`) run. Grep-based checks: all tags properly closed in .astro files, no unclosed HTML tags found. |
+| Style rules | ⏳ Tool gap | Not installed | No style lint config in site/package.json. No `stylelint` or similar tool available. Grep-based checks: !important (9 instances, all legitimate), bare color values (29 matches, all token definitions), no inline styles in components. |
+| Broken links | ✓ Done | grep + manual | 16 internal links verified against file system (8 pages + 8 content collection entries). 15 external links checked for format (all valid URLs). 0 broken links found. |
 
 ---
 
@@ -377,4 +386,14 @@
 | SHA | Message | Scope |
 |-----|---------|-------|
 | b912e7a | `docs(reports): add race/TOCTOU and DoS/ReDoS scope-checked audit` | Base |
-| [to follow] | `docs(reports): add web-quality-2026-09-19.md` | This report (initial) |
+| 0269da8 | `docs(reports): add web-quality-2026-09-19.md — baseline audit` | Report initial (mechanical gates, Dim 1-2) |
+| e6fe901 | `docs(reports): add Dimensions 3-4 (!important, bare color values)` | Dim 3-4 |
+| 07eb05e | `docs(reports): add Dimension 5 (heading hierarchy)` | Dim 5 |
+| cc0f3d6 | `docs(reports): add Dimension 5 (heading hierarchy)` | Dim 5 fix |
+| f6e9269 | `docs(reports): add Dimension 6 (contrast) — 2 P2 WCAG AA findings` | Dim 6 |
+| 954d1fc | `docs(reports): add Dimension 7 (keyboard focus) — 1 P2` | Dim 7 |
+| e2f951a | `docs(reports): add Dimension 8 (error handling) — 1 P2` | Dim 8 |
+| 7b8d3f7 | `docs(reports): add Dimension 9 (Core Web Vitals) — 1 P3` | Dim 9 |
+| 9cf7a14 | `docs(reports): add Dimension 10 (XSS) — 0 findings` | Dim 10 |
+| ac30cf0 | `docs(reports): add Dimension 11 (secret leakage) — 0 findings` | Dim 11 |
+| f258f49 | `docs(reports): add Dimension 12 (interaction states) — 2 P3 — all 12 complete` | Dim 12 |
