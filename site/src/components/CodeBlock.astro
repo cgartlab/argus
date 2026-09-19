@@ -73,7 +73,7 @@ const langLabel = lang && lang !== 'text' ? lang.toUpperCase() : null
     </button>
 
     <div class="code-scroll max-h-[26rem] overflow-auto">
-      <Code code={code} lang={lang} theme="github-light" />
+      <Code code={code} lang={lang} theme={{ light: 'github-light', dark: 'github-dark' }} />
     </div>
   </div>
 </div>
