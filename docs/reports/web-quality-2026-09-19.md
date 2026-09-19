@@ -241,6 +241,21 @@
 
 ─────────────────────────────────────────────────
 
+### [密钥泄露] No findings — all checks pass
+
+  Checked: API keys, tokens, secrets, passwords, credentials, private keys, certificates,
+           import.meta.env, process.env, VITE_/ASTRO_ env vars, .env files,
+           URLs with query params, localStorage/sessionStorage/cookie,
+           build output (dist/) for embedded secrets
+  Found:   0 actual secrets. All `${{ secrets.* }}` references are GitHub Actions expression
+           syntax in documentation examples (index.astro:27-28, content.ts:62).
+           `persist-credentials: false` is a GitHub Actions config example, not a real credential.
+           No .env files. No client-side storage. No environment variable access.
+  Basis:   Static Astro site with no runtime API calls. All secrets (GitHub App ID/key,
+           OpenCode API key) are referenced only as documentation examples in code fences.
+
+─────────────────────────────────────────────────
+
 ## P3 — Low Priority
 
 ### [P3] site/public/argus-flash.png — Hero image 316.90 KB at 96×96 display (LCP candidate)
@@ -274,7 +289,7 @@
 | 8 | 错误容错 (error handling) | ✓ Done | 1 P2 finding. 404 page present (pages/404.astro → NotFound.astro with helpful messaging + navigation). DigitalWater.astro WebGL init has try/catch with Canvas2D fallback (lines 669-681, 687-698). Shader compilation errors throw and are caught by createRenderer(). P2: CodeBlock.astro:120 `navigator.clipboard.writeText()` promise has no `.catch()` — unhandled rejection on clipboard failure. Static site — no runtime error boundary needed (build-time errors fail the build). No empty/loading states needed (static content). |
 | 9 | 核心网页指标 (Core Web Vitals) | ✓ Done | 1 P3 finding. Total page weight 611.3 KB (0.6 MB). Module scripts deferred (2.40 KB + 20.60 KB = 23.00 KB). CSS render-blocking 27.70 KB (standard for Astro). `prefetch: true` in astro.config.mjs. System font stack (no @font-face, no FOUT). Both images have explicit width/height. Canvas absolute positioned. prefers-reduced-motion handled. P3: hero image argus-flash.png 316.90 KB at 96x96 display — LCP candidate, could be optimized to WebP/AVIF (~50-80 KB). UNKNOWN: LCP/INP/CLS actual values require browser tool (Lighthouse). Heuristic: all CWV targets likely met. |
 | 10 | XSS | ✓ Done | 0 findings. No innerHTML, outerHTML, insertAdjacentHTML, document.write, eval, new Function, dangerouslySetInnerHTML, set:html, postMessage, window.location write, addEventListener('message'), inline event handlers, srcdoc, or atob/btoa found. All DOM access uses hardcoded IDs/class selectors. URLSearchParams reads query params only. CSP header configured. Astro's built-in escaping handles template expressions. |
-| 11 | 密钥泄露 (secret leakage) | ⏳ Pending | — |
+| 11 | 密钥泄露 (secret leakage) | ✓ Done | 0 findings. No API keys, tokens, secrets, passwords, credentials in source or build output. No import.meta.env, process.env, .env files, localStorage, sessionStorage, or cookie usage. All `${{ secrets.* }}` references are GitHub Actions expression syntax in documentation examples. `persist-credentials: false` is a GitHub Actions config example, not a real credential. |
 | 12 | 交互态 (interaction states) | ⏳ Pending | — |
 
 ---
@@ -288,7 +303,7 @@
 | 元素一致性 | ⏳ Partial | 键盘焦点: global :focus-visible style present, skip link functional, no outline suppression, natural focus order. 1 P2: CodeBlock copy button opacity-60 reduces focus indicator visibility. Remaining: seven-state coverage (hover/focus/active/disabled/loading/empty/error), target size ≥24×24px, alt text and width/height on images. |
 | 交互体验 | ⏳ Partial | 错误容错: 404 page present, WebGL fallback working. 1 P2: CodeBlock copy button unhandled promise rejection. Remaining: >300ms feedback, destructive action confirmation, error text with fix instructions, Tab reachability, modal focus return, prefers-reduced-motion, zoom not disabled. |
 | 功能稳定 | ⏳ Partial | 核心网页指标: total 611.3 KB, module scripts deferred, prefetch enabled, system fonts, explicit image dimensions. 1 P3: hero image 316.90 KB at 96x96. UNKNOWN: LCP/INP/CLS actual values need browser tool. Remaining: broken links 0 (done in Dim 1), empty href="#" (done in Dim 2), empty/error states, form double-submit prevention. |
-| 前端安全 | ⏳ Partial | External link noopener (15 links found, no `target`/`rel`) — 7 P2. XSS: 0 findings — no dangerous APIs, no user-controlled HTML injection, CSP header configured. Remaining: secret leakage (Dim 11), interaction states (Dim 12). |
+| 前端安全 | ⏳ Partial | External link noopener (15 links found, no `target`/`rel`) — 7 P2. XSS: 0 findings — no dangerous APIs, no user-controlled HTML injection. 密钥泄露: 0 findings — no secrets in source or build output. CSP header configured. Remaining: interaction states (Dim 12). |
 
 ---
 
