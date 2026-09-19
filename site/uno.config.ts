@@ -47,17 +47,19 @@ export default defineConfig({
   },
   theme: {
     colors: {
-      // Mapped to CSS custom properties defined in global.css
-      bg: 'var(--color-bg)',
-      surface: 'var(--color-surface)',
-      'surface-2': 'var(--color-surface-2)',
-      fg: 'var(--color-fg)',
-      'fg-muted': 'var(--color-fg-muted)',
-      'fg-invert': 'var(--color-fg-invert)',
-      border: 'var(--color-border)',
-      accent: 'var(--color-accent)',
-      'accent-strong': 'var(--color-accent-strong)',
-      'accent-soft': 'var(--color-accent-soft)',
+      // Mapped to CSS custom properties defined in global.css.
+      // Using color-mix + calc so opacity modifiers (e.g. bg-bg/80) work
+      // correctly. <alpha-value> is 0–1; *100 converts to percentage.
+      bg: 'color-mix(in srgb, var(--color-bg) calc(<alpha-value> * 100)%, transparent)',
+      surface: 'color-mix(in srgb, var(--color-surface) calc(<alpha-value> * 100)%, transparent)',
+      'surface-2': 'color-mix(in srgb, var(--color-surface-2) calc(<alpha-value> * 100)%, transparent)',
+      fg: 'color-mix(in srgb, var(--color-fg) calc(<alpha-value> * 100)%, transparent)',
+      'fg-muted': 'color-mix(in srgb, var(--color-fg-muted) calc(<alpha-value> * 100)%, transparent)',
+      'fg-invert': 'color-mix(in srgb, var(--color-fg-invert) calc(<alpha-value> * 100)%, transparent)',
+      border: 'color-mix(in srgb, var(--color-border) calc(<alpha-value> * 100)%, transparent)',
+      accent: 'color-mix(in srgb, var(--color-accent) calc(<alpha-value> * 100)%, transparent)',
+      'accent-strong': 'color-mix(in srgb, var(--color-accent-strong) calc(<alpha-value> * 100)%, transparent)',
+      'accent-soft': 'color-mix(in srgb, var(--color-accent-soft) calc(<alpha-value> * 100)%, transparent)',
       // NOTE: no custom red/amber/green keys here. CodeBlock's macOS-style
       // traffic light dots use presetUno standard palette classes
       // (bg-red-500 / bg-yellow-500 / bg-green-500) instead — guaranteed to
