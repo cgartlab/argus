@@ -1,5 +1,6 @@
 /* ── Design tokens (light default) ────────────────────────────────────── */
 :root {
+  color-scheme: light;
   --color-bg: #ffffff;
   --color-bg-rgb: 255, 255, 255; /* RGB triplet for rgba() 椭圆遮罩（light）—— 必须镜像 --color-bg */
   --color-surface: #f8fafc;
@@ -11,7 +12,7 @@
   --color-fg-invert-rgb: 255, 255, 255;
   --color-border: #e2e8f0;
   /* Argus brand accent — amber (flash / vigilance, warm-aligned with logo) */
-  --color-accent: #d97706;
+  --color-accent: #a16207; /* Darkened from #d97706 to pass WCAG AA 4.5:1 on white (4.92:1) */
   --color-accent-strong: #b45309;
   --color-accent-soft: #fef3c7;
   /* DigitalWater flow colors — green (check) / red (issue) */
@@ -71,12 +72,13 @@
 
 /* ── Design tokens (dark override — every token must have one) ───────── */
 [data-theme='dark'] {
+  color-scheme: dark;
   --color-bg: #0f172a;
   --color-bg-rgb: 15, 23, 42; /* RGB triplet for rgba() 椭圆遮罩（dark）—— 必须镜像 --color-bg */
   --color-surface: #1e293b;
   --color-surface-2: #334155;
   --color-fg: #e2e8f0;
-  --color-fg-muted: #94a3b8;
+  --color-fg-muted: #a3b8cc;
   --color-fg-invert: #0f172a;
   /* RGB triplet for rgba() interpolation (dark) — must mirror --color-fg-invert */
   --color-fg-invert-rgb: 15, 23, 42;
