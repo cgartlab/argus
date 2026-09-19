@@ -113,9 +113,43 @@
 
 ─────────────────────────────────────────────────
 
+### [P2] [对比度] site/src/styles/global.css:14 (light) — `--color-accent` on `--color-bg` fails WCAG AA (3.19:1 < 4.5:1)
+
+  Found:    `--color-accent: #d97706;` on `--color-bg: #ffffff;` → contrast ratio 3.19:1
+  Expected: Contrast ratio ≥ 4.5:1 for normal text (WCAG AA) or ≥ 3:1 for large text (≥18px or ≥14px bold)
+  
+  WCAG 1.4.3 (Contrast Minimum)  
+  Reference: https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html
+  
+  Affected usages (light theme only — dark theme passes at 10.69:1):
+  - `text-accent` links at 14px font-medium (10.5pt normal): index.astro:75,84,94,103 — FAILS AA 4.5:1
+  - `text-accent` on `bg-accent-soft` at 14px font-medium: DocsSidebar.astro:45, Header.astro:35 — contrast 2.86:1, FAILS even AA Large 3:1
+  - `btn-primary` button text (text-fg-invert #ffffff on bg-accent #d97706 = 3.19:1): Hero.astro:28, NotFound.astro:12, index.astro:54 — 14px font-medium (10.5pt normal) FAILS AA 4.5:1
+  - QuickStart.astro:23 step number badge (text-fg-invert on bg-accent, 14px font-bold = 10.5pt bold < 14pt threshold) — FAILS AA 4.5:1
+  
+  Note: The accent color #d97706 is a brand color (amber/flash). Darkening it to meet 4.5:1 would require #a16207 (contrast 4.73:1) or #b45309 (accent-strong, contrast 5.02:1). The fix requires a design decision: either darken the accent token or change the text color to fg/accent-strong for these specific usages. Not fixing without confirmation per hard constraint.
+
+─────────────────────────────────────────────────
+
+### [P2] [对比度] site/src/styles/global.css:79 (dark) — `--color-fg-muted` on `--color-surface-2` fails WCAG AA (4.04:1 < 4.5:1)
+
+  Found:    `--color-fg-muted: #94a3b8;` on `--color-surface-2: #334155;` → contrast ratio 4.04:1
+  Expected: Contrast ratio ≥ 4.5:1 for normal text (WCAG AA)
+  
+  WCAG 1.4.3 (Contrast Minimum)  
+  Reference: https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html
+  
+  Affected usages (dark theme only — light theme passes at 6.92:1):
+  - CodeBlock.astro:30 — `text-[10px] font-semibold` file label on bg-surface-2 — 10px normal text FAILS AA 4.5:1
+  - CodeBlock.astro:41 — `text-xs font-medium` copy button text on bg-surface/90 (≈surface-2) — 12px normal text FAILS AA 4.5:1
+  
+  Note: 4.04:1 is close to 4.5:1 but fails. Fix requires darkening fg-muted to #84a3b8 (4.63:1) or lightening surface-2 to #2d3d52 (4.55:1). Not fixing without confirmation per hard constraint.
+
+─────────────────────────────────────────────────
+
 ## P3 — Low Priority
 
-✓ **No issues found.** (Dimensions 6–12 not yet audited — see Progress. Dimensions 3–5: 0 findings — see Dimension table.)
+✓ **No issues found.** (Dimensions 7–12 not yet audited — see Progress. Dimensions 3–5: 0 findings. Dimension 6: 2 P2 findings — contrast failures.)
 
 ---
 
@@ -128,7 +162,7 @@
 | 3 | !important | ✓ Done | 0 findings. 9 `!important` instances found: 3 in global.css:143-145 (inside `@media (prefers-reduced-motion: reduce)` — WCAG 2.3.3 best practice for accessibility) and 6 in CodeBlock.astro:86-91 (overriding Shiki's `.astro-code` third-party styles via `:global()` — documented exception). Both are legitimate, documented uses. |
 | 4 | 裸色值 (bare color values) | ✓ Done | 0 findings. 29 matches for hex/rgb/rgba/hsl/hsla across all `.astro`, `.css`, `.ts`, `.mjs`, `.js` files in `site/src/` and `site/`. All matches are: (a) design token definitions in global.css `:root` (lines 3-19) and `[data-theme="dark"]` (lines 74-89) — excluded per constraint "不报令牌中的裸值定义"; (b) `rgba(var(--color-...-rgb), alpha)` pattern in Hero.astro (lines 53,54,68-70,76,86) — references design tokens with variable alpha, not bare values; (c) JS fallback constants in DigitalWater.astro (lines 158-160) — canvas rendering fallbacks, not CSS; (d) description string in content.ts:12 — text describing what Argus detects, not actual color values. |
 | 5 | 标题层级 (heading hierarchy) | ✓ Done | 0 findings. 26 `<h[1-6]>` matches across 13 `.astro` files + 95 `^#{1,6}\s` matches across 8 `.md` content files. All 5 pages (index, docs/index, docs/[...slug], legal, 404) have exactly one `<h1>`. No heading level skips: hierarchy is always h1→h2→h3 (no h1→h3, no h2→h4, etc.). Code-block comments in configuration.md (lines 22,43,46,54,61,70,75,184,187) and skill.md (lines 46-47) are inside ``` fenced blocks, not actual headings. |
-| 6 | 对比度 (contrast) | ⏳ Pending | — |
+| 6 | 对比度 (contrast) | ✓ Done | 2 P2 findings. Light theme: --color-accent #d97706 on --color-bg #ffffff = 3.19:1 (FAILS AA 4.5:1); --color-accent on --color-accent-soft = 2.86:1 (FAILS even AA Large 3:1); btn-primary text-fg-invert on bg-accent = 3.19:1 (FAILS AA). Dark theme: --color-fg-muted #94a3b8 on --color-surface-2 #334155 = 4.04:1 (FAILS AA 4.5:1). All other pairs pass AA. Contrast ratios computed via WCAG relative luminance formula. |
 | 7 | 键盘焦点 (keyboard focus) | ⏳ Pending | — |
 | 8 | 错误容错 (error handling) | ⏳ Pending | — |
 | 9 | 核心网页指标 (Core Web Vitals) | ⏳ Pending | — |
@@ -143,7 +177,7 @@
 | Cluster | Status | Scope checked |
 |---------|--------|---------------|
 | 样式代码 | ⏳ Partial | !important: 9 instances, all legitimate (reduced-motion + Shiki override). 裸色值: 29 matches, all token definitions or token references. Remaining: inline styles, dead code, breakpoint consistency, dark-mode token consistency, long-text layout. |
-| 信息排版 | ⏳ Partial | 标题层级: all 5 pages have exactly one h1, no heading skips (h1→h2→h3). Remaining: body font ≥16px, line-height 1.4–1.7, line length 45–90 chars, spacing rhythm, body contrast ≥4.5:1. |
+| 信息排版 | ⏳ Partial | 标题层级: all 5 pages have exactly one h1, no heading skips. 对比度: 2 P2 findings — light accent on bg fails AA (3.19:1), dark fg-muted on surface-2 fails AA (4.04:1). Remaining: body font ≥16px, line-height 1.4–1.7, line length 45–90 chars, spacing rhythm. |
 | 元素一致性 | ⏳ Pending | — |
 | 交互体验 | ⏳ Pending | — |
 | 功能稳定 | ⏳ Pending | — |
