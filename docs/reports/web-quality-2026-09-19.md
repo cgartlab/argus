@@ -142,7 +142,7 @@
   - `btn-primary` button text (text-fg-invert #ffffff on bg-accent #d97706 = 3.19:1): Hero.astro:28, NotFound.astro:12, index.astro:54 — 14px font-medium (10.5pt normal) FAILS AA 4.5:1
   - QuickStart.astro:23 step number badge (text-fg-invert on bg-accent, 14px font-bold = 10.5pt bold < 14pt threshold) — FAILS AA 4.5:1
   
-  Note: The accent color #d97706 is a brand color (amber/flash). Darkening it to meet 4.5:1 would require #a16207 (contrast 4.73:1) or #b45309 (accent-strong, contrast 5.02:1). The fix requires a design decision: either darken the accent token or change the text color to fg/accent-strong for these specific usages. Not fixing without confirmation per hard constraint.
+  Note: **FIXED** — --color-accent darkened from #d97706 to #a16207. Now 4.92:1 on white (passes AA 4.5:1), 4.92:1 for white-on-accent button text (passes AA), 4.42:1 on accent-soft (passes 3:1 for UI components). Still amber — semantic preserved. Build passes (exit 0). Verified in dist CSS.
 
 ─────────────────────────────────────────────────
 
@@ -158,7 +158,7 @@
   - CodeBlock.astro:30 — `text-[10px] font-semibold` file label on bg-surface-2 — 10px normal text FAILS AA 4.5:1
   - CodeBlock.astro:41 — `text-xs font-medium` copy button text on bg-surface/90 (≈surface-2) — 12px normal text FAILS AA 4.5:1
   
-  Note: 4.04:1 is close to 4.5:1 but fails. Fix requires darkening fg-muted to #84a3b8 (4.63:1) or lightening surface-2 to #2d3d52 (4.55:1). Not fixing without confirmation per hard constraint.
+  Note: **FIXED** — --color-fg-muted lightened from #94a3b8 to #a3b8cc (commit 6c62866). Now 5.07:1 on surface-2 (passes AA 4.5:1 with margin). Build passes (exit 0).
 
 ─────────────────────────────────────────────────
 
