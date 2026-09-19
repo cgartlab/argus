@@ -248,7 +248,7 @@
 
 ## P3 — Low Priority
 
-### [P3] site/public/argus-flash.png — Hero image 316.90 KB at 96×96 display (LCP candidate)
+### [P3] FIXED site/public/argus-flash.webp — Hero image 316.90 KB at 96×96 display (LCP candidate)
 
   Found:    `argus-flash.png` = 316.90 KB, displayed at `size-24` (96×96px) in Hero.astro:9
   Expected: Image optimized to WebP or AVIF (~50–80 KB), with `srcset` for responsive sizes
@@ -257,7 +257,7 @@
   
   UNKNOWN: Cannot measure actual LCP, INP, or CLS without a browser tool (Lighthouse, WebPageTest, or browser DevTools). Heuristic assessment: total page weight 611.3 KB, module scripts deferred, `prefetch: true`, system font stack, explicit image dimensions — all CWV targets likely met.
 
-  Fix (if desired): Convert to WebP with quality 85 (reduces ~317 KB to ~60 KB) and use `<picture>` with WebP source and PNG fallback.
+  Fix applied: Converted to WebP with sharp-cli quality 85 (316.90 KB -> 30.57 KB). Hero.astro updated with `<picture>` with WebP source and PNG fallback.
 
 ─────────────────────────────────────────────────
 

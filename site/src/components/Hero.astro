@@ -6,7 +6,10 @@ import DigitalWater from './DigitalWater.astro'
 <section id="hero" class="relative overflow-hidden border-b border-border">
   <DigitalWater />
   <div class="container-site hero-content relative z-10 flex flex-col items-center gap-8 py-20 text-center sm:py-28">
-    <img src="/argus-flash.png" alt="Argus logo" class="hero-logo size-24" width="96" height="96" />
+    <picture>
+      <source srcset="/argus-flash.webp" type="image/webp" />
+      <img src="/argus-flash.png" alt="Argus logo" class="hero-logo size-24" width="96" height="96" fetchpriority="high" />
+    </picture>
     <p class="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 text-sm font-medium text-fg-muted">
       <span class="size-2 rounded-full bg-accent" aria-hidden="true"></span>
       v{site.version} — MIT licensed
