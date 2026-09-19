@@ -147,9 +147,32 @@
 
 ─────────────────────────────────────────────────
 
+### [P2] [键盘焦点] site/src/components/CodeBlock.astro:41 — Copy button `opacity-60` reduces `:focus-visible` outline visibility
+
+  Found:    `class="copy-btn ... opacity-60 ... hover:opacity-100 ..."` — no `focus:opacity-100`
+  Expected: `class="copy-btn ... opacity-60 ... hover:opacity-100 focus:opacity-100 ..."`
+  
+  WCAG 1.4.11 (Non-text Contrast)  
+  Reference: https://www.w3.org/WAI/WCAG21/Understanding/non-text-contrast.html
+  
+  Basis: The copy button has `opacity: 0.6` which applies to the entire element including its `:focus-visible` outline (2px solid var(--color-accent)). At 60% opacity on the light theme, the effective outline color blends with the background, reducing contrast below the 3:1 threshold for non-text UI components. The button does have `hover:opacity-100` but no `focus:opacity-100`, so keyboard focus does not restore full opacity.
+  
+  Fix:
+  ```html
+  <button
+    type="button"
+    class="copy-btn absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-md border border-border bg-surface/90 px-2 py-1 font-mono text-xs font-medium text-fg-muted opacity-60 backdrop-blur transition-all hover:opacity-100 focus:opacity-100 hover:text-fg"
+    aria-label="Copy code to clipboard"
+    data-copy-target
+  >
+  ```
+  Note: This is a 1-class fix. Applying it would restore full opacity on keyboard focus. Not applied yet — recorded for batch fix.
+
+─────────────────────────────────────────────────
+
 ## P3 — Low Priority
 
-✓ **No issues found.** (Dimensions 7–12 not yet audited — see Progress. Dimensions 3–5: 0 findings. Dimension 6: 2 P2 findings — contrast failures.)
+✓ **No issues found.** (Dimensions 8–12 not yet audited — see Progress. Dimensions 3–5: 0 findings. Dimension 6: 2 P2. Dimension 7: 1 P2.)
 
 ---
 
@@ -163,7 +186,7 @@
 | 4 | 裸色值 (bare color values) | ✓ Done | 0 findings. 29 matches for hex/rgb/rgba/hsl/hsla across all `.astro`, `.css`, `.ts`, `.mjs`, `.js` files in `site/src/` and `site/`. All matches are: (a) design token definitions in global.css `:root` (lines 3-19) and `[data-theme="dark"]` (lines 74-89) — excluded per constraint "不报令牌中的裸值定义"; (b) `rgba(var(--color-...-rgb), alpha)` pattern in Hero.astro (lines 53,54,68-70,76,86) — references design tokens with variable alpha, not bare values; (c) JS fallback constants in DigitalWater.astro (lines 158-160) — canvas rendering fallbacks, not CSS; (d) description string in content.ts:12 — text describing what Argus detects, not actual color values. |
 | 5 | 标题层级 (heading hierarchy) | ✓ Done | 0 findings. 26 `<h[1-6]>` matches across 13 `.astro` files + 95 `^#{1,6}\s` matches across 8 `.md` content files. All 5 pages (index, docs/index, docs/[...slug], legal, 404) have exactly one `<h1>`. No heading level skips: hierarchy is always h1→h2→h3 (no h1→h3, no h2→h4, etc.). Code-block comments in configuration.md (lines 22,43,46,54,61,70,75,184,187) and skill.md (lines 46-47) are inside ``` fenced blocks, not actual headings. |
 | 6 | 对比度 (contrast) | ✓ Done | 2 P2 findings. Light theme: --color-accent #d97706 on --color-bg #ffffff = 3.19:1 (FAILS AA 4.5:1); --color-accent on --color-accent-soft = 2.86:1 (FAILS even AA Large 3:1); btn-primary text-fg-invert on bg-accent = 3.19:1 (FAILS AA). Dark theme: --color-fg-muted #94a3b8 on --color-surface-2 #334155 = 4.04:1 (FAILS AA 4.5:1). All other pairs pass AA. Contrast ratios computed via WCAG relative luminance formula. |
-| 7 | 键盘焦点 (keyboard focus) | ⏳ Pending | — |
+| 7 | 键盘焦点 (keyboard focus) | ✓ Done | 1 P2 finding. Global `:focus-visible` style present (outline: 2px solid var(--color-accent), offset 2px, border-radius 4px). Skip link present in BaseLayout.astro (hidden at left:-9999px, visible on :focus). No `outline: none` found. No `tabindex` attributes — natural DOM focus order. All nav elements have `aria-label`. P2: CodeBlock.astro:41 copy button has `opacity-60` which reduces `:focus-visible` outline visibility below WCAG 1.4.11 3:1 threshold — needs `focus:opacity-100`. |
 | 8 | 错误容错 (error handling) | ⏳ Pending | — |
 | 9 | 核心网页指标 (Core Web Vitals) | ⏳ Pending | — |
 | 10 | XSS | ⏳ Pending | — |
@@ -178,7 +201,7 @@
 |---------|--------|---------------|
 | 样式代码 | ⏳ Partial | !important: 9 instances, all legitimate (reduced-motion + Shiki override). 裸色值: 29 matches, all token definitions or token references. Remaining: inline styles, dead code, breakpoint consistency, dark-mode token consistency, long-text layout. |
 | 信息排版 | ⏳ Partial | 标题层级: all 5 pages have exactly one h1, no heading skips. 对比度: 2 P2 findings — light accent on bg fails AA (3.19:1), dark fg-muted on surface-2 fails AA (4.04:1). Remaining: body font ≥16px, line-height 1.4–1.7, line length 45–90 chars, spacing rhythm. |
-| 元素一致性 | ⏳ Pending | — |
+| 元素一致性 | ⏳ Partial | 键盘焦点: global :focus-visible style present, skip link functional, no outline suppression, natural focus order. 1 P2: CodeBlock copy button opacity-60 reduces focus indicator visibility. Remaining: seven-state coverage (hover/focus/active/disabled/loading/empty/error), target size ≥24×24px, alt text and width/height on images. |
 | 交互体验 | ⏳ Pending | — |
 | 功能稳定 | ⏳ Pending | — |
 | 前端安全 | ⏳ Partial | External link noopener (15 links found, no `target`/`rel`). Remaining: CSP/headers (covered by site/public/_headers), XSS APIs, postMessage, secret leakage, CVE. |
