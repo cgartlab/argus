@@ -258,6 +258,8 @@
 
 ## P3 — Low Priority
 
+## P3 — Low Priority
+
 ### [P3] site/public/argus-flash.png — Hero image 316.90 KB at 96×96 display (LCP candidate)
 
   Found:    `argus-flash.png` = 316.90 KB, displayed at `size-24` (96×96px) in Hero.astro:9
@@ -271,7 +273,49 @@
 
 ─────────────────────────────────────────────────
 
-✓ **No further P3 issues found.** (Dimensions 10–12 not yet audited — see Progress.)
+### [P3] [交互态] site/src/components/CodeBlock.astro:41 — Copy button target size under 24×24px
+
+  Found:    `class="copy-btn ... text-xs ... py-1 ..."` — height ≈ 20px (12px text + 8px padding)
+  Expected: Target size ≥ 24×24 CSS pixels (WCAG 2.5.8 AA)
+  
+  WCAG 2.5.8 (Target Size Minimum)  
+  Reference: https://www.w3.org/WAI/WCAG22/Understanding/target-size.html
+  
+  Basis: The copy button uses `text-xs` (12px) with `py-1` (4px vertical padding), resulting in approximately 20px height. This is below the 24×24 CSS pixel minimum for UI components under WCAG 2.5.8 (AA). The button width (~56px) meets the requirement.
+  
+  Fix:
+  ```html
+  <button
+    type="button"
+    class="copy-btn absolute right-3 top-3 z-10 inline-flex min-h-6 items-center gap-1.5 rounded-md border border-border bg-surface/90 px-2 py-1.5 font-mono text-xs font-medium text-fg-muted opacity-60 backdrop-blur transition-all hover:opacity-100 hover:text-fg"
+    aria-label="Copy code to clipboard"
+    data-copy-target
+  >
+  ```
+  Note: `min-h-6` (24px) + `py-1.5` (6px) ensures the target meets WCAG 2.5.8. Not applied yet — recorded for batch fix.
+
+─────────────────────────────────────────────────
+
+### [P3] [交互态] site/src — No `active:` state styling on interactive elements
+
+  Found:    No `active:` utility classes on any interactive element (links, buttons, nav items)
+  Expected: `active:bg-*` or `active:text-*` for mouse/touch press feedback
+  
+  Basis: The seven-state model (hover, focus, active, disabled, loading, empty, error) expects an `active` state for press feedback. Without it, users receive no visual feedback when pressing buttons or links before release. This is a P3 polish item — not a WCAG violation, but a UX improvement.
+  
+  Fix:
+  ```html
+  <!-- btn-primary (uno.config.ts shortcut) -->
+  'btn-primary': 'inline-flex items-center gap-2 rounded-lg bg-accent text-fg-invert px-5 py-2.5 text-sm font-medium transition-colors hover:bg-accent-strong active:bg-accent-strong/80',
+  
+  <!-- btn-secondary (uno.config.ts shortcut) -->
+  'btn-secondary': 'inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-5 py-2.5 text-sm font-medium transition-colors hover:bg-surface-2 active:bg-surface-2/80',
+  ```
+  Note: P3 polish — not a WCAG violation. Improves press feedback for touch and mouse users. Not applied yet.
+
+─────────────────────────────────────────────────
+
+✓ **No further P3 issues found.** All 12 dimensions audited.
 
 ---
 
@@ -290,7 +334,7 @@
 | 9 | 核心网页指标 (Core Web Vitals) | ✓ Done | 1 P3 finding. Total page weight 611.3 KB (0.6 MB). Module scripts deferred (2.40 KB + 20.60 KB = 23.00 KB). CSS render-blocking 27.70 KB (standard for Astro). `prefetch: true` in astro.config.mjs. System font stack (no @font-face, no FOUT). Both images have explicit width/height. Canvas absolute positioned. prefers-reduced-motion handled. P3: hero image argus-flash.png 316.90 KB at 96x96 display — LCP candidate, could be optimized to WebP/AVIF (~50-80 KB). UNKNOWN: LCP/INP/CLS actual values require browser tool (Lighthouse). Heuristic: all CWV targets likely met. |
 | 10 | XSS | ✓ Done | 0 findings. No innerHTML, outerHTML, insertAdjacentHTML, document.write, eval, new Function, dangerouslySetInnerHTML, set:html, postMessage, window.location write, addEventListener('message'), inline event handlers, srcdoc, or atob/btoa found. All DOM access uses hardcoded IDs/class selectors. URLSearchParams reads query params only. CSP header configured. Astro's built-in escaping handles template expressions. |
 | 11 | 密钥泄露 (secret leakage) | ✓ Done | 0 findings. No API keys, tokens, secrets, passwords, credentials in source or build output. No import.meta.env, process.env, .env files, localStorage, sessionStorage, or cookie usage. All `${{ secrets.* }}` references are GitHub Actions expression syntax in documentation examples. `persist-credentials: false` is a GitHub Actions config example, not a real credential. |
-| 12 | 交互态 (interaction states) | ⏳ Pending | — |
+| 12 | 交互态 (interaction states) | ✓ Done | 2 P3 findings. Seven-state coverage: hover (✓ extensive), focus (✓ global :focus-visible), active (✗ no active: styling), disabled/loading/empty (N/A — static site, no forms), error (✓ 404 page). Target size: CodeBlock copy button ≈20px height < 24×24 (WCAG 2.5.8 AA). prefers-reduced-motion: ✓ handled with !important. Zoom: ✓ not disabled. Tab: ✓ natural DOM order, no traps. Modals: N/A. Alt + width/height: ✓ both images. aria-hidden: ✓ only on decorative elements. |
 
 ---
 
@@ -300,8 +344,8 @@
 |---------|--------|---------------|
 | 样式代码 | ⏳ Partial | !important: 9 instances, all legitimate (reduced-motion + Shiki override). 裸色值: 29 matches, all token definitions or token references. Remaining: inline styles, dead code, breakpoint consistency, dark-mode token consistency, long-text layout. |
 | 信息排版 | ⏳ Partial | 标题层级: all 5 pages have exactly one h1, no heading skips. 对比度: 2 P2 findings — light accent on bg fails AA (3.19:1), dark fg-muted on surface-2 fails AA (4.04:1). Remaining: body font ≥16px, line-height 1.4–1.7, line length 45–90 chars, spacing rhythm. |
-| 元素一致性 | ⏳ Partial | 键盘焦点: global :focus-visible style present, skip link functional, no outline suppression, natural focus order. 1 P2: CodeBlock copy button opacity-60 reduces focus indicator visibility. Remaining: seven-state coverage (hover/focus/active/disabled/loading/empty/error), target size ≥24×24px, alt text and width/height on images. |
-| 交互体验 | ⏳ Partial | 错误容错: 404 page present, WebGL fallback working. 1 P2: CodeBlock copy button unhandled promise rejection. Remaining: >300ms feedback, destructive action confirmation, error text with fix instructions, Tab reachability, modal focus return, prefers-reduced-motion, zoom not disabled. |
+| 元素一致性 | ⏳ Partial | 键盘焦点: global :focus-visible style present, skip link functional, no outline suppression, natural focus order. 1 P2: CodeBlock copy button opacity-60 reduces focus indicator visibility. 交互态: 2 P3 — copy button target size <24px, no active: styling. Seven-state: hover ✓, focus ✓, active ✗, disabled/loading/empty N/A, error ✓. Remaining: target size on footer links, alt/width/height (done). |
+| 交互体验 | ⏳ Partial | 错误容错: 404 page present, WebGL fallback working. 1 P2: CodeBlock copy button unhandled promise rejection. 交互态: 2 P3 — copy button target size, no active state. Remaining: >300ms feedback, destructive action confirmation, error text with fix instructions, Tab reachability (done), modal focus return (N/A), prefers-reduced-motion (done), zoom not disabled (done). |
 | 功能稳定 | ⏳ Partial | 核心网页指标: total 611.3 KB, module scripts deferred, prefetch enabled, system fonts, explicit image dimensions. 1 P3: hero image 316.90 KB at 96x96. UNKNOWN: LCP/INP/CLS actual values need browser tool. Remaining: broken links 0 (done in Dim 1), empty href="#" (done in Dim 2), empty/error states, form double-submit prevention. |
 | 前端安全 | ⏳ Partial | External link noopener (15 links found, no `target`/`rel`) — 7 P2. XSS: 0 findings — no dangerous APIs, no user-controlled HTML injection. 密钥泄露: 0 findings — no secrets in source or build output. CSP header configured. Remaining: interaction states (Dim 12). |
 
