@@ -15,6 +15,20 @@
 
 ---
 
+## [0.5.7] — 2026-09-12
+
+### Added
+
+### Changed
+
+- **SkillHub Slug Reuse** — `SKILL.md` now publishes to SkillHub with the existing manual release slug `argus-design-review`, so the release workflow updates the original Argus skill.
+
+### Fixed
+
+### Removed
+
+---
+
 ## [0.5.6] — 2026-09-12
 
 ### Added
