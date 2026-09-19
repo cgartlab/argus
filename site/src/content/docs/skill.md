@@ -3,7 +3,7 @@ title: Argus Skill
 description: Download the Argus skill package and use it inside OpenCode, Claude Code, or Codex CLI.
 order: 2
 sidebarGroup: Start
-updated: 2026-09-20
+updated: 2026-09-03
 ---
 
 # Argus Skill
@@ -90,12 +90,13 @@ Argus then audits the target code and returns findings with the standard `[P#] f
 
 ## Before you run a review
 
-Argus reviews need an LLM. Two options:
+Argus reviews run on the **OpenCode Zen free model** (IDs end in `-free`). Authenticate once:
 
-- **OpenCode Go** (recommended, $10/month) — Grok 4.6, DeepSeek V4, GLM-5.3, Kimi K3, and more. Run `/connect` in the TUI, select **OpenCode Go**, paste your key from [opencode.ai/auth](https://opencode.ai/auth), then `/models` to pick a model.
-- **OpenCode Zen free** — free models (IDs end in `-free`), 0 USD per token. Run `opencode auth login`, choose **OpenCode**, and paste your key.
+```bash
+opencode auth login
+```
 
-Or set the `OPENCODE_API_KEY` environment variable for either option. The same key works for both Go and free models.
+Choose **OpenCode** and paste your key from [opencode.ai/auth](https://opencode.ai/auth) — or set the `OPENCODE_API_KEY` environment variable. The free model costs 0 USD per token, but the API still authenticates every call.
 
 ## Skill vs GitHub App
 
