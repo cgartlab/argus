@@ -28,6 +28,8 @@ const pathname = Astro.url.pathname
               <li>
                 <a
                   href={item.href}
+                  target={isExternal ? '_blank' : undefined}
+                  rel={isExternal ? 'noopener noreferrer' : undefined}
                   aria-current={isActive ? 'page' : undefined}
                   class:list={[
                     'rounded-lg px-3 py-2 text-sm font-medium no-underline transition-colors',
