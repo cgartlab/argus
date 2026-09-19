@@ -27,7 +27,6 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
-import configparser
 import json
 import os
 import re
@@ -37,6 +36,14 @@ import textwrap
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+
+# Single source of truth for the built-in fallback queue lives in
+# tools/update_free_models.py (MODEL_SCORES, rank_models, _parse_config) —
+# imported here to prevent drift between the two Python tools.
+from update_free_models import MODEL_SCORES as _MODEL_SCORES  # noqa: E402
+from update_free_models import rank_models as _rank_models  # noqa: E402
+from update_free_models import _parse_config as _parse_free_models_config  # noqa: E402
+from update_free_models import BUILTIN_PRIMARY as _BUILTIN_PRIMARY  # noqa: E402
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
@@ -159,17 +166,6 @@ def parse_expected(expected_path: Path) -> ExpectedFile:
 
 
 # ── Argus invocation (heuristic/static mode) ──────────────────────────────────
-
-# Fallback queue is read from config/free-models.yml (auto-refreshed weekly via reviewable PR
-# by the update-free-models workflow). These are last-resort built-in defaults
-# used only when the config file is missing or unparseable.
-# Single source of truth for the built-in queue lives in
-# tools/update_free_models.py (MODEL_SCORES, rank_models, _parse_config) —
-# imported here to prevent drift between the two Python tools.
-from update_free_models import MODEL_SCORES as _MODEL_SCORES
-from update_free_models import rank_models as _rank_models
-from update_free_models import _parse_config as _parse_free_models_config
-from update_free_models import BUILTIN_PRIMARY as _BUILTIN_PRIMARY
 
 # Last-resort built-in queue = known free models ranked by coding ability,
 # excluding the built-in primary (the primary is never part of the fallback queue).
@@ -644,10 +640,10 @@ def validate_output(expected: ExpectedFile, argus_output: str, tolerance: int = 
         if not spec.line_hint:
             continue
         finding_lines = [
-            l for l in argus_output.splitlines()
-            if re.search(rf"\[{spec.severity}\]", l)
+            line for line in argus_output.splitlines()
+            if re.search(rf"\[{spec.severity}\]", line)
         ]
-        if not any(spec.line_hint in l for l in finding_lines):
+        if not any(spec.line_hint in line for line in finding_lines):
             warnings.append(
                 f"line_hint '{spec.line_hint}' not found in any [{spec.severity}] finding line"
             )
@@ -655,7 +651,7 @@ def validate_output(expected: ExpectedFile, argus_output: str, tolerance: int = 
     # 4. Check must-not-flag items — these should not appear as flagged tokens.
     #    Each violation counts as a false positive (fp_count) for the run-level
     #    FalsePositiveRate metric (informational, not a gate).
-    flagged_lines = [l for l in argus_output.splitlines() if re.search(r"\[P\d\]", l)]
+    flagged_lines = [line for line in argus_output.splitlines() if re.search(r"\[P\d\]", line)]
     flagged_text = "\n".join(flagged_lines).lower()
     fp_count = 0
     for forbidden in expected.must_not_flag:

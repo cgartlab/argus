@@ -38,7 +38,7 @@ const langLabel = lang && lang !== 'text' ? lang.toUpperCase() : null
   <div class="not-prose relative">
     <button
       type="button"
-      class="copy-btn absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-md border border-border bg-surface/90 px-2 py-1 font-mono text-xs font-medium text-fg-muted opacity-60 backdrop-blur transition-all hover:opacity-100 hover:text-fg"
+      class="copy-btn absolute right-3 top-3 z-10 inline-flex min-h-6 items-center gap-1.5 rounded-md border border-border bg-surface/90 px-2 py-1.5 font-mono text-xs font-medium text-fg-muted opacity-60 backdrop-blur transition-all hover:opacity-100 focus:opacity-100 hover:text-fg"
       aria-label="Copy code to clipboard"
       data-copy-target
     >
@@ -91,6 +91,11 @@ const langLabel = lang && lang !== 'text' ? lang.toUpperCase() : null
     border-radius: 0 !important;
   }
 
+  /* Dark mode: invert github-light syntax colors so they're readable on dark bg */
+  [data-theme='dark'] .code-card :global(.astro-code) {
+    filter: invert(0.92) hue-rotate(180deg);
+  }
+
   /* Slim themed scrollbars (both axes) inside the code viewport */
   .code-scroll {
     scrollbar-width: thin;
@@ -129,6 +134,10 @@ const langLabel = lang && lang !== 'text' ? lang.toUpperCase() : null
           checkIcon?.classList.add('hidden')
           if (label) label.textContent = 'Copy'
         }, 1500)
+      }).catch(() => {
+        const label = btn.querySelector('.copy-label')
+        if (label) label.textContent = 'Failed'
+        setTimeout(() => { if (label) label.textContent = 'Copy' }, 1500)
       })
     })
   })
