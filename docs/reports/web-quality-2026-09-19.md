@@ -115,7 +115,7 @@
 
 ## P3 — Low Priority
 
-✓ **No issues found.** (Dimensions 4–12 not yet audited — see Progress. Dimension 3 (!important): 9 instances found, all legitimate — see Dimension table.)
+✓ **No issues found.** (Dimensions 5–12 not yet audited — see Progress. Dimensions 3–4: 0 findings — see Dimension table.)
 
 ---
 
@@ -126,7 +126,7 @@
 | 1 | 断链 (broken links) | ✓ Done | 0 broken internal links; all 8 internal routes verified against page files and content collection. 16 external links verified for format. |
 | 2 | 空实现 (empty href="#") | ✓ Done | 0 `href="#"` found. `#main` (BaseLayout.astro:41→43) and `/#capabilities` (site.ts→CapabilityList.astro:11) are valid in-page anchors. |
 | 3 | !important | ✓ Done | 0 findings. 9 `!important` instances found: 3 in global.css:143-145 (inside `@media (prefers-reduced-motion: reduce)` — WCAG 2.3.3 best practice for accessibility) and 6 in CodeBlock.astro:86-91 (overriding Shiki's `.astro-code` third-party styles via `:global()` — documented exception). Both are legitimate, documented uses. |
-| 4 | 裸色值 (bare color values) | ⏳ Pending | — |
+| 4 | 裸色值 (bare color values) | ✓ Done | 0 findings. 29 matches for hex/rgb/rgba/hsl/hsla across all `.astro`, `.css`, `.ts`, `.mjs`, `.js` files in `site/src/` and `site/`. All matches are: (a) design token definitions in global.css `:root` (lines 3-19) and `[data-theme="dark"]` (lines 74-89) — excluded per constraint "不报令牌中的裸值定义"; (b) `rgba(var(--color-...-rgb), alpha)` pattern in Hero.astro (lines 53,54,68-70,76,86) — references design tokens with variable alpha, not bare values; (c) JS fallback constants in DigitalWater.astro (lines 158-160) — canvas rendering fallbacks, not CSS; (d) description string in content.ts:12 — text describing what Argus detects, not actual color values. |
 | 5 | 标题层级 (heading hierarchy) | ⏳ Pending | — |
 | 6 | 对比度 (contrast) | ⏳ Pending | — |
 | 7 | 键盘焦点 (keyboard focus) | ⏳ Pending | — |
@@ -142,7 +142,7 @@
 
 | Cluster | Status | Scope checked |
 |---------|--------|---------------|
-| 样式代码 | ⏳ Partial | !important: 9 instances, all legitimate (reduced-motion + Shiki override). Remaining: bare color values, inline styles, dead code, breakpoint consistency, dark-mode token consistency, long-text layout. |
+| 样式代码 | ⏳ Partial | !important: 9 instances, all legitimate (reduced-motion + Shiki override). 裸色值: 29 matches, all token definitions or token references. Remaining: inline styles, dead code, breakpoint consistency, dark-mode token consistency, long-text layout. |
 | 信息排版 | ⏳ Pending | — |
 | 元素一致性 | ⏳ Pending | — |
 | 交互体验 | ⏳ Pending | — |
