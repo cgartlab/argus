@@ -14,7 +14,7 @@ const year = new Date().getFullYear()
     <div class="text-sm text-fg-muted">
       <p>
         © {year} {site.name} · Crafted by{' '}
-        <a href={site.creatorUrl} class="no-underline text-fg-muted hover:text-fg">CGArtLab</a> · {site.license} License
+        <a href={site.creatorUrl} target="_blank" rel="noopener noreferrer" class="no-underline text-fg-muted hover:text-fg">CGArtLab</a> · {site.license} License
       </p>
       <p class="mt-1">Version {version}</p>
     </div>
@@ -24,10 +24,10 @@ const year = new Date().getFullYear()
           <a href="/docs" class="no-underline text-fg-muted hover:text-fg">Documentation</a>
         </li>
         <li>
-          <a href={site.github} class="no-underline text-fg-muted hover:text-fg">GitHub</a>
+          <a href={site.github} target="_blank" rel="noopener noreferrer" class="no-underline text-fg-muted hover:text-fg">GitHub</a>
         </li>
         <li>
-          <a href={site.appUrl} class="no-underline text-fg-muted hover:text-fg">Install the App</a>
+          <a href={site.appUrl} target="_blank" rel="noopener noreferrer" class="no-underline text-fg-muted hover:text-fg">Install the App</a>
         </li>
         <li>
           <a href="/legal" class="no-underline text-fg-muted hover:text-fg">Legal</a>
