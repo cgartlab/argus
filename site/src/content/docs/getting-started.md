@@ -3,7 +3,7 @@ title: Getting Started
 description: Install argus-flash in three steps and run your first design review.
 order: 1
 sidebarGroup: Start
-updated: 2026-09-20
+updated: 2026-09-02
 ---
 
 # Getting Started
@@ -83,32 +83,18 @@ jobs:
 
 **What you'll see:** A new workflow appears under your repository's **Actions** tab.
 
-### Step 4 — Add your OpenCode API key
+### Step 4 — Add your OpenCode Zen API key
 
-Argus needs an LLM to run reviews. You have two options:
-
-| Option | Cost | Models | Best for |
-|---|---|---|---|
-| **OpenCode Go** (recommended) | $10/month | Grok 4.6, DeepSeek V4, GLM-5.3, Kimi K3, etc. | Production reviews with strong models |
-| **OpenCode Zen free** | Free | Free models (IDs end in `-free`) | Quick testing; time-limited offer |
-
-#### Option A — OpenCode Go (recommended)
-
-1. Sign in at [opencode.ai/auth](https://opencode.ai/auth), subscribe to **Go**, and copy your API key.
-2. Go to your repository → **Settings → Secrets and variables → Actions** → **New repository secret**, name it `OPENCODE_API_KEY`, and paste your key.
-
-Go gives you access to tested, benchmarked open coding models at a flat $10/month. The same API key works for both Go and free models — no separate key needed. Go model IDs use the format `opencode-go/<model-id>` (e.g. `opencode-go/deepseek-v4-flash`).
-
-#### Option B — Free models only
+**What to do:**
 
 1. Register at [opencode.ai](https://opencode.ai) (free) and create an API key at [opencode.ai/auth](https://opencode.ai/auth).
 2. Go to your repository → **Settings → Secrets and variables → Actions** → **New repository secret**, name it `OPENCODE_API_KEY`, and paste your key.
 
-Free models (IDs end in `-free`) cost 0 USD per token but have usage limits and are time-limited.
+**Why:** Argus reviews run on the **OpenCode Zen free model** (IDs end in `-free`, e.g. `opencode/xxx-free`). The model costs 0 USD per token — but the API still authenticates every call, so a key is required. Argus never ships with a key, and the argus-flash App provides GitHub identity only (the bot token), not an LLM key. (The free model offer is time-limited.)
 
 **What you'll see:** No workflow changes are needed — the workflow from Step 3 already passes the secret through with `api-key: ${{ secrets.OPENCODE_API_KEY }}`. If a review fails with **"No usable OpenCode Zen API key detected"**, the key is missing or mistyped — redo this step.
 
-> **Important:** never put your API key in `.argus.yml` or any committed file — it would be visible to forks and collaborators. For local runs, authenticate once with `opencode auth login` (choose **OpenCode**, paste your key) or set the `OPENCODE_API_KEY` environment variable. If you have OpenCode Go, run `/connect` in the TUI, select **OpenCode Go**, and paste your key — then `/models` to pick a Go model.
+> **Important:** never put your API key in `.argus.yml` or any committed file — it would be visible to forks and collaborators. For local runs, authenticate once with `opencode auth login` (choose **OpenCode**, paste your key) or set the `OPENCODE_API_KEY` environment variable.
 
 ### Step 5 — Open a pull request and watch the magic
 
@@ -140,7 +126,7 @@ Point your agent framework (OpenCode, Claude Code, Codex CLI) at this folder, an
 
 **Prefer a single-file skill package?** Download `argus-skill-v{VERSION}.zip` from the [GitHub Releases](https://github.com/cgartlab/argus/releases) page and unzip it into your agent's `skills/` directory — no full clone needed. Full instructions on the [Argus Skill](/docs/skill) page.
 
-Before your first local review, authenticate once: run `opencode auth login`, choose **OpenCode**, and paste your key from [opencode.ai/auth](https://opencode.ai/auth). Or set the `OPENCODE_API_KEY` environment variable. If you have **OpenCode Go**, run `/connect` in the TUI, select **OpenCode Go**, and paste your key — then `/models` to see the Go model list (Grok 4.6, DeepSeek V4, GLM-5.3, etc.).
+Before your first local review, authenticate once: run `opencode auth login`, choose **OpenCode**, and paste your key from [opencode.ai/auth](https://opencode.ai/auth). Or set the `OPENCODE_API_KEY` environment variable.
 
 ## Pinning the action version
 
@@ -161,7 +147,7 @@ Before your first local review, authenticate once: run `opencode auth login`, ch
 4. Confirm both secrets are spelled exactly `ARGUS_FLASH_APP_ID` and `ARGUS_FLASH_PRIVATE_KEY`.
 
 **Q: The review fails with "No usable OpenCode Zen API key detected."**
-The `OPENCODE_API_KEY` secret is missing or mistyped. Re-add it at Settings → Secrets and variables → Actions, then re-run the workflow (see Step 4). If you subscribed to OpenCode Go but still see this error, confirm your key was generated from the Go subscription (not a free-only key).
+The `OPENCODE_API_KEY` secret is missing or mistyped. Re-add it at Settings → Secrets and variables → Actions, then re-run the workflow (see Step 4).
 
 **Q: The workflow fails with "secret not found" or "Permission denied."**
 The secrets are missing or mistyped. Re-add them at Settings → Secrets and variables → Actions. A common mistake is a trailing space or a line break inside the private key — paste the key exactly as GitHub generated it.
