@@ -73,7 +73,7 @@ const langLabel = lang && lang !== 'text' ? lang.toUpperCase() : null
     </button>
 
     <div class="code-scroll max-h-[26rem] overflow-auto">
-      <Code code={code} lang={lang} theme={{ light: 'github-light', dark: 'github-dark' }} />
+      <Code code={code} lang={lang} theme="github-light" />
     </div>
   </div>
 </div>
@@ -89,6 +89,11 @@ const langLabel = lang && lang !== 'text' ? lang.toUpperCase() : null
     line-height: var(--ds-leading-relaxed) !important;
     background-color: transparent !important;
     border-radius: 0 !important;
+  }
+
+  /* Dark mode: invert github-light syntax colors so they're readable on dark bg */
+  [data-theme='dark'] .code-card :global(.astro-code) {
+    filter: invert(0.92) hue-rotate(180deg);
   }
 
   /* Slim themed scrollbars (both axes) inside the code viewport */
