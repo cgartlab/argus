@@ -316,7 +316,7 @@
 | 3 | !important | ✓ Done | 0 findings. 9 `!important` instances found: 3 in global.css:143-145 (inside `@media (prefers-reduced-motion: reduce)` — WCAG 2.3.3 best practice for accessibility) and 6 in CodeBlock.astro:86-91 (overriding Shiki's `.astro-code` third-party styles via `:global()` — documented exception). Both are legitimate, documented uses. |
 | 4 | 裸色值 (bare color values) | ✓ Done | 0 findings. 29 matches for hex/rgb/rgba/hsl/hsla across all `.astro`, `.css`, `.ts`, `.mjs`, `.js` files in `site/src/` and `site/`. All matches are: (a) design token definitions in global.css `:root` (lines 3-19) and `[data-theme="dark"]` (lines 74-89) — excluded per constraint "不报令牌中的裸值定义"; (b) `rgba(var(--color-...-rgb), alpha)` pattern in Hero.astro (lines 53,54,68-70,76,86) — references design tokens with variable alpha, not bare values; (c) JS fallback constants in DigitalWater.astro (lines 158-160) — canvas rendering fallbacks, not CSS; (d) description string in content.ts:12 — text describing what Argus detects, not actual color values. |
 | 5 | 标题层级 (heading hierarchy) | ✓ Done | 0 findings. 26 `<h[1-6]>` matches across 13 `.astro` files + 95 `^#{1,6}\s` matches across 8 `.md` content files. All 5 pages (index, docs/index, docs/[...slug], legal, 404) have exactly one `<h1>`. No heading level skips: hierarchy is always h1→h2→h3 (no h1→h3, no h2→h4, etc.). Code-block comments in configuration.md (lines 22,43,46,54,61,70,75,184,187) and skill.md (lines 46-47) are inside ``` fenced blocks, not actual headings. |
-| 6 | 对比度 (contrast) | ✓ Done | 2 P2 findings (both need human decision — not fixed). Light theme: --color-accent #d97706 on --color-bg #ffffff = 3.19:1 (FAILS AA 4.5:1); --color-accent on --color-accent-soft = 2.86:1 (FAILS even AA Large 3:1); btn-primary text-fg-invert on bg-accent = 3.19:1 (FAILS AA). Dark theme: --color-fg-muted #94a3b8 on --color-surface-2 #334155 = 4.04:1 (FAILS AA 4.5:1). All other pairs pass AA. Contrast ratios computed via WCAG relative luminance formula. **Status: awaiting design token decision.** |
+| 6 | 对比度 (contrast) | ✓ Done (re-audited R3) | **Dark theme: 0 failures** — all 13 token pairs pass AA after `--color-fg-muted` #94a3b8 → #a3b8cc fix (fg-muted on surface-2 now 5.07:1). Verified: fg/bg 14.48, fg/surface 11.87, fg/surface-2 8.40, fg-muted/bg 8.74, fg-muted/surface 7.16, accent/bg 10.69, accent/surface 8.76, accent/surface-2 6.20, accent/accent-soft 5.43, accent-strong/bg 12.38, fg-invert/accent 10.69 — all PASS. **Light theme: 5 remaining FAIL pairs**, all rooted in `--color-accent: #d97706` (accent/bg 3.19, accent/surface 3.04, accent/surface-2 2.91, accent/accent-soft 2.86, fg-invert/accent 3.19). **FIXED in R3:** active nav pill `text-accent bg-accent-soft` (2.86:1) → `text-accent-strong bg-accent-soft` (4.51:1 AA pass) in Header.astro:37 + DocsSidebar.astro:45 — uses existing token, no color-system change. **Status: 4 light-theme pairs still need design token decision.** |
 | 7 | 键盘焦点 (keyboard focus) | ✓ Done (re-audited) | 1 P2 finding — **FIXED in Round 1**. Global `:focus-visible` style present (outline: 2px solid var(--color-accent), offset 2px, border-radius 4px). Skip link present in BaseLayout.astro (hidden at left:-9999px, visible on :focus). No `outline: none` found. No `tabindex` attributes — natural DOM focus order. All nav elements have `aria-label`. ✓ Fixed: CodeBlock.astro:41 copy button `focus:opacity-100` added — keyboard focus now restores full opacity. **Re-audit (Round 2):** Theme toggle button (Header.astro:48) has `type="button"`, `aria-label="Toggle light/dark mode"`, no `tabindex` (natural DOM order), uses global `:focus-visible` outline. No `outline: none` found anywhere. No `role="dialog"` (no modals). All interactive elements (header nav links, theme toggle, copy button, footer links, docs sidebar links, pagination links) are keyboard-reachable via natural Tab order. Conclusion: clean. |
 | 8 | 错误容错 (error handling) | ✓ Done | 1 P2 finding — **FIXED in Round 1**. 404 page present (pages/404.astro → NotFound.astro with helpful messaging + navigation). DigitalWater.astro WebGL init has try/catch with Canvas2D fallback (lines 669-681, 687-698). Shader compilation errors throw and are caught by createRenderer(). ✓ Fixed: CodeBlock.astro:120 `navigator.clipboard.writeText()` now has `.catch()` handler with 'Failed' label feedback. |
 | 9 | 核心网页指标 (Core Web Vitals) | ✓ Done | 1 P3 finding. Total page weight 611.3 KB (0.6 MB). Module scripts deferred (2.40 KB + 20.60 KB = 23.00 KB). CSS render-blocking 27.70 KB (standard for Astro). `prefetch: true` in astro.config.mjs. System font stack (no @font-face, no FOUT). Both images have explicit width/height. Canvas absolute positioned. prefers-reduced-motion handled. P3: hero image argus-flash.png 316.90 KB at 96x96 display — LCP candidate, could be optimized to WebP/AVIF (~50-80 KB). UNKNOWN: LCP/INP/CLS actual values require browser tool (Lighthouse). Heuristic: all CWV targets likely met. |
@@ -442,6 +442,82 @@
 
 **Conclusion:** X04 clean. No new findings. Theme toggle button is properly accessible.
 
+---
+
+## Round 3 Re-audit — T04 对比度 (2026-09-19)
+
+**本轮维度:** T04 对比度
+**看哪些文件:** `site/src/styles/global.css`（令牌定义）、`site/uno.config.ts`（btn-primary 快捷类）、`Header.astro`、`DocsSidebar.astro`、`index.astro`、`QuickStart.astro`、`CapabilityList.astro`、`CodeBlock.astro`
+**搜什么:** `text-accent` / `bg-accent` / `--un-prose-links` 用法站点，再用 WCAG 相对亮度公式逐对计算令牌组合
+
+**工具输出:** `npm run build` → EXIT=0（12 pages, 1.31s）；对比度由 Node 脚本按 WCAG 2.x 相对亮度公式计算
+
+### 暗色模式结论：0 失败
+
+R2 的 `--color-fg-muted` #94a3b8 → #a3b8cc 修复生效，暗色 13 对全部通过 AA：
+
+| 组合 | 比值 | 判定 |
+|------|------|------|
+| fg / bg | 14.48:1 | PASS |
+| fg / surface | 11.87:1 | PASS |
+| fg / surface-2 | 8.40:1 | PASS |
+| fg-muted / bg | 8.74:1 | PASS |
+| fg-muted / surface | 7.16:1 | PASS |
+| **fg-muted / surface-2** | **5.07:1** | **PASS（修复前 4.04 FAIL）** |
+| accent / bg | 10.69:1 | PASS |
+| accent / surface | 8.76:1 | PASS |
+| accent / surface-2 | 6.20:1 | PASS |
+| accent / accent-soft | 5.43:1 | PASS |
+| accent-strong / bg | 12.38:1 | PASS |
+| fg-invert / accent（btn-primary） | 10.69:1 | PASS |
+
+### 本轮发现
+
+─────────────────────────────────────────────────
+
+### [P2] ✓ FIXED [T04] site/src/components/Header.astro:37 + site/src/components/DocsSidebar.astro:45 — 选中导航项在亮色模式下 `text-accent` on `bg-accent-soft` 仅 2.86:1
+
+  Found:    `? 'text-accent bg-accent-soft'` (Header.astro:37) / `? 'bg-accent-soft font-medium text-accent'` (DocsSidebar.astro:45)
+  Expected: 对比度 ≥ 4.5:1（WCAG AA 正文）；使用既有 `--color-accent-strong` 令牌而非改动配色体系
+
+  WCAG 1.4.3 (Contrast Minimum)
+  Basis: 脚本计算 `#d97706` on `#fef3c7` = **2.86:1**，连 AA Large 3:1 都不到。改用既有 `--color-accent-strong: #b45309` 后 = **4.51:1**，通过 AA。
+
+  Fix（本轮回合已应用，2 文件 2 行）:
+  ```astro
+  isActive
+    ? 'text-accent-strong bg-accent-soft'
+    : 'text-fg-muted hover:text-fg hover:bg-surface-2',
+  ```
+
+  Note: 影响面 = 顶部导航当前页高亮 + 文档侧边栏当前页高亮。验证方式：`npm run build` EXIT=0；`dist/docs/index.html` 确认输出 `text-accent-strong bg-accent-soft`，旧 `text-accent bg-accent-soft` 已无残留。此项**未改动任何设计令牌**，仅换用已存在的 accent-strong。
+
+─────────────────────────────────────────────────
+
+### [P2] [T04] site/src/styles/global.css:15 — `--color-accent` #d97706 在亮色模式所有背景上均不达 AA（需人工决策）
+
+  Found:    `--color-accent: #d97706;`
+  Expected: 若该令牌用于正文尺寸文字，需 ≥ 4.5:1
+
+  WCAG 1.4.3 (Contrast Minimum)
+  Basis: 计算得 accent/bg #ffffff = 3.19:1、accent/surface #f8fafc = 3.04:1、accent/surface-2 #f1f5f9 = 2.91:1、fg-invert/accent = 3.19:1 — 全部低于 4.5:1。
+
+  Fix: 需人工决策。可选：(a) 令牌降深到 `#a16207`（4.73:1）或 `#b45309`（5.02:1）；(b) 保留品牌色，把正文尺寸的 `text-accent` 站点改用 `text-accent-strong`。
+
+  Note: **需人工决策 — 属设计令牌语义/配色体系，按硬约束不自行改动。** 受影响站点（现存，未修）：`index.astro:75,84,94,103`（`text-accent` 14px 链接）、`uno.config.ts:44`（btn-primary `text-fg-invert` on `bg-accent` = 3.19:1，用于 `Hero.astro:28` / `NotFound.astro:12` / `index.astro:54`）、`QuickStart.astro:23`（徽章 14px bold = 10.5pt < 14pt 大字号阈值）。`NotFound.astro:6` 的 `text-6xl text-accent` 属超大字号（3:1 即达标），不在此列。移交强模型：需要品牌色可否降深的决策。
+
+─────────────────────────────────────────────────
+
+### 已检查范围（无问题部分）
+
+- `CapabilityList.astro:22` — `bg-accent-soft text-accent` 是 `aria-hidden="true"` 的装饰性图标容器，无文字，不适用 1.4.3
+- `Hero.astro:11` — `bg-accent` 是装饰圆点，`aria-hidden="true"`，无文字
+- `CodeBlock.astro:60` — `text-accent-strong` 用于勾选图标（非文字）
+- `global.css:63` — `--un-prose-links: var(--color-accent)`：prose 链接继承 accent，已包含在上述需决策项内
+- 暗色主题全部 13 对令牌组合 — 全部 PASS（见上表）
+
+**结论:** 暗色模式对比度已全部达标（0 失败）。亮色模式剩 4 处失败，全部收敛到 `--color-accent` 单一令牌的取值问题，属配色体系决策，已标注「需人工决策」。本轮另修复 1 处非令牌项（选中导航 pill）。
+
 ### Goal Status
 
-All 12 LITE_CORE dimensions have conclusions. P0/P1 all resolved (none found or all fixed). P2 contrast issues noted as "need human decision" (已说明). Goal complete.
+All 12 LITE_CORE dimensions have conclusions. P0/P1 all resolved. Remaining P2 contrast items are light-theme design-token decisions, explicitly recorded as 需人工决策 (已说明).
