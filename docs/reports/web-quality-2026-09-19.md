@@ -201,9 +201,48 @@
 
 ─────────────────────────────────────────────────
 
+### [P3] [核心网页指标] site/public/argus-flash.png — Hero image 316.90 KB at 96×96 display (LCP candidate)
+
+  Found:    `argus-flash.png` = 316.90 KB, displayed at `size-24` (96×96px) in Hero.astro:9
+  Expected: Image optimized to WebP or AVIF (~50–80 KB), with `srcset` for responsive sizes
+  
+  Basis: Total page weight is 611.3 KB (0.6 MB). The hero image is 52% of total page weight and is the LCP candidate. While 316.90 KB on a static CDN-served site should still achieve LCP ≤ 2.5s, the image format is suboptimal for its display size.
+  
+  UNKNOWN: Cannot measure actual LCP, INP, or CLS without a browser tool (Lighthouse, WebPageTest, or browser DevTools). Heuristic assessment only:
+  - LCP: Total page weight 611.3 KB, module scripts deferred, `prefetch: true` — likely ≤ 2.5s
+  - INP: Minimal JS (23.00 KB total, 2 module scripts), canvas uses requestAnimationFrame — likely ≤ 200ms
+  - CLS: Both images have explicit `width`/`height`, canvas is absolute, system font stack (no FOUT) — likely ≤ 0.1
+  
+  Fix (if desired):
+  ```bash
+  # Convert to WebP with quality 85 (reduces ~317 KB to ~60 KB)
+  cwebp -q 85 public/argus-flash.png -o public/argus-flash.webp
+  # Then use <picture> with WebP source and PNG fallback:
+  <picture>
+    <source srcset="/argus-flash.webp" type="image/webp">
+    <img src="/argus-flash.png" alt="Argus logo" width="96" height="96" />
+  </picture>
+  ```
+  Note: P3 polish — not a blocker. The site is static with CDN delivery, so LCP should pass even with the current PNG.
+
+─────────────────────────────────────────────────
+
 ## P3 — Low Priority
 
-✓ **No issues found.** (Dimensions 9–12 not yet audited — see Progress. Dimensions 3–5: 0 findings. Dimension 6: 2 P2. Dimension 7: 1 P2. Dimension 8: 1 P2.)
+### [P3] site/public/argus-flash.png — Hero image 316.90 KB at 96×96 display (LCP candidate)
+
+  Found:    `argus-flash.png` = 316.90 KB, displayed at `size-24` (96×96px) in Hero.astro:9
+  Expected: Image optimized to WebP or AVIF (~50–80 KB), with `srcset` for responsive sizes
+  
+  Basis: Total page weight is 611.3 KB (0.6 MB). The hero image is 52% of total page weight and is the LCP candidate. While 316.90 KB on a static CDN-served site should still achieve LCP ≤ 2.5s, the image format is suboptimal for its display size.
+  
+  UNKNOWN: Cannot measure actual LCP, INP, or CLS without a browser tool (Lighthouse, WebPageTest, or browser DevTools). Heuristic assessment: total page weight 611.3 KB, module scripts deferred, `prefetch: true`, system font stack, explicit image dimensions — all CWV targets likely met.
+
+  Fix (if desired): Convert to WebP with quality 85 (reduces ~317 KB to ~60 KB) and use `<picture>` with WebP source and PNG fallback.
+
+─────────────────────────────────────────────────
+
+✓ **No further P3 issues found.** (Dimensions 10–12 not yet audited — see Progress.)
 
 ---
 
@@ -219,7 +258,7 @@
 | 6 | 对比度 (contrast) | ✓ Done | 2 P2 findings. Light theme: --color-accent #d97706 on --color-bg #ffffff = 3.19:1 (FAILS AA 4.5:1); --color-accent on --color-accent-soft = 2.86:1 (FAILS even AA Large 3:1); btn-primary text-fg-invert on bg-accent = 3.19:1 (FAILS AA). Dark theme: --color-fg-muted #94a3b8 on --color-surface-2 #334155 = 4.04:1 (FAILS AA 4.5:1). All other pairs pass AA. Contrast ratios computed via WCAG relative luminance formula. |
 | 7 | 键盘焦点 (keyboard focus) | ✓ Done | 1 P2 finding. Global `:focus-visible` style present (outline: 2px solid var(--color-accent), offset 2px, border-radius 4px). Skip link present in BaseLayout.astro (hidden at left:-9999px, visible on :focus). No `outline: none` found. No `tabindex` attributes — natural DOM focus order. All nav elements have `aria-label`. P2: CodeBlock.astro:41 copy button has `opacity-60` which reduces `:focus-visible` outline visibility below WCAG 1.4.11 3:1 threshold — needs `focus:opacity-100`. |
 | 8 | 错误容错 (error handling) | ✓ Done | 1 P2 finding. 404 page present (pages/404.astro → NotFound.astro with helpful messaging + navigation). DigitalWater.astro WebGL init has try/catch with Canvas2D fallback (lines 669-681, 687-698). Shader compilation errors throw and are caught by createRenderer(). P2: CodeBlock.astro:120 `navigator.clipboard.writeText()` promise has no `.catch()` — unhandled rejection on clipboard failure. Static site — no runtime error boundary needed (build-time errors fail the build). No empty/loading states needed (static content). |
-| 9 | 核心网页指标 (Core Web Vitals) | ⏳ Pending | — |
+| 9 | 核心网页指标 (Core Web Vitals) | ✓ Done | 1 P3 finding. Total page weight 611.3 KB (0.6 MB). Module scripts deferred (2.40 KB + 20.60 KB = 23.00 KB). CSS render-blocking 27.70 KB (standard for Astro). `prefetch: true` in astro.config.mjs. System font stack (no @font-face, no FOUT). Both images have explicit width/height. Canvas absolute positioned. prefers-reduced-motion handled. P3: hero image argus-flash.png 316.90 KB at 96x96 display — LCP candidate, could be optimized to WebP/AVIF (~50-80 KB). UNKNOWN: LCP/INP/CLS actual values require browser tool (Lighthouse). Heuristic: all CWV targets likely met. |
 | 10 | XSS | ⏳ Pending | — |
 | 11 | 密钥泄露 (secret leakage) | ⏳ Pending | — |
 | 12 | 交互态 (interaction states) | ⏳ Pending | — |
@@ -234,7 +273,7 @@
 | 信息排版 | ⏳ Partial | 标题层级: all 5 pages have exactly one h1, no heading skips. 对比度: 2 P2 findings — light accent on bg fails AA (3.19:1), dark fg-muted on surface-2 fails AA (4.04:1). Remaining: body font ≥16px, line-height 1.4–1.7, line length 45–90 chars, spacing rhythm. |
 | 元素一致性 | ⏳ Partial | 键盘焦点: global :focus-visible style present, skip link functional, no outline suppression, natural focus order. 1 P2: CodeBlock copy button opacity-60 reduces focus indicator visibility. Remaining: seven-state coverage (hover/focus/active/disabled/loading/empty/error), target size ≥24×24px, alt text and width/height on images. |
 | 交互体验 | ⏳ Partial | 错误容错: 404 page present, WebGL fallback working. 1 P2: CodeBlock copy button unhandled promise rejection. Remaining: >300ms feedback, destructive action confirmation, error text with fix instructions, Tab reachability, modal focus return, prefers-reduced-motion, zoom not disabled. |
-| 功能稳定 | ⏳ Pending | — |
+| 功能稳定 | ⏳ Partial | 核心网页指标: total 611.3 KB, module scripts deferred, prefetch enabled, system fonts, explicit image dimensions. 1 P3: hero image 316.90 KB at 96x96. UNKNOWN: LCP/INP/CLS actual values need browser tool. Remaining: broken links 0 (done in Dim 1), empty href="#" (done in Dim 2), empty/error states, form double-submit prevention. |
 | 前端安全 | ⏳ Partial | External link noopener (15 links found, no `target`/`rel`). Remaining: CSP/headers (covered by site/public/_headers), XSS APIs, postMessage, secret leakage, CVE. |
 
 ---
