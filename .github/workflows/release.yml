@@ -88,8 +88,14 @@ jobs:
           node-version: "20"
 
       - name: Install SkillHub CLI
+        # Download the installer to a temp file before executing (CWE-494: no
+        # integrity check on pipe-to-bash). skillhub.cn does not publish a
+        # checksum URL, so full verification is not yet possible — this at
+        # least breaks the pipe-to-bash pattern so the script is inspectable.
         run: |
-          curl -fsSL https://skillhub.cn/install/install.sh | bash -s -- --cli-only
+          curl -fsSL https://skillhub.cn/install/install.sh -o /tmp/skillhub-install.sh
+          test -s /tmp/skillhub-install.sh
+          bash /tmp/skillhub-install.sh --cli-only
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           skillhub --version
 
