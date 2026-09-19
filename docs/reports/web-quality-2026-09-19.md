@@ -115,7 +115,7 @@
 
 ## P3 — Low Priority
 
-✓ **No issues found.** (Dimensions 5–12 not yet audited — see Progress. Dimensions 3–4: 0 findings — see Dimension table.)
+✓ **No issues found.** (Dimensions 6–12 not yet audited — see Progress. Dimensions 3–5: 0 findings — see Dimension table.)
 
 ---
 
@@ -127,7 +127,7 @@
 | 2 | 空实现 (empty href="#") | ✓ Done | 0 `href="#"` found. `#main` (BaseLayout.astro:41→43) and `/#capabilities` (site.ts→CapabilityList.astro:11) are valid in-page anchors. |
 | 3 | !important | ✓ Done | 0 findings. 9 `!important` instances found: 3 in global.css:143-145 (inside `@media (prefers-reduced-motion: reduce)` — WCAG 2.3.3 best practice for accessibility) and 6 in CodeBlock.astro:86-91 (overriding Shiki's `.astro-code` third-party styles via `:global()` — documented exception). Both are legitimate, documented uses. |
 | 4 | 裸色值 (bare color values) | ✓ Done | 0 findings. 29 matches for hex/rgb/rgba/hsl/hsla across all `.astro`, `.css`, `.ts`, `.mjs`, `.js` files in `site/src/` and `site/`. All matches are: (a) design token definitions in global.css `:root` (lines 3-19) and `[data-theme="dark"]` (lines 74-89) — excluded per constraint "不报令牌中的裸值定义"; (b) `rgba(var(--color-...-rgb), alpha)` pattern in Hero.astro (lines 53,54,68-70,76,86) — references design tokens with variable alpha, not bare values; (c) JS fallback constants in DigitalWater.astro (lines 158-160) — canvas rendering fallbacks, not CSS; (d) description string in content.ts:12 — text describing what Argus detects, not actual color values. |
-| 5 | 标题层级 (heading hierarchy) | ⏳ Pending | — |
+| 5 | 标题层级 (heading hierarchy) | ✓ Done | 0 findings. 26 `<h[1-6]>` matches across 13 `.astro` files + 95 `^#{1,6}\s` matches across 8 `.md` content files. All 5 pages (index, docs/index, docs/[...slug], legal, 404) have exactly one `<h1>`. No heading level skips: hierarchy is always h1→h2→h3 (no h1→h3, no h2→h4, etc.). Code-block comments in configuration.md (lines 22,43,46,54,61,70,75,184,187) and skill.md (lines 46-47) are inside ``` fenced blocks, not actual headings. |
 | 6 | 对比度 (contrast) | ⏳ Pending | — |
 | 7 | 键盘焦点 (keyboard focus) | ⏳ Pending | — |
 | 8 | 错误容错 (error handling) | ⏳ Pending | — |
@@ -143,7 +143,7 @@
 | Cluster | Status | Scope checked |
 |---------|--------|---------------|
 | 样式代码 | ⏳ Partial | !important: 9 instances, all legitimate (reduced-motion + Shiki override). 裸色值: 29 matches, all token definitions or token references. Remaining: inline styles, dead code, breakpoint consistency, dark-mode token consistency, long-text layout. |
-| 信息排版 | ⏳ Pending | — |
+| 信息排版 | ⏳ Partial | 标题层级: all 5 pages have exactly one h1, no heading skips (h1→h2→h3). Remaining: body font ≥16px, line-height 1.4–1.7, line length 45–90 chars, spacing rhythm, body contrast ≥4.5:1. |
 | 元素一致性 | ⏳ Pending | — |
 | 交互体验 | ⏳ Pending | — |
 | 功能稳定 | ⏳ Pending | — |
