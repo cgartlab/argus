@@ -63,7 +63,7 @@ def check_changelog_content(version: str) -> None:
     if not cleaned:
         print(f"FAIL: CHANGELOG entry for [{version}] is empty — add entries before releasing")
         sys.exit(1)
-    print(f"  CHANGELOG entry has content")
+    print("  CHANGELOG entry has content")
 
 
 def check_file_version(path: str, pattern: str, expected: str) -> None:
