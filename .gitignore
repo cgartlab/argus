@@ -24,3 +24,8 @@ site/.astro/
 # dev 服务器日志（site/）
 site/dev.log
 site/dev.err
+
+# 环境变量（永不提交真实密钥）
+.env
+.env.*
+!.env.example
