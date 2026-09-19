@@ -299,7 +299,7 @@
   <!-- btn-secondary (uno.config.ts shortcut) -->
   'btn-secondary': 'inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-5 py-2.5 text-sm font-medium transition-colors hover:bg-surface-2 active:bg-surface-2/80',
   ```
-  Note: P3 polish — not a WCAG violation. Improves press feedback for touch and mouse users. Not applied yet.
+  Note: **FIXED** — ctive:bg-accent-strong/80 and ctive:bg-surface-2/80 added to btn-primary and btn-secondary shortcuts in uno.config.ts. Press feedback now visible on all buttons. Verified in dist CSS output.
 
 ─────────────────────────────────────────────────
 
@@ -417,6 +417,10 @@
 | 9cf7a14 | `docs(reports): add Dimension 10 (XSS) — 0 findings` | Dim 10 |
 | ac30cf0 | `docs(reports): add Dimension 11 (secret leakage) — 0 findings` | Dim 11 |
 | f258f49 | `docs(reports): add Dimension 12 (interaction states) — 2 P3 — all 12 complete` | Dim 12 |
+| b5b3cab | `fix(site): apply 9 P2 fixes from web-quality audit` | P2 fixes: noopener, focus:opacity, .catch() |
+| 6c62866 | `fix(site): darken-mode fg-muted contrast — #94a3b8 → #a3b8cc (5.07:1 AA pass)` | Contrast fix (dark) |
+| 0206d00 | `fix(site): active nav pill contrast 2.86:1 to 4.51:1 (WCAG AA)` | Contrast fix (active pill) |
+| [pending] | `fix(site): P3 polish — copy button target size + active state` | P3 fixes |
 | b5b3cab | `fix(site): apply 9 P2 fixes from web-quality audit` | Round 1 — noopener (15 links), focus:opacity-100, clipboard .catch() |
 | 103f314 | `feat(site): add automatic light/dark mode support` | Theme toggle — re-audit needed |
 | 6c294ea | `fix(site): make code blocks readable in dark mode` | CSS filter for dark code blocks |

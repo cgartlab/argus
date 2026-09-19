@@ -41,8 +41,8 @@ export default defineConfig({
   },
   shortcuts: {
     'container-site': 'mx-auto max-w-6xl px-6',
-    'btn-primary': 'inline-flex items-center gap-2 rounded-lg bg-accent text-fg-invert px-5 py-2.5 text-sm font-medium transition-colors hover:bg-accent-strong',
-    'btn-secondary': 'inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-5 py-2.5 text-sm font-medium transition-colors hover:bg-surface-2',
+    'btn-primary': 'inline-flex items-center gap-2 rounded-lg bg-accent text-fg-invert px-5 py-2.5 text-sm font-medium transition-colors hover:bg-accent-strong active:bg-accent-strong/80',
+    'btn-secondary': 'inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-5 py-2.5 text-sm font-medium transition-colors hover:bg-surface-2 active:bg-surface-2/80',
     'card': 'rounded-xl border border-border bg-surface p-6',
   },
   theme: {
