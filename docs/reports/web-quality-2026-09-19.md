@@ -170,9 +170,40 @@
 
 ─────────────────────────────────────────────────
 
+### [P2] [错误容错] site/src/components/CodeBlock.astro:120 — Copy button `writeText()` promise has no `.catch()` handler
+
+  Found:    `navigator.clipboard.writeText(text).then(() => { ... })` — no error handler
+  Expected: `navigator.clipboard.writeText(text).then(() => { ... }).catch(() => { /* show error feedback */ })`
+  
+  Basis: The `navigator.clipboard.writeText()` call can fail in insecure contexts (HTTP, non-localhost), when clipboard permission is denied, or when the browser does not support the API. Without a `.catch()` handler, the rejected promise becomes an unhandled rejection in the browser console. The user receives no feedback that the copy failed.
+  
+  Fix:
+  ```javascript
+  navigator.clipboard.writeText(text).then(() => {
+    const copyIcon = btn.querySelector('.copy-icon')
+    const checkIcon = btn.querySelector('.check-icon')
+    const label = btn.querySelector('.copy-label')
+    copyIcon?.classList.add('hidden')
+    checkIcon?.classList.remove('hidden')
+    if (label) label.textContent = 'Copied'
+    setTimeout(() => {
+      copyIcon?.classList.remove('hidden')
+      checkIcon?.classList.add('hidden')
+      if (label) label.textContent = 'Copy'
+    }, 1500)
+  }).catch(() => {
+    const label = btn.querySelector('.copy-label')
+    if (label) label.textContent = 'Failed'
+    setTimeout(() => { if (label) label.textContent = 'Copy' }, 1500)
+  })
+  ```
+  Note: Simple fix — add `.catch()` to the promise chain. Not applied yet — recorded for batch fix.
+
+─────────────────────────────────────────────────
+
 ## P3 — Low Priority
 
-✓ **No issues found.** (Dimensions 8–12 not yet audited — see Progress. Dimensions 3–5: 0 findings. Dimension 6: 2 P2. Dimension 7: 1 P2.)
+✓ **No issues found.** (Dimensions 9–12 not yet audited — see Progress. Dimensions 3–5: 0 findings. Dimension 6: 2 P2. Dimension 7: 1 P2. Dimension 8: 1 P2.)
 
 ---
 
@@ -187,7 +218,7 @@
 | 5 | 标题层级 (heading hierarchy) | ✓ Done | 0 findings. 26 `<h[1-6]>` matches across 13 `.astro` files + 95 `^#{1,6}\s` matches across 8 `.md` content files. All 5 pages (index, docs/index, docs/[...slug], legal, 404) have exactly one `<h1>`. No heading level skips: hierarchy is always h1→h2→h3 (no h1→h3, no h2→h4, etc.). Code-block comments in configuration.md (lines 22,43,46,54,61,70,75,184,187) and skill.md (lines 46-47) are inside ``` fenced blocks, not actual headings. |
 | 6 | 对比度 (contrast) | ✓ Done | 2 P2 findings. Light theme: --color-accent #d97706 on --color-bg #ffffff = 3.19:1 (FAILS AA 4.5:1); --color-accent on --color-accent-soft = 2.86:1 (FAILS even AA Large 3:1); btn-primary text-fg-invert on bg-accent = 3.19:1 (FAILS AA). Dark theme: --color-fg-muted #94a3b8 on --color-surface-2 #334155 = 4.04:1 (FAILS AA 4.5:1). All other pairs pass AA. Contrast ratios computed via WCAG relative luminance formula. |
 | 7 | 键盘焦点 (keyboard focus) | ✓ Done | 1 P2 finding. Global `:focus-visible` style present (outline: 2px solid var(--color-accent), offset 2px, border-radius 4px). Skip link present in BaseLayout.astro (hidden at left:-9999px, visible on :focus). No `outline: none` found. No `tabindex` attributes — natural DOM focus order. All nav elements have `aria-label`. P2: CodeBlock.astro:41 copy button has `opacity-60` which reduces `:focus-visible` outline visibility below WCAG 1.4.11 3:1 threshold — needs `focus:opacity-100`. |
-| 8 | 错误容错 (error handling) | ⏳ Pending | — |
+| 8 | 错误容错 (error handling) | ✓ Done | 1 P2 finding. 404 page present (pages/404.astro → NotFound.astro with helpful messaging + navigation). DigitalWater.astro WebGL init has try/catch with Canvas2D fallback (lines 669-681, 687-698). Shader compilation errors throw and are caught by createRenderer(). P2: CodeBlock.astro:120 `navigator.clipboard.writeText()` promise has no `.catch()` — unhandled rejection on clipboard failure. Static site — no runtime error boundary needed (build-time errors fail the build). No empty/loading states needed (static content). |
 | 9 | 核心网页指标 (Core Web Vitals) | ⏳ Pending | — |
 | 10 | XSS | ⏳ Pending | — |
 | 11 | 密钥泄露 (secret leakage) | ⏳ Pending | — |
@@ -202,7 +233,7 @@
 | 样式代码 | ⏳ Partial | !important: 9 instances, all legitimate (reduced-motion + Shiki override). 裸色值: 29 matches, all token definitions or token references. Remaining: inline styles, dead code, breakpoint consistency, dark-mode token consistency, long-text layout. |
 | 信息排版 | ⏳ Partial | 标题层级: all 5 pages have exactly one h1, no heading skips. 对比度: 2 P2 findings — light accent on bg fails AA (3.19:1), dark fg-muted on surface-2 fails AA (4.04:1). Remaining: body font ≥16px, line-height 1.4–1.7, line length 45–90 chars, spacing rhythm. |
 | 元素一致性 | ⏳ Partial | 键盘焦点: global :focus-visible style present, skip link functional, no outline suppression, natural focus order. 1 P2: CodeBlock copy button opacity-60 reduces focus indicator visibility. Remaining: seven-state coverage (hover/focus/active/disabled/loading/empty/error), target size ≥24×24px, alt text and width/height on images. |
-| 交互体验 | ⏳ Pending | — |
+| 交互体验 | ⏳ Partial | 错误容错: 404 page present, WebGL fallback working. 1 P2: CodeBlock copy button unhandled promise rejection. Remaining: >300ms feedback, destructive action confirmation, error text with fix instructions, Tab reachability, modal focus return, prefers-reduced-motion, zoom not disabled. |
 | 功能稳定 | ⏳ Pending | — |
 | 前端安全 | ⏳ Partial | External link noopener (15 links found, no `target`/`rel`). Remaining: CSP/headers (covered by site/public/_headers), XSS APIs, postMessage, secret leakage, CVE. |
 
