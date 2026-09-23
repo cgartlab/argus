@@ -31,7 +31,8 @@ argus/
 │   ├── argus-config-schema.md         # .argus.yml consumer config reference
 │   ├── men-integration.md             # Optional men agent team integration protocol
 │   ├── marketplace-listing.md         # GitHub Marketplace listing prep + checklist
-│   └── self-hosting.md                # Private runner + private model endpoint guide
+│   ├── self-hosting.md                # Private runner + private model endpoint guide
+│   └── strategic-plan.md              # Commercial product strategy + roadmap status (§14)
 ├── tests/
 │   └── fixtures/                      # Fixture-based regression test suite
 │       ├── README.md                  # How to add/run fixtures
@@ -102,6 +103,7 @@ argus/
 | Consumer configuration | `docs/argus-config-schema.md` | Full `.argus.yml` field reference |
 | Marketplace listing | `docs/marketplace-listing.md` | GitHub Marketplace prep + checklist |
 | Self-hosting | `docs/self-hosting.md` | Private runner + private model endpoint |
+| Product strategy / roadmap | `docs/strategic-plan.md` | Commercial plan + §14 roadmap status table |
 | Token mapping data | `.github/tokens/` | Per-system design token JSON (antd5/material3/polaris/custom) |
 | Config loader | `tools/load_config.py` | Merges defaults + consumer `.argus.yml` |
 | Config schema | `config/argus-config.schema.json` + `tools/validate_argus_schema.py` | JSON Schema (draft-07) + zero-dep validator; `make validate-schema` |
@@ -314,3 +316,4 @@ cd site && npm run build  # Build marketing site (site/ subproject)
 - **Fixture tests** — run without an API key in static heuristic mode; full LLM mode reads the primary model from `config/free-models.yml` (requires `OPENCODE_API_KEY` for `opencode/` providers).
 - **Release workflow** — pushing a `v*.*.*` tag triggers `.github/workflows/release.yml` which validates versioning, builds packages, publishes a GitHub Release with both the full archive and the skill package (`argus-skill-v{VERSION}.zip`), then publishes the skill package to SkillHub when `SKILLHUB_API_KEY` is configured, and to ClawHub when the `CLAWHUB_TOKEN` secret + `vars.CLAWHUB_OWNER` variable are set. skills.sh indexing is a separate one-time manual step via `skills-sh-submit.yml` (files an issue in `vercel-labs/skills`, needs a `SKILLS_SH_GH_TOKEN` PAT).
 - **Quality engine** — `tools/eval_quality.py` aggregates TP/FP/FN across fixtures into precision/recall/F1 and gates regressions in CI against `config/quality-baseline.json` (epsilon 0.01; FP must never increase). Refresh the baseline only after intentional, verified improvements.
+- **Roadmap complete** — all P1/P2/P3 items from `docs/strategic-plan.md` are delivered (quality engine, config schema, CLI/report/WCAG, GitLab, rules DSL, webhook API); see `docs/strategic-plan.md` §14 for the delivery table.

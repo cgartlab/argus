@@ -19,6 +19,7 @@
 - **Fixed a real false positive found by the appeal loop** — the static scanner no longer flags `filter: drop-shadow(... rgba ...)` as a bare color; shadow colors (`box-shadow` / `text-shadow` / `filter: drop-shadow`) are exempt. Guarded by the new `drop-shadow-color` appeal fixture.
 - **Marketplace listing prep** — `docs/marketplace-listing.md`: the full checklist to list argus-flash on the GitHub Marketplace (App permissions, listing content, Community/Pro/Enterprise pricing plans, submission + go-live), grounded in the commercial strategy plan's §6 pricing.
 - **Self-hosting guide** — `docs/self-hosting.md`: private deployment — self-hosted runners (GitHub Actions / GitLab) and a private model endpoint, with a data-handling summary and security notes for regulated/enterprise use.
+- **Roadmap completion** — all P1/P2/P3 items from `docs/strategic-plan.md` delivered (quality engine + gates, severity matrix, FP appeal loop, `.argus.yml` schema, local CLI, GitLab template, HTML/WCAG reports, custom rules DSL, webhook API); `docs/strategic-plan.md` §14 carries the delivery table and the roadmap is consolidated in the core docs (README toolchain/status, DEVELOPMENT-GUIDE).
 
 ### Changed
 

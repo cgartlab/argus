@@ -65,7 +65,7 @@ validate:
 	           config/free-models.yml config/wcag-mapping.yml \
 	           config/argus-config.schema.json config/argus.example.yml \
 	           config/argus-rules.schema.json config/argus-rules.example.yml config/quality-baseline.json config/severity-matrix.yml \
-	           docs/argus-config-schema.md docs/argus-rules.md docs/marketplace-listing.md docs/self-hosting.md \
+	           docs/argus-config-schema.md docs/argus-rules.md docs/marketplace-listing.md docs/self-hosting.md docs/strategic-plan.md \
 	           .github/actions/argus-review/action.yml \
 	           .github/workflows/update-free-models.yml \
 	           .github/workflows/pr-automation.yml \
