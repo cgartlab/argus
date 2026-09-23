@@ -87,6 +87,8 @@ jobs:
             config/severity-matrix.yml
             docs/argus-config-schema.md
             docs/argus-rules.md
+            docs/marketplace-listing.md
+            docs/self-hosting.md
             .github/actions/argus-review/action.yml
             .github/workflows/update-free-models.yml
             .github/workflows/pr-automation.yml
