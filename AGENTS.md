@@ -308,7 +308,7 @@ cd site && npm run build  # Build marketing site (site/ subproject)
 
 ## NOTES
 
-- **Pure documentation repo** — no `npm install`, no build step. Agent reads `AGENTS.md` + `SKILL.md` at startup.
+- **Docs-driven agent + zero-dep toolchain** — behavior is defined by `AGENTS.md` + `SKILL.md` (read at runtime by the composite action); a stdlib-only Python toolchain under `tools/` (review CLI, reports, rules, webhook, quality engine, validators) runs with no `npm install` and no build step.
 - **Cross-platform** — works in any agent framework: OpenCode, Claude Code, Codex CLI, etc.
 - **argus-flash GitHub App** — installed at `github.com/apps/argus-flash`. Any repo can install it and add a minimal review.yml to get automated design reviews.
 - **Composite action** — `.github/actions/argus-review/action.yml` wraps OpenCode CLI + rule injection + config loading. Referenced as `cgartlab/argus/.github/actions/argus-review@main` from any repo.
