@@ -1,0 +1,17 @@
+[meta]
+fixture = false-positives/drop-shadow-color.css
+description = FP appeal: Shadow colors are legitimate values, not token violations
+
+[findings]
+
+[must-not-flag]
+# drop-shadow
+# rgba(0, 0, 0, 0.2)
+drop-shadow
+rgba(0, 0, 0, 0.2)
+
+[counts]
+P0 = 0
+P1 = 0
+P2 = 0
+P3 = 0

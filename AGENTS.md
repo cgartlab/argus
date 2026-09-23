@@ -55,7 +55,8 @@ argus/
 │   ├── argus_rules.py                 # Team-defined custom rules engine (rule DSL)
 │   ├── argus_webhook.py               # Forward findings reports to a webhook (public API)
 │   ├── eval_quality.py                # Quality engine: precision/recall/F1 + regression gates
-│   └── validate_severity_matrix.py    # Rule-id x severity matrix consistency (config/SKILL/loader)
+│   ├── validate_severity_matrix.py    # Rule-id x severity matrix consistency (config/SKILL/loader)
+│   └── add_fp_appeal.py               # File a false-positive appeal as a regression fixture
 ├── .gitlab/
 │   ├── argus-review.yml               # GitLab MR review template (second platform)
 │   └── argus-review.sh                # GitLab runner script (testable with ARGUS_DRY_RUN=1)
@@ -102,6 +103,7 @@ argus/
 | Severity matrix | `config/severity-matrix.yml` + `tools/validate_severity_matrix.py` | Canonical rule-id × severity; `make validate-severity` |
 | Fixture test suite | `tests/fixtures/` | Regression tests for review rules |
 | False-positive benchmarks | `tests/fixtures/false-positives/` | Code that must NOT be flagged; mirror pairs in should-flag/ |
+| FP appeal loop | `tools/add_fp_appeal.py` | File a false positive as a regression fixture; detects real FPs via the static scanner |
 | Fixture runner | `tools/run_fixture_tests.py` | `make test-fixtures` or directly |
 | Local review CLI | `tools/argus_review.py` | `make review FILE=...` — same rules, local/static or LLM |
 | HTML report | `tools/argus_report.py` | Findings JSON → shareable static HTML (`make report JSON=...`) |

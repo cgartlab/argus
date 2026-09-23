@@ -508,9 +508,13 @@ def _static_heuristic_scan(fixture_path: Path) -> str:
             # Bare color values in component rules (not :root, not dark-block)
             if not in_root and not in_dark_block and not is_comment:
                 prop_name = stripped.split(":", 1)[0].strip()
-                # Shadow colors (box-shadow / text-shadow) are legitimate values,
-                # not color violations — skip them to avoid false positives.
-                is_shadow_color = prop_name in ("box-shadow", "text-shadow")
+                # Shadow colors (box-shadow / text-shadow / filter drop-shadow)
+                # are legitimate values, not color violations — skip them to
+                # avoid false positives.
+                is_shadow_color = (
+                    prop_name in ("box-shadow", "text-shadow")
+                    or (prop_name == "filter" and "drop-shadow" in stripped)
+                )
                 for pattern, label in [
                     (r"\boklch\(", "bare oklch"),
                     (r"(?<!['\"])#[0-9a-fA-F]{3,8}\b", "bare hex"),

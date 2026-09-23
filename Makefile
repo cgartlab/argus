@@ -59,7 +59,7 @@ validate:
 	           tools/update_free_models.py tools/bump_version.py \
 	           tools/validate_versioning.py tools/validate_model_scores.py \
 	           tools/check_release.py tools/publish_skillhub.py tools/argus_review.py tools/argus_report.py \
-	           tools/validate_argus_schema.py tools/argus_rules.py tools/argus_webhook.py tools/eval_quality.py tools/validate_severity_matrix.py \
+	           tools/validate_argus_schema.py tools/argus_rules.py tools/argus_webhook.py tools/eval_quality.py tools/validate_severity_matrix.py tools/add_fp_appeal.py \
 	           .gitlab/argus-review.yml .gitlab/argus-review.sh \
 	           config/free-models.yml config/wcag-mapping.yml \
 	           config/argus-config.schema.json config/argus.example.yml \
@@ -85,6 +85,7 @@ validate:
 	@python3 -m py_compile tools/argus_webhook.py && echo "argus_webhook.py ok"
 	@python3 -m py_compile tools/eval_quality.py && echo "eval_quality.py ok"
 	@python3 -m py_compile tools/validate_severity_matrix.py && echo "validate_severity_matrix.py ok"
+	@python3 -m py_compile tools/add_fp_appeal.py && echo "add_fp_appeal.py ok"
 	@echo "── Validate: free model list ──"
 	@python3 tools/update_free_models.py --check
 	@echo "── Validate: model-scores.yml schema ──"

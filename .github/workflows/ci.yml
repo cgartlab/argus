@@ -71,6 +71,7 @@ jobs:
             tools/argus_report.py
             .gitlab/argus-review.yml
             .gitlab/argus-review.sh
+            tools/add_fp_appeal.py
             config/free-models.yml
             config/wcag-mapping.yml
             tools/validate_argus_schema.py
@@ -126,6 +127,7 @@ jobs:
           python3 -m py_compile tools/argus_webhook.py && echo "argus_webhook.py: ok"
           python3 -m py_compile tools/eval_quality.py && echo "eval_quality.py: ok"
           python3 -m py_compile tools/validate_severity_matrix.py && echo "validate_severity_matrix.py: ok"
+          python3 -m py_compile tools/add_fp_appeal.py && echo "add_fp_appeal.py: ok"
 
       - name: Validate free model list (config/free-models.yml)
         run: |

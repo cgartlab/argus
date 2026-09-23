@@ -1,0 +1,12 @@
+/*
+ * FIXTURE: false-positives/drop-shadow-color.css (false-positive appeal)
+ * Status: LEGAL code — must produce ZERO findings.
+ * Filed via: python3 tools/add_fp_appeal.py
+ * If the scanner or LLM flags this file, the finding is a false
+ * positive and the responsible rule/exemption must be fixed.
+ */
+
+.hero {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+  background: var(--ds-color-surface);
+}
