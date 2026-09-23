@@ -1,0 +1,10 @@
+{
+  "precision": 1.0,
+  "recall": 1.0,
+  "f1": 1.0,
+  "tp": 38,
+  "fp": 0,
+  "fn": 0,
+  "fixture_count": 14,
+  "generated_at": "2026-09-17T17:56:30+00:00"
+}

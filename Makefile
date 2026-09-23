@@ -16,6 +16,9 @@ help:
 	@echo "  make test-fixtures    — run fixture regression tests (static heuristic mode)"
 	@echo "  make review FILE=...  — run local Argus review (python3 tools/argus_review.py FILE)"
 	@echo "  make report JSON=...  — turn findings JSON into a shareable HTML report"
+	@echo "  make eval             — run quality engine (precision/recall/F1 report)"
+	@echo "  make eval-gate        — enforce quality regression gates vs baseline (CI)"
+	@echo "  make eval-baseline    — refresh quality baseline after verified improvements"
 	@echo "  make test             — validate + test-fixtures (full pre-release check)"
 	@echo "  make release          — release-gate → verify → tag → push (triggers release workflow)"
 	@echo "  make package-skill    — create skill package (argus-skill-v{VERSION}.zip)"
@@ -56,11 +59,11 @@ validate:
 	           tools/update_free_models.py tools/bump_version.py \
 	           tools/validate_versioning.py tools/validate_model_scores.py \
 	           tools/check_release.py tools/publish_skillhub.py tools/argus_review.py tools/argus_report.py \
-	           tools/validate_argus_schema.py tools/argus_rules.py tools/argus_webhook.py \
+	           tools/validate_argus_schema.py tools/argus_rules.py tools/argus_webhook.py tools/eval_quality.py \
 	           .gitlab/argus-review.yml .gitlab/argus-review.sh \
 	           config/free-models.yml config/wcag-mapping.yml \
 	           config/argus-config.schema.json config/argus.example.yml \
-	           config/argus-rules.schema.json config/argus-rules.example.yml \
+	           config/argus-rules.schema.json config/argus-rules.example.yml config/quality-baseline.json \
 	           docs/argus-config-schema.md docs/argus-rules.md \
 	           .github/actions/argus-review/action.yml \
 	           .github/workflows/update-free-models.yml \
@@ -80,6 +83,7 @@ validate:
 	@python3 -m py_compile tools/validate_argus_schema.py && echo "validate_argus_schema.py ok"
 	@python3 -m py_compile tools/argus_rules.py && echo "argus_rules.py ok"
 	@python3 -m py_compile tools/argus_webhook.py && echo "argus_webhook.py ok"
+	@python3 -m py_compile tools/eval_quality.py && echo "eval_quality.py ok"
 	@echo "── Validate: free model list ──"
 	@python3 tools/update_free_models.py --check
 	@echo "── Validate: model-scores.yml schema ──"
@@ -129,6 +133,25 @@ test-fixtures:
 test-fixtures-llm:
 	@echo "── Fixture Tests (LLM mode) ──"
 	@python3 tools/run_fixture_tests.py $(if $(MODEL),--model $(MODEL)) $(if $(FALLBACK_MODELS),--fallback-models "$(FALLBACK_MODELS)")
+	@echo ""
+
+# ─── Quality Engine (precision / recall / F1 + gates) ────────────
+.PHONY: eval
+eval:
+	@echo "── Quality Engine (static heuristic mode) ──"
+	@python3 tools/eval_quality.py
+	@echo ""
+
+.PHONY: eval-gate
+eval-gate:
+	@echo "── Quality Engine: regression gates ──"
+	@python3 tools/eval_quality.py --gate
+	@echo ""
+
+.PHONY: eval-baseline
+eval-baseline:
+	@echo "── Quality Engine: refresh baseline ──"
+	@python3 tools/eval_quality.py --update-baseline
 	@echo ""
 
 # ─── Combined pre-release check ──────────────────────────────────

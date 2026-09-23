@@ -38,7 +38,8 @@ argus/
 │       ├── hardcoded-values/          # Magic number spacing/radii/font-size
 │       ├── css-quality/               # Duplicate rules, BEM violations
 │       ├── false-positives/           # Legal code that must NOT be flagged (FP benchmarks)
-│       └── should-flag/               # Mirror pairs that MUST be flagged (proof of scope)
+│       ├── should-flag/               # Mirror pairs that MUST be flagged (proof of scope)
+│       └── golden/                    # Golden eval set: realistic multi-violation files
 ├── src/
 │   └── components/                    # Test components for review validation
 ├── tools/
@@ -52,7 +53,8 @@ argus/
 │   ├── argus_report.py                # Findings JSON → shareable static HTML report
 │   ├── validate_argus_schema.py       # .argus.yml JSON Schema validator (zero-dep subset)
 │   ├── argus_rules.py                 # Team-defined custom rules engine (rule DSL)
-│   └── argus_webhook.py               # Forward findings reports to a webhook (public API)
+│   ├── argus_webhook.py               # Forward findings reports to a webhook (public API)
+│   └── eval_quality.py                # Quality engine: precision/recall/F1 + regression gates
 ├── .gitlab/
 │   ├── argus-review.yml               # GitLab MR review template (second platform)
 │   └── argus-review.sh                # GitLab runner script (testable with ARGUS_DRY_RUN=1)
@@ -62,7 +64,8 @@ argus/
 │   ├── argus-config.schema.json       # .argus.yml JSON Schema (draft-07, editor/CI validation)
 │   ├── argus.example.yml              # Full-featured .argus.yml example (validated in CI)
 │   ├── argus-rules.schema.json        # Custom-rules JSON Schema (draft-07)
-│   └── argus-rules.example.yml        # Custom-rules example (validated in CI)
+│   ├── argus-rules.example.yml        # Custom-rules example (validated in CI)
+│   └── quality-baseline.json          # Quality engine baseline (precision/recall/F1 gate)
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml                     # Lint + tool validation + fixture tests
@@ -101,7 +104,8 @@ argus/
 | HTML report | `tools/argus_report.py` | Findings JSON → shareable static HTML (`make report JSON=...`) |
 | WCAG compliance | `config/wcag-mapping.yml` + `tools/argus_report.py --wcag` | Annotates a11y findings with WCAG 2.2 SC + compliance summary |
 | GitLab MR review | `.gitlab/argus-review.yml` + `.gitlab/argus-review.sh` | Second-platform template; `include:` it in any `.gitlab-ci.yml` |
-| CI pipeline | `.github/workflows/ci.yml` | Lint + tool validation + fixture tests |
+| Quality engine | `tools/eval_quality.py` | `make eval` (report) / `make eval-gate` (CI gate) / `make eval-baseline`; baseline in `config/quality-baseline.json` |
+| CI pipeline | `.github/workflows/ci.yml` | Lint + tool validation + fixture tests + quality gates |
 | PR review automation | `.github/workflows/review.yml` | Triggers argus-flash App |
 | Release automation | `.github/workflows/release.yml` | Tag-push → validates → packages → GitHub Release |
 | Release gate | `tools/check_release.py` | `--expect-unreleased` in `make release`; `--expect-released` in daily `release-check.yml` |
@@ -168,6 +172,7 @@ Argus is fully self-contained: standalone agent runs, the argus-flash GitHub App
 - **Consumer config respected** — `.argus.yml` in the consumer repo adjusts token prefix, severity overrides, ignore paths, and failure thresholds. Hard rules (P0 color violations, a11y) cannot be fully disabled.
 - **Stack-aware review** — detect technology stack and reference official documentation for API usage validation.
 - **Codex-style fixes** — always provide copy-ready code fixes, never just describe the problem.
+- **Quality never regresses** — precision/recall/F1 are gated in CI (`make eval-gate`); any rule or model change that lowers a metric must be justified, and intentional improvements refresh the baseline (`make eval-baseline`).
 
 ---
 
@@ -178,6 +183,7 @@ Argus is fully self-contained: standalone agent runs, the argus-flash GitHub App
 - **Approving without full review** — Argus never approves unseen PRs.
 - **Bypassing review** — Kold never bypasses Argus review gate.
 - **Skipping fixture tests** — every rule change must be accompanied by a fixture update.
+- **Merging without quality gates** — rule/model changes must pass `make eval-gate`; raising the baseline requires an intentional, verified improvement.
 - **Describing without fixing** — never just describe the problem; always provide the fix.
 
 ---
@@ -265,6 +271,9 @@ make webhook-send REPORT=... URL=... # Forward a findings report to a webhook (t
 make test-fixtures    # Run fixture regression tests (static heuristic mode, no API key needed)
 make review FILE=...  # Run local Argus review on a file/dir (tools/argus_review.py)
 make report JSON=...  # Turn findings JSON into a shareable HTML report (tools/argus_report.py)
+make eval             # Run quality engine — precision/recall/F1 report
+make eval-gate        # Enforce quality regression gates vs baseline (runs in CI)
+make eval-baseline    # Refresh quality baseline after verified improvements
 make test-fixtures-llm # Run fixture tests in LLM mode (model read from config/free-models.yml primary)
 make test             # validate + test-fixtures (full pre-release check)
 make release          # release-gate → verify → tag → push (triggers release workflow)
@@ -285,3 +294,4 @@ cd site && npm run build  # Build marketing site (site/ subproject)
 - **Version bumping** — run `make bump-patch` (or bump-minor/bump-major), fill in the new CHANGELOG section, commit (`chore(release): prepare vX.Y.Z`), then `make test && make release`. `make release` refuses duplicate/older releases and requires version files committed; the daily `Release Check` workflow fails when `VERSION` is bumped without a tag.
 - **Fixture tests** — run without an API key in static heuristic mode; full LLM mode reads the primary model from `config/free-models.yml` (requires `OPENCODE_API_KEY` for `opencode/` providers).
 - **Release workflow** — pushing a `v*.*.*` tag triggers `.github/workflows/release.yml` which validates versioning, builds packages, publishes a GitHub Release with both the full archive and the skill package (`argus-skill-v{VERSION}.zip`), then publishes the skill package to SkillHub when `SKILLHUB_API_KEY` is configured.
+- **Quality engine** — `tools/eval_quality.py` aggregates TP/FP/FN across fixtures into precision/recall/F1 and gates regressions in CI against `config/quality-baseline.json` (epsilon 0.01; FP must never increase). Refresh the baseline only after intentional, verified improvements.

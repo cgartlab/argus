@@ -76,10 +76,12 @@ jobs:
             tools/validate_argus_schema.py
             tools/argus_rules.py
             tools/argus_webhook.py
+            tools/eval_quality.py
             config/argus-config.schema.json
             config/argus.example.yml
             config/argus-rules.schema.json
             config/argus-rules.example.yml
+            config/quality-baseline.json
             docs/argus-config-schema.md
             docs/argus-rules.md
             .github/actions/argus-review/action.yml
@@ -120,6 +122,7 @@ jobs:
           python3 -m py_compile tools/validate_argus_schema.py && echo "validate_argus_schema.py: ok"
           python3 -m py_compile tools/argus_rules.py && echo "argus_rules.py: ok"
           python3 -m py_compile tools/argus_webhook.py && echo "argus_webhook.py: ok"
+          python3 -m py_compile tools/eval_quality.py && echo "eval_quality.py: ok"
 
       - name: Validate free model list (config/free-models.yml)
         run: |
@@ -182,6 +185,19 @@ jobs:
           python3 tools/run_fixture_tests.py
           echo "Fixture static scanner: all findings validated"
 
+      - name: Run quality engine gates
+        run: |
+          python3 tools/eval_quality.py --gate --json quality-report.json
+          echo "Quality gates: passed (precision/recall/F1 vs baseline)"
+
+      - name: Upload quality report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-report
+          path: quality-report.json
+          if-no-files-found: ignore
+
       - name: Verify fixture directory structure
         run: |
           python3 - << 'EOF'
@@ -190,7 +206,7 @@ jobs:
 
           fixtures_dir = Path("tests/fixtures")
           required_categories = ["design-tokens", "accessibility", "hardcoded-values", "css-quality",
-                                  "false-positives", "should-flag"]
+                                  "false-positives", "should-flag", "golden"]
           # Extensions that count as fixture input files
           INPUT_SUFFIXES = {".css", ".html", ".js", ".ts", ".jsx", ".tsx", ".json"}
           errors = []

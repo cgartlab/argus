@@ -11,6 +11,9 @@
 - **Config parser hardening** — the `tools/load_config.py` minimal YAML fallback (used when PyYAML is unavailable) now handles arbitrary-depth nesting, inline lists (`[a, b]`), and bool/int scalar coercion; config `version` `"0.4"` is accepted (and is the new default), aligning docs with code.
 - **Custom rules (rule DSL)** — `config/argus-rules.schema.json` (draft-07) + `tools/argus_rules.py`: teams define their own review rules (custom token mappings, banned patterns) as `"<id>|<severity>|<match>|<message>|<token>|<files>"` entries, validate them (`--validate`, zero-dep engine) and apply them to files (`apply`, standard Argus output + `--json`). Reference: `docs/argus-rules.md`; example: `config/argus-rules.example.yml`.
 - **Webhook forwarding (public API)** — `tools/argus_webhook.py` POSTs a findings report to any HTTP endpoint (`POST application/json`, optional `Authorization: Bearer`); `--dry-run` prints the request without sending; `make webhook-send REPORT=... URL=...`.
+- **Quality Engine V1** — `tools/eval_quality.py` computes suite-level precision / recall / F1 from the fixture regression suite and enforces regression gates against a committed baseline (`config/quality-baseline.json`). `make eval` reports quality, `make eval-gate` enforces the gates (runs in CI after fixture tests), `make eval-baseline` refreshes the baseline after verified improvements.
+- **AGENTS.md next-phase conventions** — "Quality never regresses" (CONVENTIONS) and "Merging without quality gates" (ANTI-PATTERNS); quality engine entries in STRUCTURE / WHERE TO LOOK / COMMANDS / NOTES.
+- **Golden Eval Set V1** — new `tests/fixtures/golden/` category with realistic multi-violation fixtures (product-card CSS, checkout page HTML, theme-system CSS); the quality engine now reports and gates over 14 fixtures (38 TP / 0 FP / 0 FN) and CI uploads `quality-report.json` as an artifact.
 
 ### Changed
 

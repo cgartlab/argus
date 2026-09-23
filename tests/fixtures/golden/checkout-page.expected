@@ -1,0 +1,19 @@
+[meta]
+fixture = golden/checkout-page.html
+description = Realistic checkout page: icon-only button missing aria-label (P1), img missing alt (P1), <a> without href used as button (P1). Correctly labeled controls must not be flagged.
+
+[findings]
+P1 | | aria-label
+P1 | | alt
+P1 | | button
+
+[must-not-flag]
+Place order
+Spring sale banner
+View cart
+
+[counts]
+P0 = 0
+P1 = 3
+P2 = 0
+P3 = 0

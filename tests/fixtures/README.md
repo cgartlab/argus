@@ -30,6 +30,13 @@ tests/fixtures/
     missing-alt.html                ← img without alt (must flag P1)
     no-dark-mode.css                ← missing dark overrides (must flag P0)
     *.expected                      ← [counts] > 0 + required [findings]
+  golden/                           ← golden eval set: realistic multi-violation files
+    product-card.css                ← component: bare hex + hardcoded spacing + dup prop + dark gap
+    product-card.expected
+    checkout-page.html              ← page: icon button, img alt, <a>-as-button
+    checkout-page.expected
+    theme-system.css                ← theme: rgba + dark gap + hardcoded radius; shadow exempt
+    theme-system.expected
 ```
 
 ## Category Semantics
@@ -43,6 +50,12 @@ tests/fixtures/
   blind**: the same construct outside its exempted context *must* be flagged
   (e.g. bare rgba in a component rule vs. inside `box-shadow`). `.expected`
   files carry `[counts]` > 0 and the required `[findings]`.
+- **`golden/`** — the **golden eval set**: realistic, multi-violation files that
+  mix several rule dimensions at once (e.g. a product-card stylesheet with bare
+  colors, hardcoded spacing, a duplicate property, and a dark-mode gap). These
+  prove Argus handles real-world code — not just single-rule toys — and feed
+  the quality engine's precision/recall/F1 metrics alongside the other
+  categories.
 - **FalsePositiveRate** = FP / (FP + TP), where FP is the number of
   `[must-not-flag]` items that appeared on a flagged line and TP is the number of
   expected `[findings]` keywords that appeared in the output. Reported by the
@@ -110,3 +123,27 @@ A fixture failure blocks merge just like a YAML lint failure.
 > **Note:** Because Argus is an LLM-based agent, fixture tests run in **heuristic mode**:
 > they check that the *count* and *severity* of findings fall within acceptable ranges,
 > not that exact line numbers match. This makes the suite stable across minor model updates.
+
+## Quality Engine (precision / recall / F1)
+
+The **quality engine** (`tools/eval_quality.py`) aggregates the suite into
+machine-readable quality metrics and enforces regression gates:
+
+- **TP** = matched expected `[findings]` keywords across fixtures
+- **FN** = unmatched expected `[findings]` keywords
+- **FP** = `must-not-flag` violations, plus **every finding in a zero-expectation
+  fixture** (false-positives/ fixtures declare all-zero counts, so any finding
+  there is a false positive)
+- **Precision** = TP / (TP + FP) · **Recall** = TP / (TP + FN) · **F1** = 2·P·R / (P + R)
+
+Commands:
+
+```bash
+make eval            # print the quality report (static heuristic mode)
+make eval-gate       # enforce gates vs config/quality-baseline.json (CI)
+make eval-baseline   # refresh the baseline after verified improvements
+```
+
+Gate policy: precision / recall / F1 must not drop more than 0.01 vs the
+committed baseline (`config/quality-baseline.json`), and FP must never
+increase. The gate runs in CI right after the fixture tests.
