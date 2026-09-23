@@ -1,0 +1,35 @@
+# .argus.yml — Example consumer configuration (full-featured)
+# Every field is optional; omitted fields use built-in defaults.
+# Reference: docs/argus-config-schema.md
+# Machine-validated against: config/argus-config.schema.json (run
+#   python3 tools/validate_argus_schema.py --config .argus.yml)
+
+version: "0.4"
+
+design-system: auto
+
+skills:
+  - design-review
+
+overrides:
+  token-prefix: "--ds-"
+  severity:
+    hardcoded-spacing: P3
+    bem-naming: P3
+
+ignore:
+  paths:
+    - "src/legacy/**"
+    - "tests/fixtures/**"
+    - "vendor/**"
+  rules:
+    - bem-naming
+
+fail-on:
+  - P0
+  - P1
+
+output:
+  group-by-severity: true
+  show-token-names: true
+  max-findings: 50

@@ -226,6 +226,24 @@ The release workflow (`.github/workflows/release.yml`) automatically:
 - Creates a GitHub Release with all artifacts
 - Publishes the skill package to SkillHub when `SKILLHUB_API_KEY` is configured
 
+## Webhook Forwarding (public API surface)
+
+`tools/argus_webhook.py` POSTs a findings report (from the review CLI, custom
+rules, or the quality engine) to any HTTP endpoint — Slack/Feishu incoming
+webhooks, internal dashboards, or a future hosted API:
+
+```bash
+python3 tools/argus_review.py src/ --json review.json
+python3 tools/argus_webhook.py send review.json --url https://hooks.example.com/argus \
+  --token "$WEBHOOK_TOKEN"
+# or: make webhook-send REPORT=review.json URL=... TOKEN=...
+# --dry-run prints the request without sending (for testing)
+```
+
+Requests are `POST application/json` with an optional `Authorization: Bearer`
+header. This is the roadmap's "public API / webhook" item — teams wire Argus
+reports into their own systems without waiting for a hosted API.
+
 ## Adding a New Review Rule
 
 1. Identify the review dimension (token, a11y, dark mode, etc.)

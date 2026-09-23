@@ -1,0 +1,98 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://argus.cgartlab.com/schemas/argus-config.schema.json",
+  "title": "Argus .argus.yml Configuration",
+  "description": "Consumer review configuration for Argus (frontend design code review agent). All fields are optional — omitted fields use the built-in defaults. See docs/argus-config-schema.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": ["0.2", "0.3", "0.4"],
+      "default": "0.4",
+      "description": "Config schema version."
+    },
+    "design-system": {
+      "type": "string",
+      "enum": ["auto", "antd5", "material3", "polaris", "custom"],
+      "default": "auto",
+      "description": "Built-in design-token mapping injected into the review prompt."
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["design-review", "security-review", "api-contract", "performance", "infrastructure"]
+      },
+      "uniqueItems": true,
+      "default": ["design-review"],
+      "description": "Review skill IDs to activate."
+    },
+    "overrides": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "token-prefix": {
+          "type": "string",
+          "default": "--ds-",
+          "description": "CSS custom-property prefix Argus accepts as valid design tokens."
+        },
+        "severity": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "enum": ["P0", "P1", "P2", "P3"]
+          },
+          "description": "Per-rule severity adjustments. P0/P1 core rules (dark-mode-coverage, bare-color, missing-alt, button-aria-label) cannot be downgraded to P2/P3."
+        }
+      }
+    },
+    "ignore": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "paths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["node_modules/**", "dist/**", ".git/**"],
+          "description": "Glob patterns for files/directories to skip."
+        },
+        "rules": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Rule IDs to disable completely."
+        }
+      }
+    },
+    "fail-on": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["P0", "P1", "P2", "P3"]
+      },
+      "default": ["P0", "P1"],
+      "description": "Severity levels that fail the CI check."
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "group-by-severity": {
+          "type": "boolean",
+          "default": true
+        },
+        "show-token-names": {
+          "type": "boolean",
+          "default": true
+        },
+        "max-findings": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500,
+          "default": 50,
+          "description": "Cap on findings reported in the PR comment."
+        }
+      }
+    }
+  }
+}

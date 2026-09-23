@@ -21,6 +21,7 @@ help:
 	@echo "  make package-skill    — create skill package (argus-skill-v{VERSION}.zip)"
 	@echo "  make package          — create all release archives"
 	@echo "  make prepare-skillhub — prepare SkillHub publish directory from skill package"
+	@echo "  make webhook-send REPORT=... URL=... — forward a findings report to a webhook"
 	@echo "  make clean            — remove generated files"
 
 .PHONY: check-version
@@ -55,9 +56,12 @@ validate:
 	           tools/update_free_models.py tools/bump_version.py \
 	           tools/validate_versioning.py tools/validate_model_scores.py \
 	           tools/check_release.py tools/publish_skillhub.py tools/argus_review.py tools/argus_report.py \
+	           tools/validate_argus_schema.py tools/argus_rules.py tools/argus_webhook.py \
 	           .gitlab/argus-review.yml .gitlab/argus-review.sh \
 	           config/free-models.yml config/wcag-mapping.yml \
-	           docs/argus-config-schema.md \
+	           config/argus-config.schema.json config/argus.example.yml \
+	           config/argus-rules.schema.json config/argus-rules.example.yml \
+	           docs/argus-config-schema.md docs/argus-rules.md \
 	           .github/actions/argus-review/action.yml \
 	           .github/workflows/update-free-models.yml \
 	           .github/workflows/pr-automation.yml \
@@ -73,14 +77,44 @@ validate:
 	@python3 -m py_compile tools/publish_skillhub.py && echo "publish_skillhub.py ok"
 	@python3 -m py_compile tools/argus_review.py && echo "argus_review.py ok"
 	@python3 -m py_compile tools/argus_report.py && echo "argus_report.py ok"
+	@python3 -m py_compile tools/validate_argus_schema.py && echo "validate_argus_schema.py ok"
+	@python3 -m py_compile tools/argus_rules.py && echo "argus_rules.py ok"
+	@python3 -m py_compile tools/argus_webhook.py && echo "argus_webhook.py ok"
 	@echo "── Validate: free model list ──"
 	@python3 tools/update_free_models.py --check
 	@echo "── Validate: model-scores.yml schema ──"
 	@python3 tools/validate_model_scores.py
 	@echo "── Validate: load_config defaults ──"
 	@python3 tools/load_config.py --validate-only
+	@echo "── Validate: argus-config.schema.json + example config ──"
+	@python3 tools/validate_argus_schema.py --check-schema
+	@python3 tools/validate_argus_schema.py --config config/argus.example.yml
+	@echo "── Validate: argus-rules.schema.json + example rules ──"
+	@python3 tools/argus_rules.py --validate --rules config/argus-rules.example.yml
 	@echo ""
 	@echo "All validation checks passed ✓"
+
+# ─── Config schema validation ────────────────────────────────────
+.PHONY: validate-schema
+validate-schema:
+	@echo "── Validate: argus-config.schema.json (well-formed JSON) ──"
+	@python3 tools/validate_argus_schema.py --check-schema
+	@echo "── Validate: config/argus.example.yml conforms to schema ──"
+	@python3 tools/validate_argus_schema.py --config config/argus.example.yml
+	@echo "Config schema validation passed ✓"
+
+# ─── Custom rules validation ─────────────────────────────────────
+.PHONY: validate-rules
+validate-rules:
+	@echo "── Validate: argus-rules.schema.json + example rules ──"
+	@python3 tools/argus_rules.py --validate --rules config/argus-rules.example.yml
+	@echo "Custom rules validation passed ✓"
+
+# ─── Webhook forward ─────────────────────────────────────────────
+.PHONY: webhook-send
+webhook-send:
+	@echo "── Argus webhook forward ──"
+	@python3 tools/argus_webhook.py send $(REPORT) --url $(URL) $(if $(TOKEN),--token $(TOKEN)) $(if $(DRY_RUN),--dry-run)
 
 # ─── Fixture regression tests ─────────────────────────────────────
 .PHONY: test-fixtures

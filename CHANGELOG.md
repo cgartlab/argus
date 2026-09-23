@@ -7,6 +7,10 @@
 - **Complexity routing (cost control)** — `tools/argus_review.py --mode auto` routes each file by size: ≤ `--min-lines` (default 200) → static heuristic scanner (free), larger → LLM; `--mode static|llm` force either path.
 - **Shareable HTML report** — `tools/argus_report.py` turns a findings JSON report (from `argus_review.py --json`) into a single self-contained HTML file (no server, no external assets) grouped by severity P0→P3, with escaped code snippets; `make report JSON=...`. This is the artifact a future hosted report-link / Pro hook serves.
 - **WCAG 2.2 compliance reports** — `tools/argus_report.py --wcag` annotates a11y findings with their governing success criterion (`config/wcag-mapping.yml`: 1.1.1, 1.3.1, 1.4.3, 2.4.7, 2.5.8, 3.1.1, 4.1.2) and adds a compliance summary (unique criteria, A/AA counts) for audit handoff.
+- **`.argus.yml` JSON Schema** — `config/argus-config.schema.json` (draft-07) for editor autocomplete and CI validation; `tools/validate_argus_schema.py` is a zero-dependency subset validator. `make validate-schema` checks the schema file and validates `config/argus.example.yml`.
+- **Config parser hardening** — the `tools/load_config.py` minimal YAML fallback (used when PyYAML is unavailable) now handles arbitrary-depth nesting, inline lists (`[a, b]`), and bool/int scalar coercion; config `version` `"0.4"` is accepted (and is the new default), aligning docs with code.
+- **Custom rules (rule DSL)** — `config/argus-rules.schema.json` (draft-07) + `tools/argus_rules.py`: teams define their own review rules (custom token mappings, banned patterns) as `"<id>|<severity>|<match>|<message>|<token>|<files>"` entries, validate them (`--validate`, zero-dep engine) and apply them to files (`apply`, standard Argus output + `--json`). Reference: `docs/argus-rules.md`; example: `config/argus-rules.example.yml`.
+- **Webhook forwarding (public API)** — `tools/argus_webhook.py` POSTs a findings report to any HTTP endpoint (`POST application/json`, optional `Authorization: Bearer`); `--dry-run` prints the request without sending; `make webhook-send REPORT=... URL=...`.
 
 ### Changed
 
