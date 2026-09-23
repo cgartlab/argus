@@ -1,0 +1,91 @@
+name: skills.sh Index Request
+
+# skills.sh does NOT auto-index skills. A maintainer must submit a one-time
+# index request via a GitHub issue in vercel-labs/skills. This workflow
+# automates that request: it ensures the repo carries discovery topics, then
+# files (or re-checks) the index issue in vercel-labs/skills.
+#
+# Run it once, manually, after a release is public. Re-runs are idempotent:
+# an existing index request for this repo skips issue creation.
+#
+# Notes:
+# - Topic edits on THIS repo use the default GITHUB_TOKEN (same-repo, fine).
+# - Filing an issue in vercel-labs/skills (a DIFFERENT org) needs a Personal
+#   Access Token with `repo` scope, stored as the SKILLS_SH_GH_TOKEN secret.
+#   Without it, topic syncing still runs and issue creation is skipped.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Validate only — do not edit topics or create the issue"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    name: Submit skills.sh index request
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve skills.sh token
+        id: token
+        env:
+          SKILLS_SH_TOKEN: ${{ secrets.SKILLS_SH_GH_TOKEN }}
+        run: |
+          if [ -z "$SKILLS_SH_TOKEN" ]; then
+            echo "::notice::SKILLS_SH_GH_TOKEN secret not set — topic sync runs, but the vercel-labs/skills issue will be skipped (cross-org issue needs a PAT with repo scope)"
+            echo "has_token=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_token=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Ensure discovery topics
+        if: ${{ inputs.dry_run != true }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh repo edit "${GITHUB_REPOSITORY}" \
+            --add-topic agent-skill,claude-code-skill,code-review,design-tokens,accessibility,dark-mode
+          echo "Topics ensured on ${GITHUB_REPOSITORY}"
+
+      - name: Check for existing index request
+        if: ${{ inputs.dry_run != true && steps.token.outputs.has_token == 'true' }}
+        id: existing
+        env:
+          GH_TOKEN: ${{ secrets.SKILLS_SH_GH_TOKEN }}
+        run: |
+          existing=$(gh issue list --repo vercel-labs/skills \
+            --search "${GITHUB_REPOSITORY} in:title" \
+            --state all --limit 5 --json number,title 2>/dev/null || echo "")
+          if [ -n "$existing" ] && [ "$existing" != "[]" ]; then
+            echo "already-submitted=true" >> "$GITHUB_OUTPUT"
+            echo "Found an existing skills.sh index request — skipping issue creation."
+            echo "$existing"
+          else
+            echo "already-submitted=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Submit skills.sh index request
+        if: ${{ inputs.dry_run != true && steps.token.outputs.has_token == 'true' && steps.existing.outputs.already-submitted != 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.SKILLS_SH_GH_TOKEN }}
+        run: |
+          VERSION=$(tr -d '\r\n ' < VERSION)
+          sed -e "s|__REPO__|${GITHUB_REPOSITORY}|g" \
+              -e "s|__VERSION__|${VERSION}|g" \
+              .github/skills-sh-issue-template.md > /tmp/skills-sh-issue-body.md
+          gh issue create --repo vercel-labs/skills \
+            --title "Request to index skill: ${GITHUB_REPOSITORY}" \
+            --body-file /tmp/skills-sh-issue-body.md
+
+      - name: Dry-run summary
+        if: ${{ inputs.dry_run == true }}
+        run: |
+          echo "Dry-run — would:"
+          echo "  1. Ensure discovery topics on ${GITHUB_REPOSITORY}"
+          echo "  2. Submit an index request to vercel-labs/skills (if SKILLS_SH_GH_TOKEN set and no existing issue)"

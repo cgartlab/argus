@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
 """
-Prepare and validate an Argus skill package for SkillHub publishing.
+Prepare and validate an Argus skill package for ClawHub publishing.
 
-The SkillHub CLI expects a Skill directory with a valid SKILL.md. This helper
-does the repo-specific work before CI runs `skillhub publish`:
+ClawHub (the OpenClaw skill registry) publishes from a skill *directory*
+containing a valid SKILL.md — not a zip. This helper does the repo-specific
+work before CI runs `clawhub skill publish`:
   1. extract dist/argus-skill-v{VERSION}.zip into a clean directory
-  2. validate required SkillHub frontmatter fields
-  3. write a one-line changelog from the current CHANGELOG section
+  2. validate required ClawHub frontmatter (name, description, version)
+  3. ensure SKILL.md version matches the VERSION file
 
-It does not contact SkillHub and does not need the API key. CI still runs
-`skillhub login`, `skillhub publish --dry-run`, and `skillhub publish`.
+It does not contact ClawHub and does not need the API token. CI still runs
+`clawhub login`, `clawhub whoami`, and `clawhub skill publish`.
+
+Note: ClawHub uses the portable `name` field as the routable slug
+(@owner/name). The SkillHub-specific `slug` field (cgartlab-argus-design-review)
+is intentionally ignored here — ClawHub publishes as @<owner>/argus-design-review.
 
 Usage:
-    python3 tools/publish_skillhub.py prepare dist/argus-skill-v0.5.3.zip \
-        --out dist/skillhub-argus --changelog-out /tmp/argus-changelog.txt
+    python3 tools/publish_clawhub.py prepare dist/argus-skill-v0.5.7.zip \
+        --out dist/clawhub-argus
 """
 
 from __future__ import annotations
@@ -24,9 +29,12 @@ import sys
 import zipfile
 from pathlib import Path
 
-REQUIRED_FRONTMATTER = ("slug", "displayName", "version", "description")
-SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,126}[a-z0-9])?$")
-SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$")
+# ClawHub requires a portable `name`: 1-64 lowercase letters, digits, or hyphens.
+# Must start and end with an alphanumeric (no leading/trailing hyphen).
+NAME_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$|^[a-z0-9]$")
+SEMVER_RE = re.compile(
+    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"
+)
 
 
 def fail(message: str) -> None:
@@ -55,21 +63,32 @@ def read_frontmatter(path: Path) -> dict[str, str]:
     return fields
 
 
-def validate_frontmatter(fields: dict[str, str]) -> None:
-    missing = [field for field in REQUIRED_FRONTMATTER if not fields.get(field)]
+def validate_frontmatter(fields: dict[str, str]) -> str:
+    """Validate ClawHub-required frontmatter and return the ClawHub slug (= name)."""
+    required = ("name", "description", "version")
+    missing = [field for field in required if not fields.get(field)]
     if missing:
-        fail(f"SKILL.md missing required SkillHub field(s): {', '.join(missing)}")
+        fail(f"SKILL.md missing required ClawHub field(s): {', '.join(missing)}")
 
-    slug = fields["slug"]
+    name = fields["name"]
+    if not (1 <= len(name) <= 64):
+        fail(f"name must be 1-64 chars, got {len(name)}")
+    if not NAME_RE.fullmatch(name):
+        fail(f"name must be lowercase kebab-case [a-z0-9-], got {name!r}")
+
     version = fields["version"]
-    if len(slug) < 2 or len(slug) > 128:
-        fail(f"slug must be 2-128 chars, got {len(slug)}")
-    if not SLUG_RE.fullmatch(slug):
-        fail(f"slug must be kebab-case, got {slug!r}")
     if not SEMVER_RE.fullmatch(version):
         fail(f"version must be valid SemVer, got {version!r}")
 
-    print(f"SkillHub metadata ok: {fields['displayName']} ({slug}@{version})")
+    description = fields["description"]
+    if len(description) < 10:
+        fail(
+            f"description too short ({len(description)} chars) — "
+            "ClawHub uses it as the search summary"
+        )
+
+    print(f"ClawHub metadata ok: {name} ({name}@{version})")
+    return name
 
 
 def extract_skill_zip(archive: Path, out_dir: Path) -> None:
@@ -85,31 +104,11 @@ def extract_skill_zip(archive: Path, out_dir: Path) -> None:
         fail("extracted skill package has no SKILL.md")
 
 
-def changelog_summary(changelog_path: Path, version: str) -> str:
-    text = changelog_path.read_text(encoding="utf-8")
-    parts = re.split(r"^## ", text, flags=re.MULTILINE)
-    body = ""
-    for part in parts[1:]:
-        if part.startswith(f"[{version}]"):
-            body = "\n".join(part.splitlines()[1:])
-            break
-    if not body:
-        fail(f"CHANGELOG.md has no section for v{version}")
-
-    for line in body.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("- "):
-            return re.sub(r"\s+", " ", stripped[2:]).strip()[:500]
-
-    fail(f"CHANGELOG.md section for v{version} has no bullet summary")
-
-
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Prepare Argus for SkillHub publish")
+    parser = argparse.ArgumentParser(description="Prepare Argus for ClawHub publish")
     parser.add_argument("command", choices=("prepare",))
     parser.add_argument("skill_zip", type=Path)
     parser.add_argument("--out", type=Path, required=True, help="Directory to publish from")
-    parser.add_argument("--changelog-out", type=Path, help="Optional file for publish --changelog")
     parser.add_argument("--version", help="Expected version; defaults to VERSION file")
     args = parser.parse_args()
 
@@ -123,19 +122,13 @@ def main() -> None:
 
     extract_skill_zip(args.skill_zip.resolve(), args.out.resolve())
     fields = read_frontmatter(args.out.resolve() / "SKILL.md")
-    validate_frontmatter(fields)
+    slug = validate_frontmatter(fields)
 
     if fields["version"] != version:
         fail(f"SKILL.md version {fields['version']} != VERSION {version}")
 
-    if args.changelog_out:
-        summary = changelog_summary(repo_root / "CHANGELOG.md", version)
-        args.changelog_out.parent.mkdir(parents=True, exist_ok=True)
-        args.changelog_out.write_text(summary + "\n", encoding="utf-8")
-
     print(f"Publish directory: {args.out.resolve()}")
-    if args.changelog_out:
-        print(f"Changelog file: {args.changelog_out.resolve()}")
+    print(f"ClawHub slug: {slug}  (publish as @<owner>/{slug})")
 
 
 if __name__ == "__main__":

@@ -225,6 +225,30 @@ The release workflow (`.github/workflows/release.yml`) automatically:
 - Builds `dist/argus-skill-v{VERSION}.zip` (skill package)
 - Creates a GitHub Release with all artifacts
 - Publishes the skill package to SkillHub when `SKILLHUB_API_KEY` is configured
+- Publishes the skill package to ClawHub when `CLAWHUB_TOKEN` secret + `CLAWHUB_OWNER` variable are set
+
+## Multi-Registry Skill Publishing
+
+Argus publishes the skill package to three registries. Each is opt-in and gated on its own secret/variable, so a missing registry never blocks a release.
+
+| Registry | Trigger | Prep tool | Enable by |
+|----------|---------|-----------|-----------|
+| SkillHub | `release.yml` `skillhub` job (every `v*` tag) | `make prepare-skillhub` (`tools/publish_skillhub.py`) | `SKILLHUB_API_KEY` secret |
+| ClawHub | `release.yml` `clawhub` job (every `v*` tag) | `make prepare-clawhub` (`tools/publish_clawhub.py`) | `CLAWHUB_TOKEN` secret (`clh_...`) + `CLAWHUB_OWNER` variable |
+| skills.sh | `skills-sh-submit.yml` (manual dispatch, one-time) | — | `SKILLS_SH_GH_TOKEN` PAT (for the cross-org `vercel-labs/skills` issue) |
+
+### ClawHub
+
+- Publishes the skill **directory** (not the zip) via `clawhub skill publish dist/clawhub-argus --slug argus-design-review --name "Argus Design Review" --owner "$CLAWHUB_OWNER" --version "$VERSION"`.
+- The ClawHub slug is the portable `name` frontmatter field (`argus-design-review`), distinct from the SkillHub-specific `slug` (`cgartlab-argus-design-review`). Final listing: `@<owner>/argus-design-review`.
+- `clawhub login --token "$CLAWHUB_TOKEN"` is the headless/CI login; `clawhub whoami` verifies it.
+- CLI ≥ 0.7.1 is required (v0.7.0 omitted `acceptLicenseTerms` and failed publish); the workflow installs `clawhub@latest`.
+
+### skills.sh
+
+- skills.sh does **not** auto-index. Run **skills.sh Index Request** from the Actions tab once after a release is public: it adds discovery topics to this repo and files an index-request issue in `vercel-labs/skills`.
+- Filing an issue in another org needs a PAT (`SKILLS_SH_GH_TOKEN`, `repo` scope); the default `GITHUB_TOKEN` only covers same-repo topic edits. The workflow is idempotent — a re-run skips issue creation if one already exists.
+- `npx skills add cgartlab/argus` works immediately (clones from GitHub); only `npx skills search` discovery requires the index.
 
 ## Webhook Forwarding (public API surface)
 

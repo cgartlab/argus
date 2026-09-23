@@ -130,3 +130,70 @@ jobs:
       - name: Publish Skill to SkillHub
         run: |
           skillhub publish dist/skillhub-argus --host "https://api.skillhub.cn" --changelog "$(cat dist/skillhub-changelog.txt)"
+
+  clawhub:
+    name: Publish to ClawHub
+    runs-on: ubuntu-latest
+    needs: release
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Resolve ClawHub owner
+        id: owner
+        env:
+          CLAWHUB_OWNER: ${{ vars.CLAWHUB_OWNER }}
+        run: |
+          if [ -z "$CLAWHUB_OWNER" ]; then
+            echo "::notice::vars.CLAWHUB_OWNER is not set — skipping ClawHub publish (set the repo variable + CLAWHUB_TOKEN secret to enable)"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "owner=$CLAWHUB_OWNER" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build skill package
+        if: ${{ steps.owner.outputs.skip != 'true' }}
+        run: make package-skill
+
+      - name: Prepare ClawHub publish directory
+        if: ${{ steps.owner.outputs.skip != 'true' }}
+        run: |
+          VERSION=$(cat VERSION)
+          python3 tools/publish_clawhub.py prepare \
+            dist/argus-skill-v${VERSION}.zip \
+            --out dist/clawhub-argus
+
+      - name: Install ClawHub CLI
+        if: ${{ steps.owner.outputs.skip != 'true' }}
+        run: |
+          # Pin via @latest (>= 0.7.1): v0.7.0 omitted acceptLicenseTerms and failed publish.
+          npm install -g clawhub@latest
+          clawhub --version
+
+      - name: Login to ClawHub
+        if: ${{ steps.owner.outputs.skip != 'true' }}
+        env:
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+        run: |
+          if [ -z "$CLAWHUB_TOKEN" ]; then
+            echo "::error::CLAWHUB_TOKEN secret not set but vars.CLAWHUB_OWNER is — add the CLAWHUB_TOKEN secret (a clh_... API token) to enable ClawHub publishing"
+            exit 1
+          fi
+          clawhub login --token "$CLAWHUB_TOKEN"
+          clawhub whoami
+
+      - name: Publish Skill to ClawHub
+        if: ${{ steps.owner.outputs.skip != 'true' }}
+        run: |
+          VERSION=$(cat VERSION)
+          clawhub skill publish dist/clawhub-argus \
+            --slug argus-design-review \
+            --name "Argus Design Review" \
+            --owner "${{ steps.owner.outputs.owner }}" \
+            --version "$VERSION"
