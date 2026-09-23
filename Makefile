@@ -59,11 +59,11 @@ validate:
 	           tools/update_free_models.py tools/bump_version.py \
 	           tools/validate_versioning.py tools/validate_model_scores.py \
 	           tools/check_release.py tools/publish_skillhub.py tools/argus_review.py tools/argus_report.py \
-	           tools/validate_argus_schema.py tools/argus_rules.py tools/argus_webhook.py tools/eval_quality.py \
+	           tools/validate_argus_schema.py tools/argus_rules.py tools/argus_webhook.py tools/eval_quality.py tools/validate_severity_matrix.py \
 	           .gitlab/argus-review.yml .gitlab/argus-review.sh \
 	           config/free-models.yml config/wcag-mapping.yml \
 	           config/argus-config.schema.json config/argus.example.yml \
-	           config/argus-rules.schema.json config/argus-rules.example.yml config/quality-baseline.json \
+	           config/argus-rules.schema.json config/argus-rules.example.yml config/quality-baseline.json config/severity-matrix.yml \
 	           docs/argus-config-schema.md docs/argus-rules.md \
 	           .github/actions/argus-review/action.yml \
 	           .github/workflows/update-free-models.yml \
@@ -84,6 +84,7 @@ validate:
 	@python3 -m py_compile tools/argus_rules.py && echo "argus_rules.py ok"
 	@python3 -m py_compile tools/argus_webhook.py && echo "argus_webhook.py ok"
 	@python3 -m py_compile tools/eval_quality.py && echo "eval_quality.py ok"
+	@python3 -m py_compile tools/validate_severity_matrix.py && echo "validate_severity_matrix.py ok"
 	@echo "── Validate: free model list ──"
 	@python3 tools/update_free_models.py --check
 	@echo "── Validate: model-scores.yml schema ──"
@@ -95,6 +96,8 @@ validate:
 	@python3 tools/validate_argus_schema.py --config config/argus.example.yml
 	@echo "── Validate: argus-rules.schema.json + example rules ──"
 	@python3 tools/argus_rules.py --validate --rules config/argus-rules.example.yml
+	@echo "── Validate: severity matrix (config ↔ SKILL.md ↔ load_config) ──"
+	@python3 tools/validate_severity_matrix.py
 	@echo ""
 	@echo "All validation checks passed ✓"
 
@@ -119,6 +122,13 @@ validate-rules:
 webhook-send:
 	@echo "── Argus webhook forward ──"
 	@python3 tools/argus_webhook.py send $(REPORT) --url $(URL) $(if $(TOKEN),--token $(TOKEN)) $(if $(DRY_RUN),--dry-run)
+
+# ─── Severity matrix validation ──────────────────────────────────
+.PHONY: validate-severity
+validate-severity:
+	@echo "── Validate: rule-id x severity matrix consistency ──"
+	@python3 tools/validate_severity_matrix.py
+	@echo "Severity matrix validation passed ✓"
 
 # ─── Fixture regression tests ─────────────────────────────────────
 .PHONY: test-fixtures

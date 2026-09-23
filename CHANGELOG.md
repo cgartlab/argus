@@ -14,6 +14,7 @@
 - **Quality Engine V1** — `tools/eval_quality.py` computes suite-level precision / recall / F1 from the fixture regression suite and enforces regression gates against a committed baseline (`config/quality-baseline.json`). `make eval` reports quality, `make eval-gate` enforces the gates (runs in CI after fixture tests), `make eval-baseline` refreshes the baseline after verified improvements.
 - **AGENTS.md next-phase conventions** — "Quality never regresses" (CONVENTIONS) and "Merging without quality gates" (ANTI-PATTERNS); quality engine entries in STRUCTURE / WHERE TO LOOK / COMMANDS / NOTES.
 - **Golden Eval Set V1** — new `tests/fixtures/golden/` category with realistic multi-violation fixtures (product-card CSS, checkout page HTML, theme-system CSS); the quality engine now reports and gates over 14 fixtures (38 TP / 0 FP / 0 FN) and CI uploads `quality-report.json` as an artifact.
+- **Severity matrix calibration** — `config/severity-matrix.yml` is now the canonical rule-id × severity matrix; `tools/validate_severity_matrix.py` (`make validate-severity`, runs in CI) enforces that it never drifts from the SKILL.md "## Issue Severity" table or `load_config.NON_DOWNGRADABLE_RULES`. Negative check verified: downgrading `bare-color` to P2 is caught on both the docs and enforcement axes.
 
 ### Changed
 

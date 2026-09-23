@@ -1,0 +1,20 @@
+# Rule-id × severity matrix — single source of truth for rule severities.
+#
+# Mirrors the SKILL.md "rule-id × severity matrix" (## Issue Severity) and the
+# enforcement in tools/load_config.py (NON_DOWNGRADABLE_RULES).
+#
+# P0/P1 rules are NON-DOWNGRADABLE: `overrides.severity` in .argus.yml rejects
+# P2/P3 overrides for them (AGENTS.md "Severity never downgraded"). P2/P3 rules
+# may be downgraded/upgraded per project via .argus.yml.
+#
+# Keep this in sync with SKILL.md (## Issue Severity table) and
+# tools/load_config.py — the CI check `make validate-severity`
+# (tools/validate_severity_matrix.py) enforces consistency across all three.
+rules:
+  dark-mode-coverage: P0
+  bare-color: P0
+  missing-alt: P1
+  button-aria-label: P1
+  hardcoded-spacing: P2
+  bem-naming: P2
+  raw-px-breakpoint: P2

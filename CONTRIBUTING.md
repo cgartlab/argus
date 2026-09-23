@@ -77,4 +77,5 @@ Pushing a `v*.*.*` tag triggers `.github/workflows/release.yml` which:
 - [ ] SKILL.md has SkillHub frontmatter: `slug`, `displayName`, `version`, `description`
 - [ ] Config changes conform to `config/argus-config.schema.json` (`make validate-schema`)
 - [ ] Rule/model changes pass `make eval-gate` (quality regression gates vs baseline); raise the baseline only after an intentional, verified improvement
+- [ ] Rule/severity changes pass `make validate-severity` (matrix consistency: config ↔ SKILL.md ↔ load_config)
 - [ ] New review rules have severity assigned with rationale

@@ -221,6 +221,12 @@ overrides:
 
 Rule IDs are documented in [SKILL.md](../SKILL.md) under each review dimension header.
 
+> **Source of truth:** the canonical rule-id × severity matrix lives in
+> [`config/severity-matrix.yml`](../config/severity-matrix.yml).
+> `make validate-severity` (`tools/validate_severity_matrix.py`) enforces that
+> this file, the SKILL.md matrix table, and `load_config.py`'s
+> `NON_DOWNGRADABLE_RULES` never drift apart — CI runs it on every PR.
+
 ---
 
 ### `ignore.paths`
