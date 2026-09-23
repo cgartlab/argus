@@ -112,6 +112,87 @@ Prerequisites:
 2. Add `ARGUS_FLASH_APP_ID` and `ARGUS_FLASH_PRIVATE_KEY` to repo Secrets
 3. Create a minimal `review.yml` workflow
 
+## Local Review CLI
+
+Review files locally with the exact same rules as the GitHub App / composite
+action — no GitHub, no workflow needed:
+
+```bash
+# Review a single file (uses the OpenCode CLI if installed, else the static
+# heuristic scanner — no API key required for static mode)
+python3 tools/argus_review.py src/components/Card.css
+
+# Batch + stack-aware
+python3 tools/argus_review.py --dir src/ --ignore '*.test.*' --stack antd5
+
+# Structured report (feeds the future report-link / CI-comment service)
+python3 tools/argus_review.py src/App.tsx --json review.json
+
+# Or via make
+make review FILE=src/components/Card.css
+```
+
+The CLI reuses the same prompt builder, model queue (config/free-models.yml),
+and static scanner as the fixture runner, so local output matches what the
+GitHub App produces. `--json` emits a structured findings report
+(`total_issues`, `by_severity`, per-finding `severity`/`file`/`line`/
+`description`/`found`/`expected`) ready for any consumer.
+
+`tools/argus_report.py` turns that JSON into a single self-contained,
+shareable HTML file (no server, no external assets):
+
+```bash
+python3 tools/argus_review.py src/ --json review.json
+python3 tools/argus_report.py review.json --out report.html --title "Checkout UI"
+# or: make report JSON=review.json
+```
+
+This is the artifact a future hosted report-link / Pro hook will serve.
+
+### WCAG 2.2 Compliance Reports
+
+`argus_report.py --wcag` annotates each a11y finding with its governing WCAG
+2.2 success criterion (mapping: `config/wcag-mapping.yml`) and adds a
+**WCAG 2.2 Compliance Summary** to the report — unique criteria covered,
+A/AA counts, and per-criterion finding counts — for compliance handoff:
+
+```bash
+python3 tools/argus_review.py src/ --json review.json
+python3 tools/argus_report.py review.json --wcag --out compliance.html
+```
+
+Findings that don't map to a criterion (e.g. bare colors) get no badge and no
+summary section, so reports stay focused.
+
+## GitLab Integration (Second Platform)
+
+GitLab MRs get the same review via an include template — proving the
+composite-action pattern is replicable outside GitHub:
+
+```yaml
+# .gitlab-ci.yml
+include:
+  - remote: https://raw.githubusercontent.com/cgartlab/argus/main/.gitlab/argus-review.yml
+```
+
+The job (`.gitlab/argus-review.yml`) clones `cgartlab/argus`, runs
+`tools/argus_review.py --mode auto` on the MR's changed frontend files, and
+posts the review as an MR note via the GitLab API. The runner logic lives in
+`.gitlab/argus-review.sh` (testable with `ARGUS_DRY_RUN=1`).
+
+Optional variables: `ARGUS_MR_TOKEN` (api-scope token for MR notes; falls
+back to `CI_JOB_TOKEN` for same-project MRs), `ARGUS_MODE` (auto|static|llm —
+complexity routing), `ARGUS_STACK`, `ARGUS_REF`. No API key is required in
+auto/static mode (built-in heuristic scanner).
+
+### Complexity Routing (cost control)
+
+`tools/argus_review.py --mode auto` (default) routes each file by size:
+files ≤ `--min-lines` (default 200) are reviewed by the static heuristic
+scanner (fast, free), larger files by the LLM. `--mode static` / `--mode llm`
+force either path. This is the roadmap's model-cost-routing control: small
+diffs never pay model tokens.
+
 ## Branch Strategy for Composite Action
 
 | Ref | Behavior | Recommendation |

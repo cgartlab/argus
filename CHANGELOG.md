@@ -1,3 +1,21 @@
+## [Unreleased]
+
+### Added
+
+- **Local review CLI** — `tools/argus_review.py` reviews frontend files with the exact same rules as the GitHub App / composite action, anywhere Python runs: OpenCode CLI when installed, static heuristic scanner otherwise (no API key needed). `make review FILE=...` convenience target; `--stack` / `--model` / `--dir` / `--ignore`; `--json` emits a structured findings report (the payload a future report-link / CI-comment service consumes).
+- **GitLab MR review (second platform)** — `.gitlab/argus-review.yml` is an include template any `.gitlab-ci.yml` can pull: it clones cgartlab/argus, runs `tools/argus_review.py` on the MR's changed frontend files, and posts the review as an MR note (runner: `.gitlab/argus-review.sh`, testable with `ARGUS_DRY_RUN=1`).
+- **Complexity routing (cost control)** — `tools/argus_review.py --mode auto` routes each file by size: ≤ `--min-lines` (default 200) → static heuristic scanner (free), larger → LLM; `--mode static|llm` force either path.
+- **Shareable HTML report** — `tools/argus_report.py` turns a findings JSON report (from `argus_review.py --json`) into a single self-contained HTML file (no server, no external assets) grouped by severity P0→P3, with escaped code snippets; `make report JSON=...`. This is the artifact a future hosted report-link / Pro hook serves.
+- **WCAG 2.2 compliance reports** — `tools/argus_report.py --wcag` annotates a11y findings with their governing success criterion (`config/wcag-mapping.yml`: 1.1.1, 1.3.1, 1.4.3, 2.4.7, 2.5.8, 3.1.1, 4.1.2) and adds a compliance summary (unique criteria, A/AA counts) for audit handoff.
+
+### Changed
+
+### Fixed
+
+### Removed
+
+---
+
 ## [0.5.7] — 2026-09-12
 
 ### Added

@@ -1,0 +1,36 @@
+# Argus MR review — GitLab CI template (second platform integration).
+#
+# Usage — add to your .gitlab-ci.yml:
+#
+#   include:
+#     - remote: https://raw.githubusercontent.com/cgartlab/argus/main/.gitlab/argus-review.yml
+#
+# The job clones cgartlab/argus (rules), runs the Argus local review CLI
+# (tools/argus_review.py) on the MR's changed frontend files, and posts the
+# review as an MR note.
+#
+# Variables (Settings -> CI/CD -> Variables; all optional):
+#   ARGUS_MR_TOKEN  — token with `api` scope for MR notes. When unset, falls
+#                     back to CI_JOB_TOKEN (same-project MRs).
+#   ARGUS_MODE      — auto | static | llm (complexity routing; default auto)
+#   ARGUS_STACK     — auto | antd5 | material3 | polaris | custom (default auto)
+#   ARGUS_REF       — cgartlab/argus ref to clone (default main)
+#
+# No API key is required: auto/static use the built-in heuristic scanner.
+
+argus-review:
+  stage: test
+  image: python:3.12-slim
+  variables:
+    ARGUS_REF: "main"
+    ARGUS_MODE: "auto"
+    ARGUS_STACK: "auto"
+    ARGUS_RULES_DIR: "/tmp/argus"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git curl >/dev/null
+  script:
+    - git clone --depth 1 --branch "$ARGUS_REF" https://github.com/cgartlab/argus "$ARGUS_RULES_DIR"
+    - chmod +x "$ARGUS_RULES_DIR/.gitlab/argus-review.sh"
+    - ARGUS_RULES_DIR="$ARGUS_RULES_DIR" ARGUS_MODE="$ARGUS_MODE" ARGUS_STACK="$ARGUS_STACK" "$ARGUS_RULES_DIR/.gitlab/argus-review.sh"

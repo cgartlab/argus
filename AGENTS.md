@@ -47,9 +47,14 @@ argus/
 │   ├── update_free_models.py          # Refresh config/free-models.yml from live OpenCode Zen API (ranked)
 │   ├── bump_version.py                # Automated semver bumping
 │   ├── check_release.py               # Release gate (tag vs VERSION, dup/older-version refusal)
-│   └── validate_versioning.py         # VERSION / CHANGELOG consistency check
+│   ├── validate_versioning.py         # VERSION / CHANGELOG consistency check
+│   ├── argus_review.py                # Local review CLI (same rules, runs anywhere)
+│   └── argus_report.py                # Findings JSON → shareable static HTML report
+├── .gitlab/
+│   └── argus-review.yml               # GitLab MR review template (second platform)
 ├── config/
-│   └── free-models.yml                # Auto-refreshed fallback model queue (weekly, reviewable PR)
+│   ├── free-models.yml                # Auto-refreshed fallback model queue (weekly, reviewable PR)
+│   └── wcag-mapping.yml               # WCAG 2.2 SC mapping for a11y findings (--wcag reports)
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml                     # Lint + tool validation + fixture tests
@@ -81,6 +86,10 @@ argus/
 | Fixture test suite | `tests/fixtures/` | Regression tests for review rules |
 | False-positive benchmarks | `tests/fixtures/false-positives/` | Code that must NOT be flagged; mirror pairs in should-flag/ |
 | Fixture runner | `tools/run_fixture_tests.py` | `make test-fixtures` or directly |
+| Local review CLI | `tools/argus_review.py` | `make review FILE=...` — same rules, local/static or LLM |
+| HTML report | `tools/argus_report.py` | Findings JSON → shareable static HTML (`make report JSON=...`) |
+| WCAG compliance | `config/wcag-mapping.yml` + `tools/argus_report.py --wcag` | Annotates a11y findings with WCAG 2.2 SC + compliance summary |
+| GitLab MR review | `.gitlab/argus-review.yml` + `.gitlab/argus-review.sh` | Second-platform template; `include:` it in any `.gitlab-ci.yml` |
 | CI pipeline | `.github/workflows/ci.yml` | Lint + tool validation + fixture tests |
 | PR review automation | `.github/workflows/review.yml` | Triggers argus-flash App |
 | Release automation | `.github/workflows/release.yml` | Tag-push → validates → packages → GitHub Release |
@@ -240,6 +249,8 @@ make bump-minor       # Bump MINOR version (0.3.0 → 0.4.0)
 make bump-major       # Bump MAJOR version (0.3.0 → 1.0.0)
 make validate         # Run SKILL.md trigger phrase check + CHANGELOG + versioning + action.yml
 make test-fixtures    # Run fixture regression tests (static heuristic mode, no API key needed)
+make review FILE=...  # Run local Argus review on a file/dir (tools/argus_review.py)
+make report JSON=...  # Turn findings JSON into a shareable HTML report (tools/argus_report.py)
 make test-fixtures-llm # Run fixture tests in LLM mode (model read from config/free-models.yml primary)
 make test             # validate + test-fixtures (full pre-release check)
 make release          # release-gate → verify → tag → push (triggers release workflow)
