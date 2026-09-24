@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.5.8] — 2026-09-23
 
 ### Added
 
@@ -24,6 +24,8 @@
 ### Changed
 
 ### Fixed
+
+- **SkillHub publish slug corrected to `argus-flash`** — `SKILL.md` frontmatter `slug`/`name` were `argus-design-review`, so the v0.5.7 release published (or updated) a stray SkillHub entry instead of overwriting the existing skill whose unique ID is `argus-flash`. Frontmatter now uses `argus-flash`, so subsequent `skillhub publish` runs overwrite-update the correct skill. (The stray `argus-design-review` entry created by v0.5.7 must be removed manually on the SkillHub platform.)
 
 ### Removed
 

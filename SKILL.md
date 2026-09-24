@@ -1,12 +1,12 @@
 ---
-name: argus-design-review
-slug: argus-design-review
+name: argus-flash
+slug: argus-flash
 displayName: Argus Design Review
 summary: "Frontend design code review agent for tokens, hardcoded values, dark mode, accessibility, and copy-ready fixes."
 license: MIT
 homepage: https://github.com/cgartlab/argus
 description: "Use when reviewing frontend code for design quality — checking design token usage, hardcoded values, dark mode coverage, accessibility compliance, CSS consistency, semantic HTML, or framework API usage. Use when auditing a component, page, or design system for issues. Trigger phrases: '帮我 review 这段代码'、'检查一下这个组件的设计问题'、'看看有没有 hardcoded values'、'dark mode 有没有遗漏'、'无障碍有没有问题'、'帮我做个 design audit'、'让 Argus-Flash 审一下'"
-version: 0.5.7
+version: 0.5.8
 metadata:
   openclaw:
     emoji: "👁️"
