@@ -1,7 +1,13 @@
-name: Dependabot Auto-Merge
+name: Dependabot Auto-Approve
 
-# Auto-approves and auto-merges dependabot PRs for patch/minor updates.
-# Major version bumps are intentionally left for manual review.
+# Auto-APPROVES dependabot PRs for patch/minor updates. It does NOT merge.
+#
+# Merging is deliberately out of scope for automation: every PR must be
+# merged by a human. This workflow only removes the "someone has to click
+# Approve" chore once CI is green, so the reviewer can go straight to the
+# merge decision.
+#
+# Major version bumps are left entirely alone (no approve either).
 #
 # Uses `pull_request_target` because dependabot PRs need elevated permissions
 # (their branches/PRs originate from a bot context). `pull_request_review` lets
@@ -10,7 +16,10 @@ name: Dependabot Auto-Merge
 # Triple gate (each as an `if` step condition so failures are easy to debug):
 #   1. Only dependabot PRs.
 #   2. Only patch/minor semver updates — `semver-major` is skipped.
-#   3. Only after CI checks pass (or the PR is mergeable).
+#   3. Only after every other CI check has passed.
+#
+# Deliberately absent: `gh pr merge`, `enablePullRequestAutoMerge`, or any
+# other call that would put a PR into a merge queue unattended.
 
 on:
   pull_request_target:
@@ -19,11 +28,13 @@ on:
     types: [submitted]
 
 permissions:
+  # Approving a PR only needs pull-requests: write.
+  # `contents: write` was only ever required to create a squash-merge commit,
+  # so it is dropped now that this workflow no longer merges.
   pull-requests: write
-  contents: write
 
 jobs:
-  auto-merge:
+  auto-approve:
     runs-on: ubuntu-latest
     if: github.actor == 'dependabot[bot]'
     steps:
@@ -34,18 +45,18 @@ jobs:
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
-      # Gate 2: only auto-merge patch/minor — skip major (leave for human review).
+      # Gate 2: only approve patch/minor — skip major (leave for human review).
       - name: Skip major version updates
         if: steps.metadata.outputs.update-type == 'version-update:semver-major'
         run: |
-          echo "Major version update (semver-major) — skipping auto-merge, leaving for manual review."
+          echo "Major version update (semver-major) — skipping auto-approve, leaving for manual review."
           exit 0
 
-      # Gate 3: wait for CI to pass, then auto-merge.
+      # Gate 3: wait for every other CI check to pass, then approve.
       #
-      # 不能用 `gh pr checks --watch`：它把本工作流自身的 `auto-merge` check 也算进去，
+      # 不能用 `gh pr checks --watch`：它把本工作流自身的 `auto-approve` check 也算进去，
       # 而该 check 在本步骤运行期间恒为 pending —— 工作流于是在等待自己，直到被取消
-      # （日志里能看到 "auto-merge  pending" 与自己并列，随后 "The operation was canceled."）。
+      # （日志里能看到 "auto-approve  pending" 与自己并列，随后 "The operation was canceled."）。
       # 这也解释了为什么症状只出现在 patch/minor PR：semver-major 在 Gate 2 就退出了，
       # 根本走不到这一步。
       # 这里改为显式轮询，并按 workflow 名排除自己的 check。
@@ -56,7 +67,7 @@ jobs:
         run: |
           PR="${{ github.event.pull_request.number }}"
           REPO="${{ github.repository }}"
-          SELF_WORKFLOW="Dependabot Auto-Merge"
+          SELF_WORKFLOW="Dependabot Auto-Approve"
 
           # 先留出注册时间，避免「其它 workflow 还没出现」被误判成「全部通过」。
           sleep 20
@@ -65,20 +76,20 @@ jobs:
             # gh pr checks 在有失败/待定检查时退出码非 0，用 `|| true` 兜住 set -e。
             others=$(gh pr checks "$PR" -R "$REPO" --json name,workflow,bucket 2>/dev/null \
               | jq --arg self "$SELF_WORKFLOW" \
-                  '[.[] | select(.workflow != $self) | select(.name != "auto-merge")]') || true
+                  '[.[] | select(.workflow != $self) | select(.name != "auto-approve")]') || true
 
             total=$(echo "${others:-[]}" | jq 'length')
             pending=$(echo "${others:-[]}" | jq '[.[] | select(.bucket == "pending")] | length')
             failed=$(echo "${others:-[]}" | jq '[.[] | select(.bucket == "fail" or .bucket == "cancel")] | length')
 
             if [ "$failed" -gt 0 ]; then
-              echo "::error::存在失败检查，放弃自动合并："
+              echo "::error::存在失败检查，放弃自动批准："
               echo "${others:-[]}" | jq -r '.[] | select(.bucket == "fail" or .bucket == "cancel") | "  - \(.name): \(.bucket)"'
               exit 1
             fi
 
             if [ "$total" -gt 0 ] && [ "$pending" -eq 0 ]; then
-              echo "✅ 其它检查全部通过（已排除本工作流自身），继续自动合并："
+              echo "✅ 其它检查全部通过（已排除本工作流自身），可以自动批准："
               echo "${others:-[]}" | jq -r '.[] | "  - \(.name): \(.bucket)"'
               exit 0
             fi
@@ -87,19 +98,22 @@ jobs:
             sleep 10
           done
 
-          echo "::error::等待其它检查超时（约 15 分钟），本次不自动合并。"
+          echo "::error::等待其它检查超时（约 15 分钟），本次不自动批准。"
           exit 1
 
-      - name: Approve pull request
+      # Approve only. `-R <owner/repo>` is required: without it `gh` tries to
+      # resolve the repository from the current working directory, and this job
+      # performs no `actions/checkout`, so it fails with
+      # "failed to run git: fatal: not a git repository" before ever reviewing.
+      - name: Approve pull request (no merge)
         if: steps.metadata.outputs.update-type != 'version-update:semver-major'
-        run: |
-          gh pr review "${{ github.event.pull_request.number }}" --approve
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr review "${{ github.event.pull_request.number }}" \
+            -R "${{ github.repository }}" \
+            --approve \
+            --body "Automated approval: all other CI checks passed for this patch/minor dependency update. Merging remains a manual decision."
 
-      - name: Enable auto-merge (squash)
-        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
-        run: |
-          gh pr merge "${{ github.event.pull_request.number }}" --auto --squash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # NOTE: there is intentionally no step that merges, queues a merge, or
+      # enables auto-merge. Do not add one without an explicit human decision.
