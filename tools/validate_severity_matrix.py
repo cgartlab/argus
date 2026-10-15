@@ -2,11 +2,12 @@
 """
 validate_severity_matrix.py - enforce the rule-id x severity matrix
 
-Checks that the three places where rule severities are declared agree:
+Checks that the four places where rule severities are declared agree:
 
   1. config/severity-matrix.yml      - canonical rule-id -> severity (source of truth)
   2. SKILL.md "## Issue Severity"    - documented matrix table (prose contract)
   3. tools/load_config.py            - NON_DOWNGRADABLE_RULES enforcement (runtime)
+4. tools/run_fixture_tests.py      - static scanner emit() severities (what CI sees)
 
 Consistency rules enforced:
   - Every rule in the canonical matrix appears in the SKILL.md matrix table at
@@ -15,6 +16,10 @@ Consistency rules enforced:
     canonical matrix (new documented rules must be declared).
   - The set of P0/P1 rules in the canonical matrix EXACTLY equals
     load_config.NON_DOWNGRADABLE_RULES (enforcement matches the matrix).
+  - Every rule the static scanner can emit maps to a matrix rule-id at the
+    SAME severity: the doc/config contract is what CI enforces, so a scanner
+    emitting P1 for a rule the matrix calls P2 is real drift. Caught in the
+    wild at v0.5.0-v0.6.2 (hardcoded-spacing).
   - Severity values are valid (P0-P3) and rule-ids are kebab-case.
 
 Usage:
@@ -43,6 +48,27 @@ SKILL_MD = REPO_ROOT / "SKILL.md"
 VALID_SEVERITIES = {"P0", "P1", "P2", "P3"}
 RULE_ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
+# Static scanner -> rule-id mapping.
+#
+# tools/run_fixture_tests.py emits findings with hard-coded severities but no
+# rule-id. This map names the canonical rule-id each emit site belongs to so the
+# matrix contract can be checked against what CI actually sees. An emit site
+# missing from this map is reported as "unmapped" (fail) so new scanner rules
+# cannot silently bypass the matrix.
+#
+# Keys are stable substrings of the emit() message text at each site.
+SCANNER_RULE_MAP: dict[str, str] = {
+    "Bare color value": "bare-color",
+    "Hardcoded ": "hardcoded-spacing",
+    "Duplicate property": "bem-naming",  # css-quality: duplicate declarations
+    "Color token": "dark-mode-coverage",
+    "Icon-only button missing aria-label": "button-aria-label",
+    "img element missing alt attribute": "missing-alt",
+    "<a> without href used as interactive element": "button-aria-label",
+}
+
+SCANNER_SOURCE = "run_fixture_tests.py"
+
 
 def parse_skill_matrix(skill_text: str) -> dict[str, str]:
     """Extract {rule-id: severity} from the SKILL.md '## Issue Severity' table."""
@@ -62,6 +88,37 @@ def parse_skill_matrix(skill_text: str) -> dict[str, str]:
     return matrix
 
 
+def parse_scanner_severities(source_path: Path) -> dict[str, str]:
+    """Extract {rule-id: severity} from the static scanner's emit() calls."""
+    text = source_path.read_text(encoding="utf-8")
+    found: dict[str, str] = {}
+    order = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
+    for m in re.finditer(r'emit\("(P[0-3])",\s*[^)]*?f?"([^"]*)"', text, re.DOTALL):
+        severity, message = m.group(1), m.group(2)
+        rule_id = None
+        for needle, rid in SCANNER_RULE_MAP.items():
+            if needle in message:
+                rule_id = rid
+                break
+        if rule_id is None:
+            continue  # unmapped site; detected separately
+        if rule_id in found and order[severity] < order[found[rule_id]]:
+            found[rule_id] = severity  # keep most severe so mismatch is reported
+        else:
+            found.setdefault(rule_id, severity)
+    return found
+
+
+def find_unmapped_emit_sites(source_path: Path) -> list[str]:
+    """Return emit() message texts that no SCANNER_RULE_MAP entry covers."""
+    text = source_path.read_text(encoding="utf-8")
+    unmapped: list[str] = []
+    for m in re.finditer(r'emit\("(P[0-3])",\s*[^)]*?f?"([^"]*)"', text, re.DOTALL):
+        if not any(needle in m.group(2) for needle in SCANNER_RULE_MAP):
+            unmapped.append(m.group(2))
+    return unmapped
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Enforce the rule-id x severity matrix")
     parser.add_argument("--matrix", default=str(DEFAULT_MATRIX), metavar="PATH",
@@ -77,8 +134,15 @@ def main() -> int:
 
     skill_matrix = parse_skill_matrix(SKILL_MD.read_text(encoding="utf-8"))
 
+    scanner_path = REPO_ROOT / "tools" / SCANNER_SOURCE
+    scanner_sev: dict[str, str] = {}
+    if scanner_path.is_file():
+        scanner_sev = parse_scanner_severities(scanner_path)
+    else:
+        print(f"[warn] {SCANNER_SOURCE} not found - scanner column will show n/a", file=sys.stderr)
+
     errors: list[str] = []
-    rows: list[tuple[str, str, str, str, str]] = []  # rule, sev, in_skill, in_code, non_downgradable
+    rows: list[tuple[str, str, str, str, str, str]] = []  # rule, sev, in_skill, in_code, non_downgradable, scanner
 
     # Validate canonical matrix entries + cross-check SKILL.md
     for rule_id, severity in sorted(rules.items()):
@@ -92,7 +156,7 @@ def main() -> int:
             errors.append(f"{rule_id}: declared {severity} in matrix but absent from SKILL.md matrix table")
         elif skill_sev != severity:
             errors.append(f"{rule_id}: SKILL.md matrix says {skill_sev}, canonical matrix says {severity}")
-        rows.append((rule_id, severity, skill_sev or "n/a", "yes" if severity in ("P0", "P1") else "no"))
+        rows.append((rule_id, severity, skill_sev or "n/a", "yes" if severity in ("P0", "P1") else "no", scanner_sev.get(rule_id, "n/a")))
 
     # Every rule-id documented in SKILL.md must be declared in the canonical matrix
     for rule_id in sorted(skill_matrix):
@@ -108,11 +172,24 @@ def main() -> int:
             f"matrix P0/P1={sorted(matrix_non_downgradable)} vs code={sorted(code_non_downgradable)}"
         )
 
+    # 4th source: static scanner emit severities must match the matrix
+    for rule_id, severity in sorted(scanner_sev.items()):
+        if rule_id not in rules:
+            errors.append(f"{rule_id}: emitted by static scanner but missing from {matrix_path.name}")
+        elif rules[rule_id] != severity:
+            errors.append(
+                f"{rule_id}: static scanner emits {severity}, canonical matrix says {rules[rule_id]}"
+            )
+    for msg in find_unmapped_emit_sites(scanner_path):
+        errors.append(
+            f"unmapped emit() site in {SCANNER_SOURCE} (add it to SCANNER_RULE_MAP): {msg!r}"
+        )
+
     # Report (ASCII-safe output for Windows/GBK consoles)
     print("== Severity Matrix ==")
-    print(f"  {'rule-id':<22} {'sev':<4} {'SKILL.md':<9} {'load_config':<11} non-downgradable")
-    for rule_id, sev, in_skill, nd in rows:
-        print(f"  {rule_id:<22} {sev:<4} {in_skill:<9} {nd}")
+    print(f"  {'rule-id':<22} {'sev':<4} {'SKILL.md':<9} {'load_config':<11} {'scanner':<9} non-downgradable")
+    for rule_id, sev, in_skill, nd, sc in rows:
+        print(f"  {rule_id:<22} {sev:<4} {in_skill:<9} {nd:<11} {sc}")
     print(f"  ({len(rules)} rule(s) - {len(matrix_non_downgradable)} non-downgradable)")
     print()
 
@@ -122,7 +199,7 @@ def main() -> int:
             print(f"  [FAIL] {err}")
         return 1
 
-    print("OK: severity matrix consistent (config <-> SKILL.md <-> load_config)")
+    print("OK: severity matrix consistent (config <-> SKILL.md <-> load_config <-> scanner)")
     return 0
 
 
