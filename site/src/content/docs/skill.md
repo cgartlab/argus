@@ -22,7 +22,7 @@ The archive `argus-skill-v{VERSION}.zip` contains three files:
 | `SKILL.md` | The review skill — trigger phrases, seven review dimensions, per-framework rules, output contract |
 | `manifest.yaml` | Agent manifest — name, version, capabilities, inputs/outputs |
 
-**Why it matters:** Argus is a *pure documentation* project — no runtime code, no build step, no dependencies. The "engine" is the rules in these files. Any agent that reads Markdown can apply them.
+**Why it matters:** Argus's review behavior is defined entirely by `AGENTS.md` and `SKILL.md` — any agent that reads Markdown can apply them. The composite action injects those rules into an LLM prompt at review time; no build step or runtime service is required to run reviews.
 
 ## Download
 

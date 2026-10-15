@@ -3,7 +3,7 @@ title: Configuration
 description: The full .argus.yml consumer configuration reference.
 order: 4
 sidebarGroup: System
-updated: 2026-08-31
+updated: 2026-10-15
 ---
 
 # Configuration
@@ -20,7 +20,7 @@ The most common config (keeps the defaults, and makes P0 and P1 findings block t
 
 ```yaml
 # .argus.yml
-version: "0.3"          # schema version — always include this
+version: "0.4"          # schema version — always include this
 skills:
   - design-review       # the review skill to activate
 
@@ -41,7 +41,7 @@ You get the defaults. Concretely:
 
 ```yaml
 # ── Schema version ────────────────────────────────────────────────
-version: "0.3"                        # string, must be "0.2" or "0.3"
+version: "0.4"                        # string, must be "0.2", "0.3", or "0.4"
 
 # ── Skills to activate ────────────────────────────────────────────
 skills:
@@ -72,6 +72,9 @@ fail-on:
   - P0
   - P1                               # default: [P0, P1]
 
+# ── Project lessons ───────────────────────────────────────────────
+lessons-path: .argus/LESSON.md       # path to per-project lessons (default; absent = none)
+
 # ── Output options ────────────────────────────────────────────────
 output:
   group-by-severity: true            # group output P0 → P1 → P2 → P3 (default: true)
@@ -86,12 +89,12 @@ output:
 | | |
 |---|---|
 | Type | string |
-| Required | No (default `"0.3"`) |
-| Valid values | `"0.2"`, `"0.3"` |
+| Required | No (default `"0.4"`) |
+| Valid values | `"0.2"`, `"0.3"`, `"0.4"` |
 
 **When to use it:** always. It declares which schema version your file follows.
 
-**What happens if you omit it:** Argus assumes `"0.3"`. Including it protects you later — if the schema evolves, Argus can still parse your file correctly.
+**What happens if you omit it:** Argus assumes `"0.4"`. Including it protects you later — if the schema evolves, Argus can still parse your file correctly.
 
 ### `skills`
 
@@ -190,6 +193,23 @@ fail-on: [P0, P1, P2, P3]
 
 **What happens if you omit it:** P0 and P1 findings make the CI check fail (exit code 1), blocking the merge. Lower-severity findings still appear in the comment but don't block.
 
+### `lessons-path`
+
+| | |
+|---|---|
+| Type | string (path, relative to repo root) |
+| Default | `.argus/LESSON.md` |
+
+Path to the **project lesson file** Argus loads into every review for this repo. Each entry records a project-specific fact Argus keeps getting wrong (a legitimate pattern, a token convention, a known exemption). Absent file = no lessons loaded = no behavior change. Validate it with `make validate-lessons FILE=.argus/LESSON.md`; a starter lives at [`config/lessons.template.md`](https://github.com/cgartlab/argus/blob/main/config/lessons.template.md).
+
+```yaml
+# Default
+lessons-path: .argus/LESSON.md
+
+# Keep lessons in the docs tree instead
+lessons-path: docs/argus-lessons.md
+```
+
 ### `output.max-findings`
 
 | | |
@@ -207,7 +227,7 @@ fail-on: [P0, P1, P2, P3]
 Here's a realistic `.argus.yml` for a team adopting Argus gradually on a large codebase:
 
 ```yaml
-version: "0.3"                    # always include the schema version
+version: "0.4"                    # always include the schema version
 skills:
   - design-review                 # activate the standard review skill
 

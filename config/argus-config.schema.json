@@ -73,6 +73,11 @@
       "default": ["P0", "P1"],
       "description": "Severity levels that fail the CI check."
     },
+    "lessons-path": {
+      "type": "string",
+      "default": ".argus/LESSON.md",
+      "description": "Path (relative to repo root) to the project lesson file injected into the review prompt. Absent file = no lessons loaded."
+    },
     "output": {
       "type": "object",
       "additionalProperties": false,

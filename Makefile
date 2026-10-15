@@ -16,8 +16,8 @@ help:
 	@echo "  make test-fixtures    — run fixture regression tests (static heuristic mode)"
 	@echo "  make review FILE=...  — run local Argus review (python3 tools/argus_review.py FILE)"
 	@echo "  make report JSON=...  — turn findings JSON into a shareable HTML report"
-	@echo "  make eval             — run quality engine (precision/recall/F1 report)"
-	@echo "  make eval-gate        — enforce quality regression gates vs baseline (CI)"
+	@echo "  make eval             — run quality engine (fixture regression lock, static)"
+	@echo "  make eval-gate        — enforce scanner-regression gates vs baseline (CI)"
 	@echo "  make eval-baseline    — refresh quality baseline after verified improvements"
 	@echo "  make test             — validate + test-fixtures (full pre-release check)"
 	@echo "  make release          — release-gate → verify → tag → push (triggers release workflow)"
@@ -59,12 +59,13 @@ validate:
 	           tools/run_fixture_tests.py tools/load_config.py \
 	           tools/update_free_models.py tools/bump_version.py \
 	           tools/validate_versioning.py tools/validate_model_scores.py \
-	           tools/check_release.py tools/publish_skillhub.py tools/publish_clawhub.py tools/argus_review.py tools/argus_report.py \
+	           tools/check_release.py tools/publish_skillhub.py tools/publish_clawhub.py tools/_skill_publish.py tools/argus_review.py tools/argus_report.py \
 	           tools/validate_argus_schema.py tools/argus_rules.py tools/argus_webhook.py tools/eval_quality.py tools/validate_severity_matrix.py tools/add_fp_appeal.py \
 	           .gitlab/argus-review.yml .gitlab/argus-review.sh \
-	           config/free-models.yml config/wcag-mapping.yml \
+	           config/free-models.yml config/model-scores.yml config/wcag-mapping.yml \
 	           config/argus-config.schema.json config/argus.example.yml \
 	           config/argus-rules.schema.json config/argus-rules.example.yml config/quality-baseline.json config/severity-matrix.yml \
+	           config/lessons.template.md docs/project-lessons.md tools/validate_lessons.py \
 	           docs/argus-config-schema.md docs/argus-rules.md docs/marketplace-listing.md docs/self-hosting.md docs/strategic-plan.md \
 	           .github/actions/argus-review/action.yml \
 	           .github/workflows/update-free-models.yml \
@@ -88,6 +89,8 @@ validate:
 	@python3 -m py_compile tools/validate_severity_matrix.py && echo "validate_severity_matrix.py ok"
 	@python3 -m py_compile tools/add_fp_appeal.py && echo "add_fp_appeal.py ok"
 	@python3 -m py_compile tools/publish_clawhub.py && echo "publish_clawhub.py ok"
+	@python3 -m py_compile tools/_skill_publish.py && echo "_skill_publish.py ok"
+	@python3 -m py_compile tools/validate_lessons.py && echo "validate_lessons.py ok"
 	@echo "── Validate: free model list ──"
 	@python3 tools/update_free_models.py --check
 	@echo "── Validate: model-scores.yml schema ──"
@@ -101,6 +104,8 @@ validate:
 	@python3 tools/argus_rules.py --validate --rules config/argus-rules.example.yml
 	@echo "── Validate: severity matrix (config ↔ SKILL.md ↔ load_config) ──"
 	@python3 tools/validate_severity_matrix.py
+	@echo "── Validate: lessons template + config defaults ──"
+	@python3 tools/validate_lessons.py --file config/lessons.template.md
 	@echo ""
 	@echo "All validation checks passed ✓"
 
@@ -132,6 +137,13 @@ validate-severity:
 	@echo "── Validate: rule-id x severity matrix consistency ──"
 	@python3 tools/validate_severity_matrix.py
 	@echo "Severity matrix validation passed ✓"
+
+# ---- Project lesson file validation ----------------------------------------
+.PHONY: validate-lessons
+validate-lessons:
+	@echo "==== Validate: project lesson file (.argus/LESSON.md) ===="
+	@python3 tools/validate_lessons.py $(if $(FILE),--file $(FILE))
+	@echo "Lesson file validation passed ✓"
 
 # ─── Fixture regression tests ─────────────────────────────────────
 .PHONY: test-fixtures
@@ -165,6 +177,12 @@ eval-gate:
 eval-baseline:
 	@echo "── Quality Engine: refresh baseline ──"
 	@python3 tools/eval_quality.py --update-baseline
+	@echo ""
+
+.PHONY: eval-llm
+eval-llm:
+	@echo "==== Quality Engine: LLM mode (agent-quality signal) ===="
+	@python3 tools/eval_quality.py --mode llm $(if $(HISTORY),--history $(HISTORY))
 	@echo ""
 
 # ─── Combined pre-release check ──────────────────────────────────

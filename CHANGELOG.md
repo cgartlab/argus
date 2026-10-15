@@ -1,3 +1,31 @@
+## [0.6.0] — 2026-10-15
+
+### Added
+
+- **Project lessons channel (`.argus/LESSON.md`)** — Argus now loads a per-project lesson file into every review it runs on that repo, so project-specific mistakes (a legitimate pattern, a token convention, a known exemption) do not recur. Absent file = no behavior change. Default path `.argus/LESSON.md` (configurable via `.argus.yml` `lessons-path`). Cloud (`action.yml`) and local (`argus_review.py`) both load it; `--lessons PATH` overrides locally. See `docs/project-lessons.md` + starter `config/lessons.template.md`; validate with `make validate-lessons FILE=...`. Generic Argus bugs are promoted to the Argus repo as fixtures, not hoarded here.
+- **`validate_lessons.py`** — validates a project lesson file (ID uniqueness, required fields, ~6 KB / 20-entry budget); runs in CI against the template.
+- **Honest quality measurement (`eval_quality.py --mode`)** — explicit `--mode static|llm|auto` (was inferred from CLI presence). Static mode is labelled a *fixture regression lock* (not the LLM agent); `--mode llm` measures the real review path and, with `--history FILE`, appends `{ts, mode, model, metrics}` to `config/quality-llm-history.jsonl`. The scheduled `llm-fixture-tests` CI job is now **tracked, not gated** (free-model output varies run to run); a hard floor is deferred until variance is known.
+- **`make eval-llm`** and **`make validate-lessons`** convenience targets.
+- **CI: extension-coverage check** — every reviewable extension must be either static-supported (with ≥1 fixture) or declared LLM-only; catches an unclassified extension.
+- **CI: toolchain end-to-end** — `argus_review --json → argus_report --wcag → argus_webhook --dry-run` runs every CI, so the report/webhook surfaces are never unexercised.
+- **`_skill_publish.py`** — shared skill-publish helpers (frontmatter parsing, zip extraction, SemVer, CHANGELOG summary) now used by both `publish_skillhub.py` and `publish_clawhub.py` (de-duplicated two byte-identical frontmatter parsers).
+
+### Changed
+
+- **No more silent false-clean on JS/TS** — the static heuristic scanner (CSS/HTML-only) now raises `UnsupportedExtensionError` for `.js/.ts/.jsx/.tsx` instead of returning `"(no findings)"`. `argus_review.py --mode static` exits non-zero with a clear "use --mode llm" message on those files (the GitLab MR path inherits this); `--mode auto` routes LLM-only extensions to the LLM unconditionally.
+- **Honesty pass** — `AGENTS.md`/`README.md`/`SECURITY.md`/`tests/fixtures/README.md` no longer imply the scanner gate measures the agent; the "pure documentation repository / no runtime code" claim in `SECURITY.md` is corrected to describe the actual Python toolchain + Astro site + supply-chain surface; "roadmap complete" wording now distinguishes the delivered engineering roadmap from the unmet commercial M1 gate.
+- **`action.yml`** injects the consumer's `.argus/LESSON.md` into the review prompt (after SKILL.md) and logs whether lessons were loaded. Consumers via `@main` pick this up automatically; no file = no change.
+- **Website & docs synced** — `site/` docs (commands, configuration, index, getting-started, architecture, development, skill) now document `lessons-path`, `eval-llm`/`validate-lessons`, and the two-level quality measurement; stale version pins (`@v0.4.1` → `@v0.6.0`) and the false "pure documentation / no runtime code" claims corrected across site + root; the unreferenced stale `site/ARCHITECTURE.md` blueprint removed.
+
+### Fixed
+
+### Removed
+
+- **`docs/reports/`** — the two dated one-shot audit snapshots (`code-quality-2026-09-19.md`, `web-quality-2026-09-19.md`) were unreferenced living docs that described already-merged fixes; deleted to stop misleading readers.
+- **`.omo/`** entry removed from `AGENTS.md` STRUCTURE (empty gitignored runtime dir).
+
+---
+
 ## [0.5.8] — 2026-09-23
 
 ### Added

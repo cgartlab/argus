@@ -54,6 +54,20 @@ SKILL_MD = REPO_ROOT / "SKILL.md"
 
 SEVERITY_ORDER = ["P0", "P1", "P2", "P3"]
 
+# Static scanner support: the deterministic scanner covers CSS + HTML only.
+# JS/TS/JSX/TSX are LLM-only — static mode must never report them as clean.
+STATIC_SUPPORTED_EXTENSIONS = {".css", ".html", ".htm"}
+LLM_ONLY_EXTENSIONS = {".js", ".ts", ".jsx", ".tsx"}
+
+
+class UnsupportedExtensionError(ValueError):
+    """Raised by the static scanner for extensions it does not implement.
+
+    The scanner is CSS/HTML-only. For any other extension it can neither find
+    violations nor assert cleanliness, so callers must treat this as
+    "not analyzed" — never as "(no findings)".
+    """
+
 # Colour codes (disabled when not a TTY)
 _USE_COLOUR = sys.stdout.isatty()
 
@@ -259,7 +273,8 @@ def _load_token_section(token_system: str) -> str:
     )
 
 
-def build_argus_prompt(fixture_path: Path, token_system: str = "auto") -> str:
+def build_argus_prompt(fixture_path: Path, token_system: str = "auto",
+                       lessons_text: str = "") -> str:
     """Build the same prompt the composite action uses, injecting AGENTS.md + SKILL.md."""
     agents = AGENTS_MD.read_text(encoding="utf-8")
     skill = SKILL_MD.read_text(encoding="utf-8")
@@ -268,6 +283,13 @@ def build_argus_prompt(fixture_path: Path, token_system: str = "auto") -> str:
 
     token_section = _load_token_section(token_system)
     token_block = f"{token_section}\n" if token_section else ""
+
+    lessons_block = ""
+    if lessons_text and lessons_text.strip():
+        lessons_block = (
+            "## Project Lessons (do not repeat these mistakes)\n"
+            f"{lessons_text.strip()}\n\n"
+        )
 
     return textwrap.dedent(f"""\
         You are Argus, a frontend design code review agent.
@@ -278,7 +300,7 @@ def build_argus_prompt(fixture_path: Path, token_system: str = "auto") -> str:
         {token_block}## Review Dimensions
         {skill}
 
-        ## File to Review
+        {lessons_block}## File to Review
         File: {rel}
 
         ```
@@ -324,12 +346,13 @@ def _run_opencode(opencode: str, model: str, prompt_file: Path, verbose: bool) -
 
 def run_argus_on_fixture(fixture_path: Path, model: str, verbose: bool,
                          fallback_models: str | None = None,
-                         token_system: str = "auto") -> str:
+                         token_system: str = "auto",
+                         lessons_text: str | None = None) -> str:
     """
     Invoke Argus (via OpenCode CLI) on a single fixture file.
     Returns the raw text output.
     Falls back to a static heuristic scan if OpenCode is not installed.
-
+    
     If fallback_models is provided (comma-separated list) and the primary
     model fails (non-zero exit code) AND the output indicates a rate-limit
     error, retries each fallback model in order until one succeeds or all
@@ -339,7 +362,8 @@ def run_argus_on_fixture(fixture_path: Path, model: str, verbose: bool,
     if opencode is None:
         return _static_heuristic_scan(fixture_path)
 
-    prompt = build_argus_prompt(fixture_path, token_system=token_system)
+    prompt = build_argus_prompt(fixture_path, token_system=token_system,
+                                lessons_text=lessons_text or "")
     prompt_file = fixture_path.parent / f".argus_prompt_{fixture_path.stem}.tmp"
     try:
         prompt_file.write_text(prompt, encoding="utf-8")
@@ -416,6 +440,11 @@ def _static_heuristic_scan(fixture_path: Path) -> str:
     Returns output in the standard Argus format.
     """
     suffix = fixture_path.suffix.lower()
+    if suffix not in STATIC_SUPPORTED_EXTENSIONS:
+        raise UnsupportedExtensionError(
+            f"static mode does not cover '{suffix}' (supported: "
+            f"{sorted(STATIC_SUPPORTED_EXTENSIONS)}); use --mode llm"
+        )
     text = fixture_path.read_text(encoding="utf-8")
     lines = text.splitlines()
     findings: list[str] = []

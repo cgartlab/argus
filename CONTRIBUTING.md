@@ -38,9 +38,9 @@ cd argus
 
 ```bash
 # Bump version (updates VERSION + CHANGELOG + site version markers, stages the files)
-make bump-patch   # 0.4.0 → 0.4.1 (bug fixes, minor changes)
-make bump-minor   # 0.4.0 → 0.5.0 (new features)
-make bump-major   # 0.4.0 → 1.0.0 (breaking changes)
+make bump-patch   # 0.6.0 → 0.6.1 (bug fixes, minor changes)
+make bump-minor   # 0.6.0 → 0.7.0 (new features)
+make bump-major   # 0.6.0 → 1.0.0 (breaking changes)
 
 # Fill in the new CHANGELOG section, review, then commit the bump:
 #   git commit -m "chore(release): prepare vX.Y.Z"

@@ -35,9 +35,19 @@ Beyond the GitHub App, Argus ships a zero-dependency local toolchain (all under 
 | `eval_quality.py` | Precision / recall / F1 metrics + regression gates vs `config/quality-baseline.json` |
 | `validate_argus_schema.py` | `.argus.yml` JSON Schema validation (zero-dep) |
 | `validate_severity_matrix.py` | rule-id × severity matrix consistency |
+| `validate_lessons.py` | validate a project lesson file (`.argus/LESSON.md`) |
 | `add_fp_appeal.py` | File a false-positive appeal as a regression fixture |
 
 Integrations: GitHub App (PR reviews) · GitLab MR template (`.gitlab/argus-review.yml`) · skill registries (SkillHub / ClawHub / skills.sh) · men agent team.
+
+### Project Lessons
+
+Argus loads a per-project `.argus/LESSON.md` into every review it runs on that
+repo, so project-specific mistakes (a legitimate pattern, a token convention, a
+known exemption) do not recur. Absent file = no behavior change. See
+[docs/project-lessons.md](docs/project-lessons.md) and the starter
+[`config/lessons.template.md`](config/lessons.template.md). Generic Argus bugs
+(not project-specific) belong in this repo as a fixture/rule instead.
 
 ## Architecture
 
@@ -87,7 +97,7 @@ git clone https://github.com/cgartlab/argus.git
 cd argus
 ```
 
-No installation, no build step.
+No build step needed to run reviews — behavior is defined by `AGENTS.md` + `SKILL.md`, read at review time.
 
 ### In any other repo
 
@@ -140,7 +150,7 @@ Argus reviews run on the **OpenCode Zen free model** (IDs end in `-free`). The m
 
 `cgartlab/argus/.github/actions/argus-review@main` references the latest version of the Argus rules. When `AGENTS.md` or `SKILL.md` are updated in the argus repo, the composite action reads them at runtime — all consumer repos get the new rules instantly with no changes needed.
 
-For a pinned version, use `@v0.4.1` instead of `@main`.
+For a pinned version, use `@v0.6.0` instead of `@main`.
 
 ## Project Structure
 
@@ -206,7 +216,10 @@ Argus tracks a commercial product roadmap in [docs/strategic-plan.md](docs/strat
 - **Extensibility** — custom rules DSL, webhook API
 - **GTM** — Marketplace listing prep ([docs/marketplace-listing.md](docs/marketplace-listing.md)), self-hosting guide ([docs/self-hosting.md](docs/self-hosting.md))
 
-Quality gates: `make test` (validate + fixture regression) and `make eval-gate` (precision/recall vs baseline) must stay green on every change.
+Quality is measured on two levels — do not conflate them:
+
+- **Fixture regression lock** (per PR, gating): `make test` (validate + fixture regression) and `make eval-gate` (precision/recall vs baseline) must stay green on every change. In CI this runs against the **static heuristic scanner**, so it locks scanner + fixture drift — not the LLM agent.
+- **Agent quality** (scheduled, tracked): the LLM review path is measured by the scheduled `llm-fixture-tests` job (`eval_quality.py --mode llm`, pinned model) and recorded in `config/quality-llm-history.jsonl`. It is tracked, not gated, until run-to-run variance is known.
 
 ## License
 

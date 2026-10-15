@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-eval_quality.py — Argus Quality Engine V1 (precision / recall / F1 + gates)
+eval_quality.py — Argus Quality Engine (precision / recall / F1 + gates)
 
 Computes suite-level quality metrics from the fixture regression suite and
 enforces regression gates against a committed baseline:
@@ -8,6 +8,16 @@ enforces regression gates against a committed baseline:
     Precision = TP / (TP + FP)
     Recall    = TP / (TP + FN)
     F1        = 2 * P * R / (P + R)
+
+Scope — read this before trusting a number:
+  * In **static mode** (no OpenCode CLI, e.g. CI runners) the metrics measure
+    the deterministic Python heuristic scanner against the fixture
+    expectations. This is a **fixture regression lock** — it catches scanner
+    and `.expected` drift. It is NOT a measurement of the LLM agent.
+  * In **--mode llm** the metrics measure the actual review path (AGENTS.md +
+    SKILL.md prompt via the OpenCode CLI). This is the agent-quality signal.
+    It is tracked over time (see --history) rather than hard-gated at first,
+    because free-model output varies run to run.
 
 where, aggregated over all active fixtures:
 
@@ -18,18 +28,25 @@ where, aggregated over all active fixtures:
           finding there is a false positive)
 
 Modes:
-  (default)        run fixtures and print the quality report
-  --gate           like default, then FAIL (exit 1) if any metric regressed vs
-                   the committed baseline (config/quality-baseline.json) or if
-                   the fixture suite itself failed
+  (default)          run fixtures and print the quality report
+  --mode {static,llm,auto}
+                     static = deterministic scanner (fixture regression lock);
+                     llm    = real review path (agent-quality signal);
+                     auto   = llm when OpenCode CLI is present, else static
+  --gate             like default, then FAIL (exit 1) if any metric regressed vs
+                     the committed baseline (config/quality-baseline.json) or if
+                     the fixture suite itself failed
   --update-baseline  write current metrics to config/quality-baseline.json
-                   (use only after intentional, verified improvements)
-  --category NAME  limit to one fixture category
-  --json FILE      write the full quality report to FILE
+                     (use only after intentional, verified improvements)
+  --history FILE     append a run record (mode, model, metrics) to FILE
+                     (used by the scheduled LLM tracking job)
+  --category NAME    limit to one fixture category
+  --json FILE        write the full quality report to FILE
 
 Usage:
   python3 tools/eval_quality.py
   python3 tools/eval_quality.py --gate
+  python3 tools/eval_quality.py --mode llm --history config/quality-llm-history.jsonl
   python3 tools/eval_quality.py --update-baseline
   python3 tools/eval_quality.py --category design-tokens --json dist/quality-report.json
 
@@ -198,10 +215,17 @@ def gate_check(metrics: dict) -> list[str]:
 
 def print_report(metrics: dict, baseline: dict | None = None) -> None:
     o = metrics["overall"]
+    mode = metrics.get("mode", "auto")
+    static = metrics.get("static_mode", False)
     prec = f"{o['precision']:.4f}"
     rec = f"{o['recall']:.4f}"
     f1 = f"{o['f1']:.4f}"
     print(_c("bold", "── Quality Report ───────────────────────────────────────"))
+    label = "static scanner" if static else ("LLM agent" if mode == "llm" else "auto")
+    print(f"  Mode: {mode} ({label})  Model: {metrics.get('model', 'n/a')}")
+    if static:
+        print("  NOTE: metrics describe the deterministic scanner (fixture regression lock),")
+        print("        not the LLM agent. Use --mode llm for the agent-quality signal.")
     print(f"  Fixtures: {metrics['fixture_count']}")
     print(f"  Precision: {_c('green', prec)}  ({o['tp']} TP / {o['tp'] + o['fp']} flagged)")
     print(f"  Recall:    {_c('green', rec)}  ({o['tp']} TP / {o['tp'] + o['fn']} expected)")
@@ -234,6 +258,12 @@ def main() -> int:
     )
     parser.add_argument("--gate", action="store_true", help="Enforce regression gates vs baseline")
     parser.add_argument("--update-baseline", action="store_true", help="Write current metrics as the new baseline")
+    parser.add_argument("--mode", default="auto", choices=["auto", "static", "llm"],
+                        help="static = deterministic scanner (fixture regression lock); "
+                             "llm = real review path (agent-quality signal); "
+                             "auto = llm when OpenCode CLI present, else static (default: auto)")
+    parser.add_argument("--history", default=None, metavar="FILE",
+                        help="Append a run record (ts, mode, model, metrics) to FILE (JSONL)")
     parser.add_argument("--category", default=None, help="Restrict to one fixture category")
     parser.add_argument("--json", dest="output_json", metavar="FILE", help="Write quality report JSON to FILE")
     parser.add_argument("--model", default=None, help="LLM model (default: primary from config/free-models.yml)")
@@ -243,6 +273,11 @@ def main() -> int:
     model = args.model or rft.default_primary_model()
     fallback = args.fallback_models or rft.default_fallback_models()
 
+    if args.mode == "llm" and rft._find_opencode() is None:
+        print("[error] --mode llm requires the OpenCode CLI (not found); "
+              "use --mode static or auto", file=sys.stderr)
+        return 2
+
     pairs = rft.discover_fixtures(category=args.category)
     if not pairs:
         print("[error] no fixtures found", file=sys.stderr)
@@ -251,6 +286,8 @@ def main() -> int:
     expected_map: dict[Path, rft.ExpectedFile] = {}
     results: list[rft.FixtureResult] = []
     fixture_failures = 0
+    opencode_present = rft._find_opencode() is not None
+    static_mode = (args.mode == "static") or (args.mode == "auto" and not opencode_present)
 
     for fixture_path, expected_path in pairs:
         try:
@@ -262,17 +299,29 @@ def main() -> int:
             continue
         expected_map[fixture_path] = expected
 
-        argus_output = rft.run_argus_on_fixture(
-            fixture_path, model=model, verbose=False,
-            fallback_models=fallback, token_system="auto",
-        )
-        static_mode = rft._find_opencode() is None
+        if args.mode == "static":
+            try:
+                argus_output = rft._static_heuristic_scan(fixture_path)
+            except rft.UnsupportedExtensionError as exc:
+                results.append(rft.FixtureResult(fixture=fixture_path, passed=False,
+                                                 skipped=True, skip_reason=str(exc)))
+                continue
+            static_mode = True
+        else:  # auto | llm — OpenCode CLI path (auto falls back to static if absent)
+            argus_output = rft.run_argus_on_fixture(
+                fixture_path, model=model, verbose=False,
+                fallback_models=fallback, token_system="auto",
+            )
+            static_mode = not opencode_present
         result = rft.validate_output(expected, argus_output, tolerance=0 if static_mode else 1)
         results.append(result)
         if not result.passed:
             fixture_failures += 1
 
     metrics = compute_metrics(results, expected_map)
+    metrics["mode"] = args.mode
+    metrics["model"] = model
+    metrics["static_mode"] = static_mode
 
     baseline = None
     if args.gate:
@@ -280,6 +329,24 @@ def main() -> int:
     elif args.update_baseline and BASELINE_PATH.exists():
         baseline = load_baseline()
     print_report(metrics, baseline)
+
+    if args.history:
+        rec = {
+            "ts": metrics["generated_at"],
+            "mode": metrics["mode"],
+            "model": metrics["model"],
+            "static_mode": metrics["static_mode"],
+            "precision": metrics["overall"]["precision"],
+            "recall": metrics["overall"]["recall"],
+            "f1": metrics["overall"]["f1"],
+            "tp": metrics["overall"]["tp"],
+            "fp": metrics["overall"]["fp"],
+            "fn": metrics["overall"]["fn"],
+        }
+        Path(args.history).parent.mkdir(parents=True, exist_ok=True)
+        with open(args.history, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(rec) + "\n")
+        print(f"history record appended to {args.history}")
 
     if args.output_json:
         out = {"metrics": metrics, "fixture_failures": fixture_failures}

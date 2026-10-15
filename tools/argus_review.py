@@ -14,6 +14,7 @@ Usage:
   python3 tools/argus_review.py src/components/*.css --stack antd5
   python3 tools/argus_review.py --dir src/ --ignore '*.test.*' --json review.json
   python3 tools/argus_review.py src/App.tsx --model opencode/deepseek-v4-flash-free
+  python3 tools/argus_review.py src/ --lessons .argus/LESSON.md
 
 Options:
   --stack NAME            design system: auto | antd5 | material3 | polaris | custom (default: auto)
@@ -23,10 +24,14 @@ Options:
   --dir PATH              review every .css/.html/.js/.ts/.jsx/.tsx file under PATH
   --ignore GLOB           skip files matching GLOB (repeatable; default excludes
                           node_modules / dist / .git)
+  --lessons PATH          project lesson file to inject into the review prompt
+                          (default: auto-detect .argus/LESSON.md in the current
+                          directory; absent file == no behavior change)
 
 Exit codes:
   0 — review completed (findings may exist)
-  1 — error (missing path, no files to review)
+  1 — error (missing path, no files to review, or static mode hit an
+      LLM-only .js/.ts/.jsx/.tsx file)
 """
 
 from __future__ import annotations
@@ -83,6 +88,25 @@ def collect_files(paths: list[Path], directory: str | None,
     return sorted(result)
 
 
+def load_lessons(path: str | None) -> str:
+    """Load project lessons text from --lessons PATH or auto-detect .argus/LESSON.md.
+
+    Returns '' when no lesson file exists (absent file == no behavior change).
+    """
+    if path:
+        p = Path(path)
+        if not p.is_file():
+            print(f"[error] lessons file not found: {p}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        p = Path(".argus") / "LESSON.md"
+        if not p.is_file():
+            p = REPO_ROOT / ".argus" / "LESSON.md"
+    if not p.is_file():
+        return ""
+    return p.read_text(encoding="utf-8")
+
+
 def parse_findings(output: str, default_file: str) -> list[dict]:
     """Parse the standard Argus output format into structured findings."""
     findings: list[dict] = []
@@ -129,6 +153,9 @@ def main() -> int:
                              "llm (OpenCode CLI, falls back to static if absent) (default: auto)")
     parser.add_argument("--min-lines", type=int, default=200, metavar="N",
                         help="In auto mode, files with <= N lines are reviewed statically (default: 200)")
+    parser.add_argument("--lessons", default=None, metavar="PATH",
+                        help="Project lesson file to inject into the review prompt "
+                             "(default: auto-detect .argus/LESSON.md)")
     args = parser.parse_args()
 
     if not args.paths and not args.dir:
@@ -141,15 +168,21 @@ def main() -> int:
 
     model = args.model or rft.default_primary_model()
     fallback = args.fallback_models or rft.default_fallback_models()
+    lessons_text = load_lessons(args.lessons)
 
     all_findings: list[dict] = []
-    print(f"Argus review — {len(files)} file(s), stack={args.stack}, model={model}\n")
+    print(f"Argus review — {len(files)} file(s), stack={args.stack}, model={model}")
+    if lessons_text.strip():
+        print(f"[argus] loaded project lessons ({len(lessons_text)} chars)")
+    print()
     opencode_ok = rft._find_opencode() is not None
+    unsupported_static = False
 
     def _run_llm(f: Path) -> str:
         return rft.run_argus_on_fixture(f, model=model, verbose=False,
                                         fallback_models=fallback,
-                                        token_system=args.stack)
+                                        token_system=args.stack,
+                                        lessons_text=lessons_text)
 
     for f in files:
         try:
@@ -167,14 +200,22 @@ def main() -> int:
             elif args.mode == "llm":
                 output = _run_llm(f)
                 routed = "llm (forced)"
-            else:  # auto — complexity routing (small files static, large files LLM)
-                line_count = len(f.read_text(encoding="utf-8", errors="ignore").splitlines())
-                if line_count > args.min_lines:
+            else:  # auto — complexity routing, but LLM-only extensions always go to LLM
+                if f.suffix.lower() in rft.LLM_ONLY_EXTENSIONS:
                     output = _run_llm(f)
-                    routed = f"llm (complexity: {line_count} lines > {args.min_lines})"
+                    routed = "llm (LLM-only extension)"
                 else:
-                    output = rft._static_heuristic_scan(f)
-                    routed = f"static (complexity: {line_count} lines <= {args.min_lines})"
+                    line_count = len(f.read_text(encoding="utf-8", errors="ignore").splitlines())
+                    if line_count > args.min_lines:
+                        output = _run_llm(f)
+                        routed = f"llm (complexity: {line_count} lines > {args.min_lines})"
+                    else:
+                        output = rft._static_heuristic_scan(f)
+                        routed = f"static (complexity: {line_count} lines <= {args.min_lines})"
+        except rft.UnsupportedExtensionError as exc:
+            print(f"  [not analyzed] {exc}")
+            unsupported_static = True
+            continue
         except Exception as exc:  # never let one file abort the run
             print(f"  [error] {exc}")
             continue
@@ -209,6 +250,13 @@ def main() -> int:
         Path(args.output_json).parent.mkdir(parents=True, exist_ok=True)
         Path(args.output_json).write_text(json.dumps(report, indent=2), encoding="utf-8")
         print(f"\nJSON report written to {args.output_json}")
+
+    if unsupported_static:
+        print("\n[error] static mode cannot analyze .js/.ts/.jsx/.tsx files "
+              "(they are LLM-only).", file=sys.stderr)
+        print("        Re-run with --mode llm (or --mode auto) to review them.",
+              file=sys.stderr)
+        return 1
 
     return 0
 

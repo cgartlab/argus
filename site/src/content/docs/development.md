@@ -19,7 +19,7 @@ This page is for people who want to contribute to Argus itself — fixing review
 
 ## The big idea: Argus is just Markdown
 
-Argus is a **pure documentation repository** — there's no `npm install`, no build step, no compiled code. The "engine" is two files that any AI agent reads:
+Argus's review behavior is defined entirely by `AGENTS.md` and `SKILL.md` — any AI agent that reads Markdown can apply them. The composite action injects those rules into an LLM prompt at review time; there's no `npm install` or build step to run reviews. A stdlib-only Python toolchain under `tools/` provides local validation, reports, and quality gates.
 
 - `AGENTS.md` — the agent's identity, hard rules, and review dimensions
 - `SKILL.md` — the detailed review skill with trigger phrases and per-framework rules

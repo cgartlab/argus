@@ -67,13 +67,18 @@ jobs:
             tools/validate_model_scores.py
             tools/check_release.py
             tools/publish_skillhub.py
+            tools/publish_clawhub.py
+            tools/_skill_publish.py
             tools/argus_review.py
             tools/argus_report.py
+            tools/validate_lessons.py
             .gitlab/argus-review.yml
             .gitlab/argus-review.sh
             tools/add_fp_appeal.py
             config/free-models.yml
             config/wcag-mapping.yml
+            config/model-scores.yml
+            config/lessons.template.md
             tools/validate_argus_schema.py
             tools/argus_rules.py
             tools/argus_webhook.py
@@ -90,6 +95,7 @@ jobs:
             docs/marketplace-listing.md
             docs/self-hosting.md
             docs/strategic-plan.md
+            docs/project-lessons.md
             .github/actions/argus-review/action.yml
             .github/workflows/update-free-models.yml
             .github/workflows/pr-automation.yml
@@ -123,6 +129,8 @@ jobs:
           python3 -m py_compile tools/validate_model_scores.py && echo "validate_model_scores.py: ok"
           python3 -m py_compile tools/check_release.py && echo "check_release.py: ok"
           python3 -m py_compile tools/publish_skillhub.py && echo "publish_skillhub.py: ok"
+          python3 -m py_compile tools/publish_clawhub.py && echo "publish_clawhub.py: ok"
+          python3 -m py_compile tools/_skill_publish.py && echo "_skill_publish.py: ok"
           python3 -m py_compile tools/argus_review.py && echo "argus_review.py: ok"
           python3 -m py_compile tools/argus_report.py && echo "argus_report.py: ok"
           python3 -m py_compile tools/validate_argus_schema.py && echo "validate_argus_schema.py: ok"
@@ -130,6 +138,7 @@ jobs:
           python3 -m py_compile tools/argus_webhook.py && echo "argus_webhook.py: ok"
           python3 -m py_compile tools/eval_quality.py && echo "eval_quality.py: ok"
           python3 -m py_compile tools/validate_severity_matrix.py && echo "validate_severity_matrix.py: ok"
+          python3 -m py_compile tools/validate_lessons.py && echo "validate_lessons.py: ok"
           python3 -m py_compile tools/add_fp_appeal.py && echo "add_fp_appeal.py: ok"
 
       - name: Validate free model list (config/free-models.yml)
@@ -180,6 +189,11 @@ jobs:
         run: |
           python3 tools/validate_severity_matrix.py
           echo "Severity matrix: consistent (config <-> SKILL.md <-> load_config)"
+
+      - name: Validate lessons template (config/lessons.template.md)
+        run: |
+          python3 tools/validate_lessons.py --file config/lessons.template.md
+          echo "lessons template: valid"
 
   # ── Job 3: Fixture regression tests ────────────────────────────────────────
   fixture-tests:
@@ -267,6 +281,55 @@ jobs:
               print("All fixture categories valid.")
           EOF
 
+      - name: Verify extension coverage (every reviewable extension is classified)
+        run: |
+          python3 - << 'EOF'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, 'tools')
+          import argus_review as ar
+          import run_fixture_tests as rft
+
+          errors = []
+          classified = rft.STATIC_SUPPORTED_EXTENSIONS | rft.LLM_ONLY_EXTENSIONS
+          unclassified = ar.REVIEW_EXTENSIONS - classified
+          if unclassified:
+              errors.append(f"unclassified extensions (add to STATIC or LLM-only): {sorted(unclassified)}")
+          overlap = rft.STATIC_SUPPORTED_EXTENSIONS & rft.LLM_ONLY_EXTENSIONS
+          if overlap:
+              errors.append(f"extension in both sets: {sorted(overlap)}")
+
+          # every static-supported extension must have >=1 fixture, else the
+          # static scanner is unexercised on that extension.
+          for ext in sorted(rft.STATIC_SUPPORTED_EXTENSIONS):
+              n = len(list(Path('tests/fixtures').rglob(f'*{ext}')))
+              if n == 0:
+                  errors.append(f"no .{ext.lstrip('.')} fixture - static mode unexercised")
+              else:
+                  print(f"static {ext}: {n} fixture(s)")
+
+          # LLM-only extensions: no fixture requirement (LLM-only by design),
+          # but report counts so a future fixture is visible.
+          for ext in sorted(rft.LLM_ONLY_EXTENSIONS):
+              n = len(list(Path('tests/fixtures').rglob(f'*{ext}')))
+              tag = "smoke fixture present" if n else "no fixture (LLM-only, OK)"
+              print(f"LLM-only {ext}: {n} fixture(s) - {tag}")
+
+          if errors:
+              for e in errors:
+                  print(f"ERROR: {e}", file=sys.stderr)
+              sys.exit(1)
+          print("Extension coverage: OK")
+          EOF
+
+      - name: Toolchain end-to-end (review -> report -> webhook dry-run)
+        run: |
+          python3 tools/argus_review.py --mode static tests/fixtures/golden/product-card.css --json /tmp/review.json
+          python3 tools/argus_report.py --json /tmp/review.json --out /tmp/report.html --wcag
+          test -s /tmp/report.html && echo "report.html generated"
+          python3 tools/argus_webhook.py send /tmp/review.json --url https://example.invalid/hook --dry-run
+          echo "toolchain e2e: ok"
+
       - name: Upload fixture test results (if any)
         if: always()
         uses: actions/upload-artifact@v7
@@ -329,8 +392,12 @@ jobs:
           python3 tools/validate_model_scores.py
 
   # ── Job 5: LLM fixture tests (optional, graceful degrade) ───────────────────
-  # Preflights the external `opencode` CLI and skips gracefully when it or the
-  # API key is missing — static tests still cover regressions (#51).
+  # Tracks LLM agent-quality (precision/recall/F1) over time. NOT a gate:
+  # free-model output varies run to run, so we record metrics to history and
+  # surface regressions as an issue rather than failing PRs. The pinned model
+  # is recorded so a regression attributes to rules, not to the weekly model
+  # rotation. Preflights the external `opencode` CLI and skips gracefully when
+  # it or the API key is missing — static tests still cover regressions (#51).
   llm-fixture-tests:
     name: LLM Fixture Tests (optional)
     runs-on: ubuntu-latest
@@ -352,16 +419,20 @@ jobs:
             echo "opencode-ok=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Run fixture tests in LLM mode
+      - name: Run fixture tests in LLM mode (track, not gate)
         if: steps.cli-check.outputs.opencode-ok == 'true' && env.OPENCODE_API_KEY != ''
         run: |
-          python3 tools/run_fixture_tests.py --json llm-fixture-results.json
-          echo "LLM fixture tests: ok"
+          python3 tools/eval_quality.py --mode llm \
+            --json llm-quality-report.json \
+            --history config/quality-llm-history.jsonl
+          echo "LLM agent-quality metrics recorded to history"
 
-      - name: Upload LLM fixture results
+      - name: Upload LLM quality report
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: llm-fixture-results
-          path: llm-fixture-results.json
+          name: llm-quality-report
+          path: |
+            llm-quality-report.json
+            config/quality-llm-history.jsonl
           if-no-files-found: ignore

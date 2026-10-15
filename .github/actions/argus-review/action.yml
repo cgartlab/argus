@@ -171,6 +171,16 @@ runs:
           cat ${{ github.action_path }}/../../../SKILL.md
           echo ""
 
+          # Inject the consumer's project lesson file (.argus/LESSON.md) if present.
+          # Absent file == no behavior change. Path is configurable via .argus.yml
+          # (ARGUS_LESSONS_PATH, default .argus/LESSON.md).
+          LESSONS_FILE="$GITHUB_WORKSPACE/${ARGUS_LESSONS_PATH:-.argus/LESSON.md}"
+          if [ -f "$LESSONS_FILE" ]; then
+            echo "## Project Lessons (do not repeat these mistakes)"
+            cat "$LESSONS_FILE"
+            echo ""
+          fi
+
           # Inject consumer configuration context if present
           if [ -n "$ARGUS_TOKEN_PREFIX" ] && [ "$ARGUS_TOKEN_PREFIX" != "--ds-" ]; then
             echo "## Consumer Configuration"
@@ -202,6 +212,11 @@ runs:
           echo "Cap total findings to ${ARGUS_MAX_FINDINGS:-50} (report highest severity first)."
           echo "EOF"
         } >> $GITHUB_ENV
+        if [ -f "$LESSONS_FILE" ]; then
+          echo "[argus] loaded project lessons from ${ARGUS_LESSONS_PATH:-.argus/LESSON.md}"
+        else
+          echo "[argus] no project lesson file found (using defaults)"
+        fi
       shell: bash
 
     - name: Run OpenCode review (with fallback queue)

@@ -1,7 +1,7 @@
 # AGENTS.md — Argus
 
-**Version:** 0.5.8 | **Project:** https://github.com/cgartlab/argus | **License:** MIT
-**Updated:** 2026-09-03
+**Version:** 0.6.0 | **Project:** https://github.com/cgartlab/argus | **License:** MIT
+**Updated:** 2026-10-15
 
 ---
 
@@ -13,7 +13,7 @@ Argus detects the project's technology stack and validates code against official
 
 Consumer repositories can customize review behavior via a `.argus.yml` config file (see `docs/argus-config-schema.md`).
 
-**Scope:** Pure HTML/CSS/JS codebases. No runtime code — behavior defined by `AGENTS.md` + `SKILL.md`.
+**Scope:** Reviews pure HTML/CSS/JS frontend codebases. The agent ships a docs-driven rule set (`AGENTS.md` + `SKILL.md`) plus a stdlib-only Python toolchain under `tools/` — see STRUCTURE.
 
 ---
 
@@ -32,7 +32,8 @@ argus/
 │   ├── men-integration.md             # Optional men agent team integration protocol
 │   ├── marketplace-listing.md         # GitHub Marketplace listing prep + checklist
 │   ├── self-hosting.md                # Private runner + private model endpoint guide
-│   └── strategic-plan.md              # Commercial product strategy + roadmap status (§14)
+│   ├── strategic-plan.md              # Commercial product strategy + roadmap status (§14)
+│   └── project-lessons.md             # Per-project lesson channel (.argus/LESSON.md)
 ├── tests/
 │   └── fixtures/                      # Fixture-based regression test suite
 │       ├── README.md                  # How to add/run fixtures
@@ -59,9 +60,12 @@ argus/
 │   ├── argus_webhook.py               # Forward findings reports to a webhook (public API)
 │   ├── eval_quality.py                # Quality engine: precision/recall/F1 + regression gates
 │   ├── validate_severity_matrix.py    # Rule-id x severity matrix consistency (config/SKILL/loader)
+│   ├── validate_lessons.py            # Validate a project lesson file (.argus/LESSON.md)
+│   ├── validate_model_scores.py       # config/model-scores.yml schema validator
 │   ├── add_fp_appeal.py               # File a false-positive appeal as a regression fixture
 │   ├── publish_skillhub.py            # SkillHub publish prep (extract + frontmatter validate)
-│   └── publish_clawhub.py             # ClawHub publish prep (extract + frontmatter validate)
+│   ├── publish_clawhub.py             # ClawHub publish prep (extract + frontmatter validate)
+│   └── _skill_publish.py              # Shared skill-publish helpers (frontmatter, zip, semver)
 ├── .gitlab/
 │   ├── argus-review.yml               # GitLab MR review template (second platform)
 │   └── argus-review.sh                # GitLab runner script (testable with ARGUS_DRY_RUN=1)
@@ -73,7 +77,9 @@ argus/
 │   ├── argus-rules.schema.json        # Custom-rules JSON Schema (draft-07)
 │   ├── argus-rules.example.yml        # Custom-rules example (validated in CI)
 │   ├── quality-baseline.json          # Quality engine baseline (precision/recall/F1 gate)
-│   └── severity-matrix.yml            # Canonical rule-id x severity matrix (single source of truth)
+│   ├── severity-matrix.yml            # Canonical rule-id x severity matrix (single source of truth)
+│   ├── model-scores.yml               # Model score metadata for the fallback queue ranking
+│   └── lessons.template.md            # Starter template for a project's .argus/LESSON.md
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml                     # Lint + tool validation + fixture tests
@@ -88,7 +94,6 @@ argus/
 │       └── argus-review/
 │           └── action.yml             # Reusable composite action for any repo
 ├── Makefile                           # validate, test, release, package, clean
-└── .omo/                              # OpenCode runtime data
 ```
 
 ---
@@ -104,6 +109,8 @@ argus/
 | Marketplace listing | `docs/marketplace-listing.md` | GitHub Marketplace prep + checklist |
 | Self-hosting | `docs/self-hosting.md` | Private runner + private model endpoint |
 | Product strategy / roadmap | `docs/strategic-plan.md` | Commercial plan + §14 roadmap status table |
+| Project lessons | `docs/project-lessons.md` | Per-project lesson channel (`.argus/LESSON.md`); template in `config/lessons.template.md` |
+| Lesson validation | `tools/validate_lessons.py` | `make validate-lessons FILE=...`; CI validates the template |
 | Token mapping data | `.github/tokens/` | Per-system design token JSON (antd5/material3/polaris/custom) |
 | Config loader | `tools/load_config.py` | Merges defaults + consumer `.argus.yml` |
 | Config schema | `config/argus-config.schema.json` + `tools/validate_argus_schema.py` | JSON Schema (draft-07) + zero-dep validator; `make validate-schema` |
@@ -190,7 +197,7 @@ Argus is fully self-contained: standalone agent runs, the argus-flash GitHub App
 - **Consumer config respected** — `.argus.yml` in the consumer repo adjusts token prefix, severity overrides, ignore paths, and failure thresholds. Hard rules (P0 color violations, a11y) cannot be fully disabled.
 - **Stack-aware review** — detect technology stack and reference official documentation for API usage validation.
 - **Codex-style fixes** — always provide copy-ready code fixes, never just describe the problem.
-- **Quality never regresses** — precision/recall/F1 are gated in CI (`make eval-gate`); any rule or model change that lowers a metric must be justified, and intentional improvements refresh the baseline (`make eval-baseline`).
+- **Quality never regresses** — the per-PR fixture gate (`make eval-gate`) locks the static scanner + fixture drift, and any rule/model change that lowers a metric must be justified (intentional improvements refresh the baseline with `make eval-baseline`). Agent quality is **tracked, not gated**, via `make eval-llm` / the scheduled LLM job (`config/quality-llm-history.jsonl`).
 
 ---
 
@@ -279,9 +286,9 @@ Issues are grouped under headers in order: P0 → P1 → P2 → P3.
 
 ```bash
 make check-version    # Show current version + release status
-make bump-patch       # Bump PATCH version (0.3.0 → 0.3.1)
-make bump-minor       # Bump MINOR version (0.3.0 → 0.4.0)
-make bump-major       # Bump MAJOR version (0.3.0 → 1.0.0)
+make bump-patch       # Bump PATCH version (0.6.0 → 0.6.1)
+make bump-minor       # Bump MINOR version (0.6.0 → 0.7.0)
+make bump-major       # Bump MAJOR version (0.6.0 → 1.0.0)
 make validate         # Run SKILL.md trigger phrase check + CHANGELOG + versioning + action.yml
 make validate-schema  # Validate argus-config.schema.json + example .argus.yml conformance
 make validate-rules   # Validate argus-rules.schema.json + example custom rules
@@ -290,9 +297,11 @@ make validate-severity # Enforce rule-id × severity matrix (config ↔ SKILL.md
 make test-fixtures    # Run fixture regression tests (static heuristic mode, no API key needed)
 make review FILE=...  # Run local Argus review on a file/dir (tools/argus_review.py)
 make report JSON=...  # Turn findings JSON into a shareable HTML report (tools/argus_report.py)
-make eval             # Run quality engine — precision/recall/F1 report
-make eval-gate        # Enforce quality regression gates vs baseline (runs in CI)
+make eval             # Fixture regression lock — static scanner precision/recall/F1 report
+make eval-gate        # Enforce scanner-regression gates vs baseline (runs in CI)
+make eval-llm         # Agent-quality signal — quality engine in LLM mode (tracked)
 make eval-baseline    # Refresh quality baseline after verified improvements
+make validate-lessons # Validate a project lesson file (.argus/LESSON.md)
 make test-fixtures-llm # Run fixture tests in LLM mode (model read from config/free-models.yml primary)
 make test             # validate + test-fixtures (full pre-release check)
 make release          # release-gate → verify → tag → push (triggers release workflow)
@@ -315,5 +324,7 @@ cd site && npm run build  # Build marketing site (site/ subproject)
 - **Version bumping** — run `make bump-patch` (or bump-minor/bump-major), fill in the new CHANGELOG section, commit (`chore(release): prepare vX.Y.Z`), then `make test && make release`. `make release` refuses duplicate/older releases and requires version files committed; the daily `Release Check` workflow fails when `VERSION` is bumped without a tag.
 - **Fixture tests** — run without an API key in static heuristic mode; full LLM mode reads the primary model from `config/free-models.yml` (requires `OPENCODE_API_KEY` for `opencode/` providers).
 - **Release workflow** — pushing a `v*.*.*` tag triggers `.github/workflows/release.yml` which validates versioning, builds packages, publishes a GitHub Release with both the full archive and the skill package (`argus-skill-v{VERSION}.zip`), then publishes the skill package to SkillHub when `SKILLHUB_API_KEY` is configured, and to ClawHub when the `CLAWHUB_TOKEN` secret + `vars.CLAWHUB_OWNER` variable are set. skills.sh indexing is a separate one-time manual step via `skills-sh-submit.yml` (files an issue in `vercel-labs/skills`, needs a `SKILLS_SH_GH_TOKEN` PAT).
-- **Quality engine** — `tools/eval_quality.py` aggregates TP/FP/FN across fixtures into precision/recall/F1 and gates regressions in CI against `config/quality-baseline.json` (epsilon 0.01; FP must never increase). Refresh the baseline only after intentional, verified improvements.
-- **Roadmap complete** — all P1/P2/P3 items from `docs/strategic-plan.md` are delivered (quality engine, config schema, CLI/report/WCAG, GitLab, rules DSL, webhook API); see `docs/strategic-plan.md` §14 for the delivery table.
+- **Quality engine** — two distinct measurements, do not conflate them:
+  - **Fixture regression lock (per-PR, gating).** `tools/eval_quality.py --gate` aggregates TP/FP/FN across fixtures into precision/recall/F1 and gates regressions in CI against `config/quality-baseline.json` (epsilon 0.01; FP must never increase). In CI this runs against the **static heuristic scanner** (no OpenCode CLI on the runner), so it locks scanner + fixture drift — it is **not** a measurement of the LLM agent. Refresh the baseline only after intentional, verified improvements.
+  - **Agent quality (scheduled, tracked).** The LLM review path is measured by the scheduled `llm-fixture-tests` job (`eval_quality.py --mode llm`, pinned model). It is **tracked, not gated**: metrics are appended to `config/quality-llm-history.jsonl` and a metric drop opens/updates a regression issue. Promote to a hard floor only after run-to-run variance is known.
+- **Roadmap status** — the engineering roadmap (P1/P2/P3 build items) is delivered as of the 2026-09 consolidation (quality engine, config schema, CLI/report/WCAG, GitLab, rules DSL, webhook API); see `docs/strategic-plan.md` §14. The **commercial M1 gate is not met**: GitHub Marketplace listing / paid tier remain GTM to-dos (`docs/marketplace-listing.md`).

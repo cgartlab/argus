@@ -8,7 +8,7 @@ Argus has two operating modes:
 
 ### 1. Local Agent Mode
 
-The agent's behavior is defined entirely by reading `AGENTS.md` and `SKILL.md` at startup. Pure documentation — no runtime code, no `npm install`, no build step.
+The agent's behavior is defined entirely by reading `AGENTS.md` and `SKILL.md` at startup. Reviews need no build step — the composite action injects those rules into an LLM prompt. A stdlib-only Python toolchain under `tools/` provides local validation, reports, and quality gates (the marketing site under `site/` does use npm/Astro).
 
 ### 2. Automated PR Review Mode (argus-flash App)
 
@@ -26,7 +26,7 @@ PR opened → GitHub Actions triggers review.yml
              5. argus-flash bot comments review on the PR
 ```
 
-The composite action dynamically loads rules from the argus repo at the referenced ref (`@main` or `@v0.4.1`). There is no hardcoded prompt — the review behavior is always driven by `AGENTS.md` + `SKILL.md`.
+The composite action dynamically loads rules from the argus repo at the referenced ref (`@main` or `@v0.6.0`). There is no hardcoded prompt — the review behavior is always driven by `AGENTS.md` + `SKILL.md`.
 
 ## AGENTS.md Structure
 
@@ -198,7 +198,7 @@ diffs never pay model tokens.
 | Ref | Behavior | Recommendation |
 |---|---|---|
 | `@main` | Latest rules at time of review run | Development / internal repos |
-| `@v0.4.1` | Pinned to a release | Production / external consumer repos |
+| `@v0.6.0` | Pinned to a release | Production / external consumer repos |
 
 ## Cross-Platform Compatibility
 
@@ -214,7 +214,7 @@ Argus runs in any framework that reads Markdown instructions:
 ## Version Bumping
 
 ```bash
-make bump-patch   # e.g. 0.4.0 → 0.4.1
+make bump-patch   # e.g. 0.6.0 → 0.6.1
 make test         # validate + fixture tests
 make release      # release-gate → tag → push → triggers release workflow
 ```

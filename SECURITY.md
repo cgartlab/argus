@@ -10,12 +10,14 @@
 
 ## Scope
 
-Argus is a pure documentation repository. It contains only Markdown files that define agent review behavior. There is no server-side code, no database, no user input handling, and no third-party dependencies.
+Argus is a docs-driven agent: its review behavior is defined by `AGENTS.md` + `SKILL.md`, which the composite action injects into an LLM prompt at runtime. It is **not** a documentation-only repository — it also ships a stdlib-only Python toolchain under `tools/`, a Node/Astro marketing site under `site/`, GitHub Actions workflows, and a `.gitlab/` runner script. There is no server-side service and no database.
 
 Potential risk areas:
 
-- Malicious content in AGENTS.md / SKILL.md files that could mislead an agent (reviewed before merging)
-- Third-party resources referenced in documentation (none currently)
+- **Prompt / rule injection** — malicious content in `AGENTS.md` / `SKILL.md` (or a consumer's `.argus/LESSON.md`) that could mislead the agent; reviewed before merging.
+- **Supply chain** — the composite action installs the OpenCode CLI (`curl https://opencode.ai/install`); the site has third-party npm dependencies; Python tools make outbound HTTPS calls (OpenCode Zen model API).
+- **Secrets** — `OPENCODE_API_KEY`, GitHub App credentials, and registry tokens are passed as Actions secrets; keys must never be committed (see README).
+- **Untrusted consumer input** — `.argus.yml`, `.argus/LESSON.md`, and reviewed source code are consumer-controlled and fed to the model; treat them as untrusted data.
 
 ## Reporting
 

@@ -273,6 +273,35 @@ fail-on: [P0, P1, P2, P3]
 
 ---
 
+### `lessons-path`
+
+| | |
+|---|---|
+| Type | string (path, relative to repo root) |
+| Default | `.argus/LESSON.md` |
+| Valid values | any relative path |
+
+Path to the **project lesson file** injected into every review prompt for this
+repository. Each entry records a project-specific fact Argus keeps getting
+wrong (a legitimate pattern, a token convention, a known exemption). An absent
+file means no lessons are loaded — behavior is unchanged.
+
+See [project-lessons.md](project-lessons.md) and the starter
+[`../config/lessons.template.md`](../config/lessons.template.md). Validate with
+`python3 tools/validate_lessons.py --file .argus/LESSON.md`.
+
+**Examples:**
+
+```yaml
+# Default
+lessons-path: .argus/LESSON.md
+
+# Keep lessons in the docs tree instead
+lessons-path: docs/argus-lessons.md
+```
+
+---
+
 ### `output.max-findings`
 
 | | |

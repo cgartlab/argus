@@ -144,12 +144,17 @@ guards it from regressing.
 
 ## CI Integration
 
-The fixture test suite runs as the `fixture-test` job in `.github/workflows/ci.yml`.
+The fixture test suite runs as the `fixture-tests` job in `.github/workflows/ci.yml`.
 A fixture failure blocks merge just like a YAML lint failure.
 
 > **Note:** Because Argus is an LLM-based agent, fixture tests run in **heuristic mode**:
 > they check that the *count* and *severity* of findings fall within acceptable ranges,
 > not that exact line numbers match. This makes the suite stable across minor model updates.
+
+> **Scope (static vs LLM):** the deterministic static scanner covers `.css` and
+> `.html` only. `.js` / `.ts` / `.jsx` / `.tsx` are **LLM-only** — in static mode
+> they are reported as *not analyzed*, never as clean. See the coverage check in
+> `ci.yml`.
 
 ## Quality Engine (precision / recall / F1)
 
@@ -174,3 +179,12 @@ make eval-baseline   # refresh the baseline after verified improvements
 Gate policy: precision / recall / F1 must not drop more than 0.01 vs the
 committed baseline (`config/quality-baseline.json`), and FP must never
 increase. The gate runs in CI right after the fixture tests.
+
+**What this gate does and does not measure.** On CI runners there is no OpenCode
+CLI, so `make eval-gate` scores the **static heuristic scanner** against the
+fixture expectations. That is a *fixture regression lock* — it catches scanner
+and `.expected` drift, and it is deterministic. It is **not** a measurement of
+the LLM agent. The agent-quality signal comes from the scheduled
+`llm-fixture-tests` job (`eval_quality.py --mode llm`, pinned model), recorded in
+`config/quality-llm-history.jsonl` and tracked (not hard-gated) until run-to-run
+variance is known.

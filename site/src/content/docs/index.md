@@ -3,7 +3,7 @@ title: Overview
 description: What Argus is and how it reviews frontend code.
 order: 0
 sidebarGroup: Start
-updated: 2026-08-31
+updated: 2026-10-15
 ---
 
 # Overview
@@ -43,7 +43,8 @@ Argus reads every line of frontend code, flags issues with a severity level (P0 
 |---|---|
 | Linters flag problems; you figure out the fix | Argus gives **copy-ready fixes** — paste and go |
 | One-size-fits-all rules | **Stack-aware** — it detects React, Vue, Svelte, Angular, Astro, etc. and checks against official docs |
-| Need installation, configuration, build steps | **Pure documentation** — no runtime code, no build step, just rules it reads at review time |
+| Same rules forever, even when it keeps getting your project wrong | **Learns from your repo** — a project `.argus/LESSON.md` teaches it your conventions |
+| Heavy setup or a hosted service | **Zero-friction** — rules live in `AGENTS.md` + `SKILL.md`; the GitHub App reviews your PRs from a tiny workflow |
 
 ## Three ways to use it
 
@@ -53,12 +54,16 @@ Argus reads every line of frontend code, flags issues with a severity level (P0 
 
 **Why this matters:** the automated mode is what most teams use — it turns "remember to check the design" into "the bot checks it on every PR, every time." The skill package gives you the same rules inside your own tool.
 
+## It learns from your project
+
+When Argus gets something wrong about *your* codebase — a pattern that's legal here, a token-naming convention, a known exemption — write it to `.argus/LESSON.md` in your repo. Argus loads that file into every review it runs on your project, so the mistake does not recur. Generic Argus bugs are reported to the Argus repo instead, so everyone benefits. See [Configuration](/docs/configuration).
+
 ## Key facts
 
 | | |
 |---|---|
 | License | MIT |
-| Version | 0.5.8 |
+| Version | 0.6.0 |
 | Made by | [CGArtLab](https://github.com/cgartlab) |
 | Repository | [github.com/cgartlab/argus](https://github.com/cgartlab/argus) |
 | GitHub App | [github.com/apps/argus-flash](https://github.com/apps/argus-flash) |

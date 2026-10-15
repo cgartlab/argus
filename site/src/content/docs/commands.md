@@ -3,7 +3,7 @@ title: Commands
 description: Makefile commands and GitHub App usage reference.
 order: 5
 sidebarGroup: System
-updated: 2026-09-02
+updated: 2026-10-15
 ---
 
 # Commands
@@ -19,6 +19,7 @@ A note on `make`: `make` is a common build tool that runs commands defined in a 
 | `make check-version` | Shows the current version + release status | Confirming a release | Yes |
 | `make validate` | Runs all quality checks | Before a release, or after editing rules | Occasionally |
 | `make test-fixtures` | Runs the regression tests | After changing review rules | Occasionally |
+| `make eval-gate` | Enforces the fixture regression lock vs baseline | In CI, and after rule changes | No |
 | `make test` | validate + test-fixtures | Before every release | For contributors |
 | `make release` | Release-gate, tags, and pushes a release | When cutting a new version | No — maintainers only |
 | `make package-skill` | Builds the skill package zip | Before a release | No |
@@ -31,7 +32,7 @@ A note on `make`: `make` is a common build tool that runs commands defined in a 
 These are safe to run any time from the repository root:
 
 ```bash
-make check-version    # Show current version + release status — e.g. "Current version: 0.4.0"
+make check-version    # Show current version + release status — e.g. "Current version: 0.6.0"
 make clean            # Remove generated files (the dist/ folder)
 ```
 
@@ -44,19 +45,25 @@ Run these after you edit review rules or documentation:
 ```bash
 make validate         # Check SKILL.md trigger phrases, CHANGELOG, required files, Python syntax
 make test-fixtures    # Run fixture regression tests (static mode — no API key needed)
+make eval-gate        # Enforce the fixture regression lock vs config/quality-baseline.json
 make test             # Everything: validate + test-fixtures (the full pre-release check)
 ```
 
 **Why:** `validate` makes sure nothing is broken (missing files, inconsistent version, malformed scripts). `test-fixtures` confirms the review rules still produce the expected results on sample files. `make test` is both together — run it before any release.
+
+**Quality is measured on two levels — don't confuse them:**
+
+- `make eval` / `make eval-gate` score the **deterministic static scanner** against the fixture expectations. This is a *fixture regression lock* (it catches scanner + fixture drift); it is **not** a measurement of the LLM agent.
+- `make eval-llm` runs the quality engine in **LLM mode** (`--mode llm`, pinned model) and is the **agent-quality** signal. It is *tracked over time* (`config/quality-llm-history.jsonl`), not hard-gated, because free-model output varies run to run.
 
 ## Version bumping
 
 These update the version number and the changelog for you:
 
 ```bash
-make bump-patch   # e.g. 0.4.0 → 0.4.1 (bug fixes, minor changes)
-make bump-minor   # e.g. 0.4.0 → 0.5.0 (new features)
-make bump-major   # e.g. 0.4.0 → 1.0.0 (breaking changes)
+make bump-patch   # e.g. 0.6.0 → 0.6.1 (bug fixes, minor changes)
+make bump-minor   # e.g. 0.6.0 → 0.7.0 (new features)
+make bump-major   # e.g. 0.6.0 → 1.0.0 (breaking changes)
 ```
 
 **Why it matters:** bump targets automatically update `VERSION` and `CHANGELOG.md` and stage the changes. You then review, run `make test`, and release.
@@ -88,6 +95,8 @@ For contributors who want finer control:
 | `make validate` | `Makefile` | Trigger phrase check + CHANGELOG + required files + Python tool syntax |
 | `make test-fixtures` | `Makefile` | Static heuristic mode, no API key required |
 | `make test-fixtures-llm` | `Makefile` | LLM mode — requires OpenCode CLI + a configured model |
+| `make eval-llm` | `Makefile` | Agent-quality signal (LLM mode, tracked to `config/quality-llm-history.jsonl`) |
+| `make validate-lessons FILE=...` | `Makefile` | Validate a project `.argus/LESSON.md` lesson file |
 | `make release` | `Makefile` | Release-gate, tags, and pushes; release workflow handles the rest |
 | `python3 tools/run_fixture_tests.py` | `tools/` | Flags: `--dry-run`, `--category`, `--fixture`, `--verbose`, `--json` |
 | `python3 tools/load_config.py --validate-only` | `tools/` | Checks a `.argus.yml` without running a review |

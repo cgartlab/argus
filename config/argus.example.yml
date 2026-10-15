@@ -29,6 +29,10 @@ fail-on:
   - P0
   - P1
 
+# Path to the project lesson file (relative to repo root). Absent file = no
+# lessons loaded. See docs/project-lessons.md.
+lessons-path: .argus/LESSON.md
+
 output:
   group-by-severity: true
   show-token-names: true
