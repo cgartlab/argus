@@ -37,13 +37,19 @@ from _skill_publish import (
     resolve_version,
 )
 
+from publish_skillhub import load_platform_config
+
 # ClawHub requires a portable `name`: 1-64 lowercase letters, digits, or hyphens.
 # Must start and end with an alphanumeric (no leading/trailing hyphen).
 NAME_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$|^[a-z0-9]$")
 
 
 def validate_frontmatter(fields: dict[str, str]) -> str:
-    """Validate ClawHub-required frontmatter and return the ClawHub slug (= name)."""
+    """Validate ClawHub-required frontmatter and return the ClawHub slug (= name).
+
+    ClawHub routes by the portable `name` field, so no registry slug is needed.
+    Display metadata (emoji) comes from config/skill-platforms.yml.
+    """
     required = ("name", "description", "version")
     missing = [field for field in required if not fields.get(field)]
     if missing:
@@ -90,6 +96,10 @@ def main() -> None:
 
     print(f"Publish directory: {args.out.resolve()}")
     print(f"ClawHub slug: {slug}  (publish as @<owner>/{slug})")
+
+    emoji = load_platform_config(repo_root, "clawhub").get("emoji")
+    if emoji:
+        print(f"ClawHub emoji: {emoji}")
 
 
 if __name__ == "__main__":
