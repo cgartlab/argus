@@ -1,3 +1,17 @@
+## [0.6.4] — 2026-10-16
+
+### Changed
+
+- **`SKILL.md` frontmatter is now portable** (#153) — the frontmatter carried non-standard, platform-coupled fields (`slug`, `displayName`, `summary`, `homepage`, `metadata.openclaw`), which tied the core skill file to a single registry. It now carries only the standard portable fields (`name`, `license`, `description`, `version`), so the skill loads in any agent harness.
+  - Registry-specific fields moved to the new `config/skill-platforms.yml` (`platforms.skillhub` / `platforms.clawhub`).
+  - `tools/publish_skillhub.py` and `tools/publish_clawhub.py` read `slug` / `displayName` / `emoji` from that file; `make prepare-skillhub` and `make prepare-clawhub` are unchanged in behaviour (both verified end-to-end).
+
+### Fixed
+
+### Removed
+
+---
+
 ## [0.6.3] — 2026-10-16
 
 ### Added

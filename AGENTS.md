@@ -1,6 +1,6 @@
 # AGENTS.md — Argus
 
-**Version:** 0.6.3 | **Project:** https://github.com/cgartlab/argus | **License:** MIT
+**Version:** 0.6.4 | **Project:** https://github.com/cgartlab/argus | **License:** MIT
 **Updated:** 2026-10-15
 
 ---
@@ -132,6 +132,7 @@ argus/
 | Release gate | `tools/check_release.py` | `--expect-unreleased` in `make release`; `--expect-released` in daily `release-check.yml` |
 | SkillHub publish prep | `tools/publish_skillhub.py` | Extract skill zip + validate SkillHub frontmatter (`make prepare-skillhub`) |
 | ClawHub publish prep | `tools/publish_clawhub.py` | Extract skill zip + validate ClawHub frontmatter (`make prepare-clawhub`) |
+| Platform metadata | `config/skill-platforms.yml` | Registry-specific fields (slug/displayName/emoji); `SKILL.md` stays portable |
 | ClawHub auto-publish | `release.yml` `clawhub` job | Publishes to ClawHub when `CLAWHUB_TOKEN` secret + `vars.CLAWHUB_OWNER` variable are set |
 | skills.sh index request | `.github/workflows/skills-sh-submit.yml` | Manual dispatch: ensure topics + file `vercel-labs/skills` index issue (needs `SKILLS_SH_GH_TOKEN` PAT) |
 | Reusable review action | `.github/actions/argus-review/action.yml` | Dynamic rule + config injection |

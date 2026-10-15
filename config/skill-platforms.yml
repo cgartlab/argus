@@ -1,0 +1,24 @@
+# Platform-specific skill metadata.
+#
+# The core `SKILL.md` frontmatter carries only the portable standard fields
+# (`name`, `description`, `version`, `license`) so the skill loads in any agent
+# harness. Registry/platform-specific fields live here instead, so adding a new
+# registry does not couple the core skill file to it (issue #153).
+#
+# Consumed by tools/publish_skillhub.py and tools/publish_clawhub.py.
+# Validate with: make validate-platforms
+
+platforms:
+  skillhub:
+    # Required by tools/publish_skillhub.py:
+    #   slug, displayName, version, description
+    slug: argus-flash
+    displayName: Argus Design Review
+    summary: "Frontend design code review agent for tokens, hardcoded values, dark mode, accessibility, and copy-ready fixes."
+    # Landing page shown on the registry listing.
+    homepage: https://github.com/cgartlab/argus
+
+  clawhub:
+    # ClawHub routes by the portable `name` field from SKILL.md (@owner/name),
+    # so no slug override is needed. `emoji` is a ClawHub listing nicety.
+    emoji: "eye"
