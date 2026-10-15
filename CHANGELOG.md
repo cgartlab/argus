@@ -1,3 +1,15 @@
+## [0.6.2] — 2026-10-15
+
+### Added
+
+### Changed
+
+- **CI: fixture extension-coverage step fixed** — `.htm` and `.html` share one static-scanner branch, but the check only counted `*.htm` literally (and there are no `.htm` fixtures, only `.html`). It now also accepts `.html` fixtures as coverage for `.htm` instead of failing every PR.
+
+### Fixed
+
+### Removed
+
 ## [0.6.1] — 2026-10-15
 
 ### Added

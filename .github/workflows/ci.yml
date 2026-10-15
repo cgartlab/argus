@@ -303,8 +303,11 @@ jobs:
           # static scanner is unexercised on that extension.
           for ext in sorted(rft.STATIC_SUPPORTED_EXTENSIONS):
               n = len(list(Path('tests/fixtures').rglob(f'*{ext}')))
+              # .htm and .html share one scanner branch; count .html fixtures too.
+              if n == 0 and ext == ".htm":
+                  n = len(list(Path('tests/fixtures').rglob('*.html')))
               if n == 0:
-                  errors.append(f"no .{ext.lstrip('.')} fixture - static mode unexercised")
+                  errors.append(f"no .{ext.lstrip('.')} (.html) fixture - static mode unexercised")
               else:
                   print(f"static {ext}: {n} fixture(s)")
 
