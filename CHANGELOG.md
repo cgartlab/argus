@@ -1,3 +1,23 @@
+## [0.6.3] — 2026-10-16
+
+### Added
+
+- **Severity matrix: static scanner is now a checked source** — `validate_severity_matrix.py` parses the `emit()` sites in `tools/run_fixture_tests.py` and enforces that each scanner rule emits at the severity the canonical matrix declares (previously only `config/severity-matrix.yml` ↔ `SKILL.md` ↔ `load_config.NON_DOWNGRADABLE_RULES` were compared). New scanner rules must be registered in `SCANNER_RULE_MAP`; an unmapped `emit()` site fails the check, so a new rule can no longer silently bypass the matrix.
+
+### Changed
+
+- **`hardcoded-spacing` is now P2, not P1** — the static scanner emitted hardcoded spacing/radii/font-size as **P1** while `config/severity-matrix.yml`, `SKILL.md`, and `docs/argus-config-schema.md` all declared it **P2** (and documented it as downgradable to P3). Since P1 means "must fix before merge" and P1 rules cannot be downgraded, every hardcoded `padding: 16px` blocked merges and consumers were forbidden from downgrading a rule the docs called P2. The scanner now matches the documented contract.
+  - Fixture baselines updated accordingly: `hardcoded-values/bad-magic-numbers` (4 findings P1→P2), `golden/product-card` (3 findings P1→P2), `golden/theme-system` (1 finding P1→P2).
+  - Aggregate detection is unchanged: 38 TP, 0 FP, precision/recall/F1 = 1.0 vs baseline.
+
+### Fixed
+
+- **`validate_severity_matrix.py` scanner column always showed `n/a`** — the scanner severities were computed before the row loop but then re-initialised to an empty dict immediately before it, so the report column and the drift check both saw nothing. Now computed once and shared.
+
+### Removed
+
+---
+
 ## [0.6.2] — 2026-10-15
 
 ### Added

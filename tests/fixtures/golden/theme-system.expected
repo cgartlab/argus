@@ -1,11 +1,11 @@
 [meta]
 fixture = golden/theme-system.css
-description = Realistic theme stylesheet: bare rgba (P0), missing dark override for --ds-border (P0), hardcoded border-radius (P1). box-shadow rgba and token usage must not be flagged.
+description = Realistic theme stylesheet: bare rgba (P0), missing dark override for --ds-border (P0), hardcoded border-radius (P2). box-shadow rgba and token usage must not be flagged.
 
 [findings]
 P0 | | rgba
 P0 | | --ds-border
-P1 | | Hardcoded border-radius
+P2 | | Hardcoded border-radius
 
 [must-not-flag]
 box-shadow
@@ -15,6 +15,6 @@ var(--ds-text)
 
 [counts]
 P0 = 2
-P1 = 1
-P2 = 0
+P1 = 0
+P2 = 1
 P3 = 0
