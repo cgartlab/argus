@@ -14,7 +14,7 @@ Usage:
   python3 tools/argus_review.py src/components/*.css --stack antd5
   python3 tools/argus_review.py --dir src/ --ignore '*.test.*' --json review.json
   python3 tools/argus_review.py src/App.tsx --model opencode/deepseek-v4-flash-free
-  python3 tools/argus_review.py src/ --lessons .argus/LESSON.md
+  python3 tools/argus_review.py src/ --lessons .argus/LESSONS.md
 
 Options:
   --stack NAME            design system: auto | antd5 | material3 | polaris | custom (default: auto)
@@ -25,7 +25,7 @@ Options:
   --ignore GLOB           skip files matching GLOB (repeatable; default excludes
                           node_modules / dist / .git)
   --lessons PATH          project lesson file to inject into the review prompt
-                          (default: auto-detect .argus/LESSON.md in the current
+                          (default: auto-detect .argus/LESSONS.md in the current
                           directory; absent file == no behavior change)
 
 Exit codes:
@@ -89,7 +89,7 @@ def collect_files(paths: list[Path], directory: str | None,
 
 
 def load_lessons(path: str | None) -> str:
-    """Load project lessons text from --lessons PATH or auto-detect .argus/LESSON.md.
+    """Load project lessons text from --lessons PATH or auto-detect .argus/LESSONS.md.
 
     Returns '' when no lesson file exists (absent file == no behavior change).
     """
@@ -99,9 +99,9 @@ def load_lessons(path: str | None) -> str:
             print(f"[error] lessons file not found: {p}", file=sys.stderr)
             sys.exit(1)
     else:
-        p = Path(".argus") / "LESSON.md"
+        p = Path(".argus") / "LESSONS.md"
         if not p.is_file():
-            p = REPO_ROOT / ".argus" / "LESSON.md"
+            p = REPO_ROOT / ".argus" / "LESSONS.md"
     if not p.is_file():
         return ""
     return p.read_text(encoding="utf-8")
@@ -155,7 +155,7 @@ def main() -> int:
                         help="In auto mode, files with <= N lines are reviewed statically (default: 200)")
     parser.add_argument("--lessons", default=None, metavar="PATH",
                         help="Project lesson file to inject into the review prompt "
-                             "(default: auto-detect .argus/LESSON.md)")
+                             "(default: auto-detect .argus/LESSONS.md)")
     args = parser.parse_args()
 
     if not args.paths and not args.dir:

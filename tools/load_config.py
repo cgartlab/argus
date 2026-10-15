@@ -56,7 +56,7 @@ DEFAULTS: dict[str, Any] = {
         "rules": [],
     },
     "fail-on": ["P0", "P1"],
-    "lessons-path": ".argus/LESSON.md",
+    "lessons-path": ".argus/LESSONS.md",
     "output": {
         "group-by-severity": True,
         "show-token-names": True,
@@ -236,7 +236,7 @@ def validate_config(config: dict) -> list[str]:
         if invalid:
             errors.append(f"Invalid severity in 'fail-on': {invalid}. Valid: {sorted(VALID_SEVERITIES)}")
 
-    lessons_path = config.get("lessons-path", ".argus/LESSON.md")
+    lessons_path = config.get("lessons-path", ".argus/LESSONS.md")
     if not isinstance(lessons_path, str) or not lessons_path.strip():
         errors.append("'lessons-path' must be a non-empty string path")
     elif lessons_path != lessons_path.strip():
@@ -298,7 +298,7 @@ def emit_github_env(config: dict) -> None:
         f"ARGUS_IGNORE_RULES={','.join(config.get('ignore', {}).get('rules', []))}",
         f"ARGUS_MAX_FINDINGS={config.get('output', {}).get('max-findings', 50)}",
         f"ARGUS_SHOW_TOKENS={str(config.get('output', {}).get('show-token-names', True)).lower()}",
-        f"ARGUS_LESSONS_PATH={config.get('lessons-path', '.argus/LESSON.md')}",
+        f"ARGUS_LESSONS_PATH={config.get('lessons-path', '.argus/LESSONS.md')}",
     ]
 
     # Explicit design-system wins; "auto" is omitted so the action's Detect

@@ -73,7 +73,7 @@ fail-on:
   - P1                               # default: [P0, P1]
 
 # ── Project lessons ───────────────────────────────────────────────
-lessons-path: .argus/LESSON.md       # path to per-project lessons (default; absent = none)
+lessons-path: .argus/LESSONS.md       # path to per-project lessons (default; absent = none)
 
 # ── Output options ────────────────────────────────────────────────
 output:
@@ -198,13 +198,13 @@ fail-on: [P0, P1, P2, P3]
 | | |
 |---|---|
 | Type | string (path, relative to repo root) |
-| Default | `.argus/LESSON.md` |
+| Default | `.argus/LESSONS.md` |
 
-Path to the **project lesson file** Argus loads into every review for this repo. Each entry records a project-specific fact Argus keeps getting wrong (a legitimate pattern, a token convention, a known exemption). Absent file = no lessons loaded = no behavior change. Validate it with `make validate-lessons FILE=.argus/LESSON.md`; a starter lives at [`config/lessons.template.md`](https://github.com/cgartlab/argus/blob/main/config/lessons.template.md).
+Path to the **project lesson file** Argus loads into every review for this repo. Each entry records a project-specific fact Argus keeps getting wrong (a legitimate pattern, a token convention, a known exemption). Absent file = no lessons loaded = no behavior change. Validate it with `make validate-lessons FILE=.argus/LESSONS.md`; a starter lives at [`config/lessons.template.md`](https://github.com/cgartlab/argus/blob/main/config/lessons.template.md).
 
 ```yaml
 # Default
-lessons-path: .argus/LESSON.md
+lessons-path: .argus/LESSONS.md
 
 # Keep lessons in the docs tree instead
 lessons-path: docs/argus-lessons.md

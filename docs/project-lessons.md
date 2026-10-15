@@ -1,8 +1,8 @@
-# Project Lessons (`.argus/LESSON.md`)
+# Project Lessons (`.argus/LESSONS.md`)
 
 Argus reviews are defined by `AGENTS.md` + `SKILL.md` (shipped with Argus).
 Those rules are **static** — they cannot know the project-specific facts that
-Argus keeps getting wrong in *your* codebase. `.argus/LESSON.md` is the
+Argus keeps getting wrong in *your* codebase. `.argus/LESSONS.md` is the
 per-project feedback channel: Argus loads it into the review prompt whenever it
 reviews that project, so the same mistake does not recur.
 
@@ -13,15 +13,15 @@ reviews that project, so the same mistake does not recur.
 
 ## Where it lives
 
-- Default path: `.argus/LESSON.md` (next to `.argus.yml`).
+- Default path: `.argus/LESSONS.md` (next to `.argus.yml`).
 - Override with `lessons-path:` in `.argus.yml` (relative to repo root).
 
 ## Loading
 
-- **Cloud review** — the composite action reads `.argus/LESSON.md` from your
+- **Cloud review** — the composite action reads `.argus/LESSONS.md` from your
   repo (if it exists) and injects it under `## Project Lessons (do not repeat
   these mistakes)`, unconditionally. No file → no change in behavior.
-- **Local review** — `tools/argus_review.py` auto-detects `.argus/LESSON.md`
+- **Local review** — `tools/argus_review.py` auto-detects `.argus/LESSONS.md`
   in the current directory, or pass `--lessons PATH`.
 
 ## Format
@@ -50,7 +50,7 @@ See `config/lessons.template.md` for a copy-paste starter. Each entry:
 
 ## Keeping it small
 
-- `make validate-lessons FILE=.argus/LESSON.md` checks format, ID uniqueness,
+- `make validate-lessons FILE=.argus/LESSONS.md` checks format, ID uniqueness,
   and a size budget (~6 KB / 20 entries). A runaway file bloats *this*
   project's prompt.
 - **Delete resolved entries.** If a lesson is generic (Argus itself is wrong,
@@ -62,7 +62,7 @@ See `config/lessons.template.md` for a copy-paste starter. Each entry:
 
 | Question | Put it in |
 |---|---|
-| "Argus is wrong about my project's pattern" | `.argus/LESSON.md` (here) |
+| "Argus is wrong about my project's pattern" | `.argus/LESSONS.md` (here) |
 | "Argus is wrong in general / for everyone" | Argus repo: fixture (+ maybe SKILL.md rule) |
 
 The boundary keeps each project's prompt bounded and lets Argus-the-product

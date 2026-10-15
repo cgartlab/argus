@@ -171,10 +171,10 @@ runs:
           cat ${{ github.action_path }}/../../../SKILL.md
           echo ""
 
-          # Inject the consumer's project lesson file (.argus/LESSON.md) if present.
+          # Inject the consumer's project lesson file (.argus/LESSONS.md) if present.
           # Absent file == no behavior change. Path is configurable via .argus.yml
-          # (ARGUS_LESSONS_PATH, default .argus/LESSON.md).
-          LESSONS_FILE="$GITHUB_WORKSPACE/${ARGUS_LESSONS_PATH:-.argus/LESSON.md}"
+          # (ARGUS_LESSONS_PATH, default .argus/LESSONS.md).
+          LESSONS_FILE="$GITHUB_WORKSPACE/${ARGUS_LESSONS_PATH:-.argus/LESSONS.md}"
           if [ -f "$LESSONS_FILE" ]; then
             echo "## Project Lessons (do not repeat these mistakes)"
             cat "$LESSONS_FILE"
@@ -213,7 +213,7 @@ runs:
           echo "EOF"
         } >> $GITHUB_ENV
         if [ -f "$LESSONS_FILE" ]; then
-          echo "[argus] loaded project lessons from ${ARGUS_LESSONS_PATH:-.argus/LESSON.md}"
+          echo "[argus] loaded project lessons from ${ARGUS_LESSONS_PATH:-.argus/LESSONS.md}"
         else
           echo "[argus] no project lesson file found (using defaults)"
         fi

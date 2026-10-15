@@ -141,7 +141,7 @@ validate-severity:
 # ---- Project lesson file validation ----------------------------------------
 .PHONY: validate-lessons
 validate-lessons:
-	@echo "==== Validate: project lesson file (.argus/LESSON.md) ===="
+	@echo "==== Validate: project lesson file (.argus/LESSONS.md) ===="
 	@python3 tools/validate_lessons.py $(if $(FILE),--file $(FILE))
 	@echo "Lesson file validation passed ✓"
 

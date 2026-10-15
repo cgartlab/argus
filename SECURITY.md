@@ -14,10 +14,10 @@ Argus is a docs-driven agent: its review behavior is defined by `AGENTS.md` + `S
 
 Potential risk areas:
 
-- **Prompt / rule injection** — malicious content in `AGENTS.md` / `SKILL.md` (or a consumer's `.argus/LESSON.md`) that could mislead the agent; reviewed before merging.
+- **Prompt / rule injection** — malicious content in `AGENTS.md` / `SKILL.md` (or a consumer's `.argus/LESSONS.md`) that could mislead the agent; reviewed before merging.
 - **Supply chain** — the composite action installs the OpenCode CLI (`curl https://opencode.ai/install`); the site has third-party npm dependencies; Python tools make outbound HTTPS calls (OpenCode Zen model API).
 - **Secrets** — `OPENCODE_API_KEY`, GitHub App credentials, and registry tokens are passed as Actions secrets; keys must never be committed (see README).
-- **Untrusted consumer input** — `.argus.yml`, `.argus/LESSON.md`, and reviewed source code are consumer-controlled and fed to the model; treat them as untrusted data.
+- **Untrusted consumer input** — `.argus.yml`, `.argus/LESSONS.md`, and reviewed source code are consumer-controlled and fed to the model; treat them as untrusted data.
 
 ## Reporting
 

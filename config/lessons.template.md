@@ -1,5 +1,5 @@
 <!--
-  .argus/LESSON.md — Project Lessons for Argus
+  .argus/LESSONS.md — Project Lessons for Argus
 
   Argus loads this file into its review prompt whenever it reviews THIS repo.
   Put facts Argus keeps getting wrong about THIS project here (a legitimate
@@ -8,11 +8,11 @@
   Generic Argus bugs do NOT belong here — file those in the Argus repo so they
   become a fixture/rule everyone benefits from. This file is per-project.
 
-  Keep it small. `python3 tools/validate_lessons.py --file .argus/LESSON.md`
-  (or `make validate-lessons FILE=.argus/LESSON.md`) caps the file at ~6 KB /
+  Keep it small. `python3 tools/validate_lessons.py --file .argus/LESSONS.md`
+  (or `make validate-lessons FILE=.argus/LESSONS.md`) caps the file at ~6 KB /
   20 entries. Delete resolved entries — promoted ones live in the Argus repo.
 
-  Copy this file to your repo at `.argus/LESSON.md` and edit. Then delete
+  Copy this file to your repo at `.argus/LESSONS.md` and edit. Then delete
   this comment block.
 -->
 

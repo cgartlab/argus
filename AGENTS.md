@@ -1,6 +1,6 @@
 # AGENTS.md — Argus
 
-**Version:** 0.6.0 | **Project:** https://github.com/cgartlab/argus | **License:** MIT
+**Version:** 0.6.1 | **Project:** https://github.com/cgartlab/argus | **License:** MIT
 **Updated:** 2026-10-15
 
 ---
@@ -33,7 +33,7 @@ argus/
 │   ├── marketplace-listing.md         # GitHub Marketplace listing prep + checklist
 │   ├── self-hosting.md                # Private runner + private model endpoint guide
 │   ├── strategic-plan.md              # Commercial product strategy + roadmap status (§14)
-│   └── project-lessons.md             # Per-project lesson channel (.argus/LESSON.md)
+│   └── project-lessons.md             # Per-project lesson channel (.argus/LESSONS.md)
 ├── tests/
 │   └── fixtures/                      # Fixture-based regression test suite
 │       ├── README.md                  # How to add/run fixtures
@@ -60,7 +60,7 @@ argus/
 │   ├── argus_webhook.py               # Forward findings reports to a webhook (public API)
 │   ├── eval_quality.py                # Quality engine: precision/recall/F1 + regression gates
 │   ├── validate_severity_matrix.py    # Rule-id x severity matrix consistency (config/SKILL/loader)
-│   ├── validate_lessons.py            # Validate a project lesson file (.argus/LESSON.md)
+│   ├── validate_lessons.py            # Validate a project lesson file (.argus/LESSONS.md)
 │   ├── validate_model_scores.py       # config/model-scores.yml schema validator
 │   ├── add_fp_appeal.py               # File a false-positive appeal as a regression fixture
 │   ├── publish_skillhub.py            # SkillHub publish prep (extract + frontmatter validate)
@@ -79,7 +79,7 @@ argus/
 │   ├── quality-baseline.json          # Quality engine baseline (precision/recall/F1 gate)
 │   ├── severity-matrix.yml            # Canonical rule-id x severity matrix (single source of truth)
 │   ├── model-scores.yml               # Model score metadata for the fallback queue ranking
-│   └── lessons.template.md            # Starter template for a project's .argus/LESSON.md
+│   └── lessons.template.md            # Starter template for a project's .argus/LESSONS.md
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml                     # Lint + tool validation + fixture tests
@@ -109,7 +109,7 @@ argus/
 | Marketplace listing | `docs/marketplace-listing.md` | GitHub Marketplace prep + checklist |
 | Self-hosting | `docs/self-hosting.md` | Private runner + private model endpoint |
 | Product strategy / roadmap | `docs/strategic-plan.md` | Commercial plan + §14 roadmap status table |
-| Project lessons | `docs/project-lessons.md` | Per-project lesson channel (`.argus/LESSON.md`); template in `config/lessons.template.md` |
+| Project lessons | `docs/project-lessons.md` | Per-project lesson channel (`.argus/LESSONS.md`); template in `config/lessons.template.md` |
 | Lesson validation | `tools/validate_lessons.py` | `make validate-lessons FILE=...`; CI validates the template |
 | Token mapping data | `.github/tokens/` | Per-system design token JSON (antd5/material3/polaris/custom) |
 | Config loader | `tools/load_config.py` | Merges defaults + consumer `.argus.yml` |
@@ -301,7 +301,7 @@ make eval             # Fixture regression lock — static scanner precision/rec
 make eval-gate        # Enforce scanner-regression gates vs baseline (runs in CI)
 make eval-llm         # Agent-quality signal — quality engine in LLM mode (tracked)
 make eval-baseline    # Refresh quality baseline after verified improvements
-make validate-lessons # Validate a project lesson file (.argus/LESSON.md)
+make validate-lessons # Validate a project lesson file (.argus/LESSONS.md)
 make test-fixtures-llm # Run fixture tests in LLM mode (model read from config/free-models.yml primary)
 make test             # validate + test-fixtures (full pre-release check)
 make release          # release-gate → verify → tag → push (triggers release workflow)

@@ -35,14 +35,14 @@ Beyond the GitHub App, Argus ships a zero-dependency local toolchain (all under 
 | `eval_quality.py` | Precision / recall / F1 metrics + regression gates vs `config/quality-baseline.json` |
 | `validate_argus_schema.py` | `.argus.yml` JSON Schema validation (zero-dep) |
 | `validate_severity_matrix.py` | rule-id × severity matrix consistency |
-| `validate_lessons.py` | validate a project lesson file (`.argus/LESSON.md`) |
+| `validate_lessons.py` | validate a project lesson file (`.argus/LESSONS.md`) |
 | `add_fp_appeal.py` | File a false-positive appeal as a regression fixture |
 
 Integrations: GitHub App (PR reviews) · GitLab MR template (`.gitlab/argus-review.yml`) · skill registries (SkillHub / ClawHub / skills.sh) · men agent team.
 
 ### Project Lessons
 
-Argus loads a per-project `.argus/LESSON.md` into every review it runs on that
+Argus loads a per-project `.argus/LESSONS.md` into every review it runs on that
 repo, so project-specific mistakes (a legitimate pattern, a token convention, a
 known exemption) do not recur. Absent file = no behavior change. See
 [docs/project-lessons.md](docs/project-lessons.md) and the starter

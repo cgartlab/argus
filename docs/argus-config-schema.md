@@ -278,7 +278,7 @@ fail-on: [P0, P1, P2, P3]
 | | |
 |---|---|
 | Type | string (path, relative to repo root) |
-| Default | `.argus/LESSON.md` |
+| Default | `.argus/LESSONS.md` |
 | Valid values | any relative path |
 
 Path to the **project lesson file** injected into every review prompt for this
@@ -288,13 +288,13 @@ file means no lessons are loaded — behavior is unchanged.
 
 See [project-lessons.md](project-lessons.md) and the starter
 [`../config/lessons.template.md`](../config/lessons.template.md). Validate with
-`python3 tools/validate_lessons.py --file .argus/LESSON.md`.
+`python3 tools/validate_lessons.py --file .argus/LESSONS.md`.
 
 **Examples:**
 
 ```yaml
 # Default
-lessons-path: .argus/LESSON.md
+lessons-path: .argus/LESSONS.md
 
 # Keep lessons in the docs tree instead
 lessons-path: docs/argus-lessons.md

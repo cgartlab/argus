@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-validate_lessons.py — validate a project lesson file (.argus/LESSON.md)
+validate_lessons.py — validate a project lesson file (.argus/LESSONS.md)
 
 Ensures the file Argus injects into its review prompt is well-formed and
 bounded (a runaway file bloats that project's prompt).
 
 Checks:
-  - file parses as a LESSON.md
+  - file parses as a LESSONS.md
   - each entry has a unique L-NNN id and the required fields
   - total size <= 6144 bytes (~6 KB) and <= 20 active entries
 
 Usage:
-  python3 tools/validate_lessons.py                       # default .argus/LESSON.md
-  python3 tools/validate_lessons.py --file .argus/LESSON.md
+  python3 tools/validate_lessons.py                       # default .argus/LESSONS.md
+  python3 tools/validate_lessons.py --file .argus/LESSONS.md
 
 Exit codes:
   0 — valid (or file absent: treated as valid — no lesson file is the default)
@@ -101,12 +101,12 @@ def validate(path: Path) -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Validate a project lesson file (.argus/LESSON.md)",
+        description="Validate a project lesson file (.argus/LESSONS.md)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("--file", default=".argus/LESSON.md", metavar="PATH",
-                        help="Path to the lesson file (default: .argus/LESSON.md)")
+    parser.add_argument("--file", default=".argus/LESSONS.md", metavar="PATH",
+                        help="Path to the lesson file (default: .argus/LESSONS.md)")
     args = parser.parse_args()
 
     path = Path(args.file)

@@ -75,7 +75,7 @@
     },
     "lessons-path": {
       "type": "string",
-      "default": ".argus/LESSON.md",
+      "default": ".argus/LESSONS.md",
       "description": "Path (relative to repo root) to the project lesson file injected into the review prompt. Absent file = no lessons loaded."
     },
     "output": {

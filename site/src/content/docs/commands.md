@@ -96,7 +96,7 @@ For contributors who want finer control:
 | `make test-fixtures` | `Makefile` | Static heuristic mode, no API key required |
 | `make test-fixtures-llm` | `Makefile` | LLM mode — requires OpenCode CLI + a configured model |
 | `make eval-llm` | `Makefile` | Agent-quality signal (LLM mode, tracked to `config/quality-llm-history.jsonl`) |
-| `make validate-lessons FILE=...` | `Makefile` | Validate a project `.argus/LESSON.md` lesson file |
+| `make validate-lessons FILE=...` | `Makefile` | Validate a project `.argus/LESSONS.md` lesson file |
 | `make release` | `Makefile` | Release-gate, tags, and pushes; release workflow handles the rest |
 | `python3 tools/run_fixture_tests.py` | `tools/` | Flags: `--dry-run`, `--category`, `--fixture`, `--verbose`, `--json` |
 | `python3 tools/load_config.py --validate-only` | `tools/` | Checks a `.argus.yml` without running a review |
