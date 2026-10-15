@@ -33,17 +33,17 @@ from _skill_publish import (
     resolve_version,
 )
 
-REQUIRED_FRONTMATTER = ("name", "version", "description")
+REQUIRED_FRONTMATTER = ("slug", "displayName", "version", "description")
 SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,126}[a-z0-9])?$")
 
-# Platform-specific SkillHub metadata lives in config/skill-platforms.yml, not in
-# the core SKILL.md frontmatter, so the skill stays portable across harnesses
-# (issue #153). Fields listed here are resolved from that file.
-PLATFORM_FIELDS = ("slug", "displayName")
+# SkillHub's own CLI reads `slug`/`displayName` straight from SKILL.md (it fails
+# with "SKILL.md 缺少 slug" otherwise), so these MUST stay in SKILL.md. Only
+# non-required display metadata belongs in config/skill-platforms.yml.
+PLATFORM_FIELDS = ()
 
 
 def load_platform_config(repo_root: Path, platform: str) -> dict[str, str]:
-    """Read registry-specific fields from config/skill-platforms.yml."""
+    """Read non-required display metadata from config/skill-platforms.yml."""
     import load_config
 
     path = repo_root / "config" / "skill-platforms.yml"
@@ -56,19 +56,12 @@ def load_platform_config(repo_root: Path, platform: str) -> dict[str, str]:
     return {k: str(v) for k, v in block.items()}
 
 
-def validate_frontmatter(fields: dict[str, str], platform: dict[str, str]) -> None:
+def validate_frontmatter(fields: dict[str, str]) -> None:
     missing = [field for field in REQUIRED_FRONTMATTER if not fields.get(field)]
     if missing:
-        fail(f"SKILL.md missing required field(s): {', '.join(missing)}")
+        fail(f"SKILL.md missing required SkillHub field(s): {', '.join(missing)}")
 
-    missing_platform = [f for f in PLATFORM_FIELDS if not platform.get(f)]
-    if missing_platform:
-        fail(
-            "config/skill-platforms.yml missing required SkillHub field(s): "
-            + ", ".join(missing_platform)
-        )
-
-    slug = platform["slug"]
+    slug = fields["slug"]
     version = fields["version"]
     if len(slug) < 2 or len(slug) > 128:
         fail(f"slug must be 2-128 chars, got {len(slug)}")
@@ -77,7 +70,7 @@ def validate_frontmatter(fields: dict[str, str], platform: dict[str, str]) -> No
     if not SEMVER_RE.fullmatch(version):
         fail(f"version must be valid SemVer, got {version!r}")
 
-    print(f"SkillHub metadata ok: {platform['displayName']} ({slug}@{version})")
+    print(f"SkillHub metadata ok: {fields['displayName']} ({slug}@{version})")
 
 
 def main() -> None:
@@ -94,8 +87,7 @@ def main() -> None:
 
     extract_skill_zip(args.skill_zip.resolve(), args.out.resolve())
     fields = read_frontmatter(args.out.resolve() / "SKILL.md")
-    platform = load_platform_config(repo_root, "skillhub")
-    validate_frontmatter(fields, platform)
+    validate_frontmatter(fields)
 
     if fields["version"] != version:
         fail(f"SKILL.md version {fields['version']} != VERSION {version}")

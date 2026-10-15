@@ -2,9 +2,9 @@
 
 ### Changed
 
-- **`SKILL.md` frontmatter is now portable** (#153) — the frontmatter carried non-standard, platform-coupled fields (`slug`, `displayName`, `summary`, `homepage`, `metadata.openclaw`), which tied the core skill file to a single registry. It now carries only the standard portable fields (`name`, `license`, `description`, `version`), so the skill loads in any agent harness.
-  - Registry-specific fields moved to the new `config/skill-platforms.yml` (`platforms.skillhub` / `platforms.clawhub`).
-  - `tools/publish_skillhub.py` and `tools/publish_clawhub.py` read `slug` / `displayName` / `emoji` from that file; `make prepare-skillhub` and `make prepare-clawhub` are unchanged in behaviour (both verified end-to-end).
+- **`SKILL.md` frontmatter de-coupled from registries where possible** (#153) — `summary`, `homepage`, and the `metadata.openclaw` block were non-standard, registry-coupled fields in the core skill file. They moved to the new `config/skill-platforms.yml` (`platforms.skillhub` / `platforms.clawhub`), so `SKILL.md` now carries only standard portable fields plus the two the SkillHub CLI requires.
+  - `slug` and `displayName` **stay** in `SKILL.md`: the SkillHub CLI reads them directly from the file and fails with `SKILL.md 缺少 slug` when they are absent. Moving them to config broke the `skillhub` release job on v0.6.4 — that contract is now documented in both files so it is not "simplified" away again.
+  - `tools/publish_skillhub.py` reads non-required display metadata from the platform config; `tools/publish_clawhub.py` reuses that loader for the ClawHub emoji.
 
 ### Fixed
 

@@ -1,21 +1,17 @@
-# Platform-specific skill metadata.
+# Platform-specific skill display metadata (non-required fields only).
 #
-# The core `SKILL.md` frontmatter carries only the portable standard fields
-# (`name`, `description`, `version`, `license`) so the skill loads in any agent
-# harness. Registry/platform-specific fields live here instead, so adding a new
-# registry does not couple the core skill file to it (issue #153).
+# The core `SKILL.md` frontmatter carries the portable standard fields plus the
+# two fields the SkillHub CLI requires (`slug`, `displayName` — it reads them
+# directly from SKILL.md and errors with "SKILL.md 缺少 slug" without them).
+# Everything else registry-specific lives here, so adding a new registry does not
+# mean editing the core skill file (issue #153).
 #
 # Consumed by tools/publish_skillhub.py and tools/publish_clawhub.py.
-# Validate with: make validate-platforms
 
 platforms:
   skillhub:
-    # Required by tools/publish_skillhub.py:
-    #   slug, displayName, version, description
-    slug: argus-flash
-    displayName: Argus Design Review
+    # Shown on the registry listing; not required by the CLI.
     summary: "Frontend design code review agent for tokens, hardcoded values, dark mode, accessibility, and copy-ready fixes."
-    # Landing page shown on the registry listing.
     homepage: https://github.com/cgartlab/argus
 
   clawhub:
