@@ -192,8 +192,11 @@ jobs:
         if: ${{ steps.owner.outputs.skip != 'true' }}
         run: |
           VERSION=$(cat VERSION)
+          # ClawHub 的 routable slug = SKILL.md 的 portable `name`（@owner/name）。
+          # 从包内 frontmatter 派生，避免与 name 漂移（issue #160）。
+          CLAWHUB_SLUG=$(sed -n 's/^name: //p' dist/clawhub-argus/SKILL.md | head -1)
           clawhub skill publish dist/clawhub-argus \
-            --slug argus-design-review \
+            --slug "$CLAWHUB_SLUG" \
             --name "Argus Design Review" \
             --owner "${{ steps.owner.outputs.owner }}" \
             --version "$VERSION"
