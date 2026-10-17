@@ -224,3 +224,5 @@ Quality is measured on two levels — do not conflate them:
 ## License
 
 MIT
+
+<!-- labeler verify: docs-only change (do not merge) -->
