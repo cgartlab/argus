@@ -8,6 +8,8 @@
 
 ### Fixed
 
+- **action.yml Retry: transient 5xx upstream failures now fall back** — `retry_re` matched rate limits, missing models, and a few fixed phrases, but not a provider overload, so the review aborted instead of walking the fallback queue. Observed failure: `UnknownError: {"message":"Streaming response failed: [503] Upstream error from Nvidia: Service temporarily overloaded","type":"server_error"}` → no pattern matched → fail-fast, even though `config/free-models.yml` ships 7 fallback models and the first (`opencode/deepseek-v4-flash-free`) is not NVIDIA-served. Added phrase-specific patterns: `upstream error`, `service temporarily overloaded`, `temporarily overloaded`, `service unavailable`, `server_error`, `bad gateway`, `gateway timeout`. Bare `5xx` digits and bare `unavailable` are deliberately **not** matched — they hit ordinary line numbers and review prose (the same reason bare `unavailable` was dropped previously). The duplicated `_is_retryable()` regex in `tools/run_fixture_tests.py` was updated in the same change.
+
 ### Removed
 
 ---
