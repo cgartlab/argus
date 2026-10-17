@@ -1,24 +1,35 @@
 # auto-label 路径映射表（actions/labeler 语法）
-# 根据改动文件自动打标签；缺失标签会在 sync-labels: true 时自动创建。
-
-🐛 type:bug:
-  - changed-files:
-      - any-glob-to-any-file:
-          - '*.md'
-          - '*.txt'
+# 按 argus 仓库真实结构定制（Python 设计评审 Action + 文档站点 + 工具链）
+# 原则：
+#   1. type:bug 不由文件路径推断（文件路径无法区分"修复"与"新增"），由 issue 模板承载
+#   2. 每个 label 至少命中一类真实存在的文件，不留空转 glob
+#   3. sync-labels: true 只移除"配置内已定义但不再匹配"的标签；
+#      未定义的标签（含人工标注的 type:bug）永不会被触碰
 
 ✨ type:enhancement:
   - changed-files:
       - any-glob-to-any-file:
-          - 'src/**'
-          - 'site/**'
-          - '*.astro'
-          - '*.ts'
-          - '*.tsx'
-          - '*.jsx'
-          - '*.js'
-          - '*.go'
-          - '*.py'
+          - 'src/**'                    # 核心组件（现含 src/components/login-card.html）
+
+🧩 area:action:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/actions/**'        # Composite Action（被多个仓库复用）
+
+📖 area:site:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'site/**'                   # Astro 文档站点
+
+🐍 area:tools:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'tools/**'                  # Python 工具链
+
+🧪 tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'tests/**'                  # fixture 回归测试
 
 📝 type:docs:
   - changed-files:
@@ -26,6 +37,14 @@
           - 'README.md'
           - 'AGENTS.md'
           - 'LESSONS.md'
+          - 'SKILL.md'
+          - 'CHANGELOG.md'
+          - 'CLAUDE.md'
+          - 'CONTRIBUTING.md'
+          - 'DEVELOPMENT-GUIDE.md'
+          - 'CODE_OF_CONDUCT.md'
+          - 'SECURITY.md'
+          - 'NOTICE'
           - 'docs/**'
           - '.github/ISSUE_TEMPLATE/**'
           - '.github/PULL_REQUEST_TEMPLATE.md'
@@ -34,33 +53,8 @@
   - changed-files:
       - any-glob-to-any-file:
           - '.github/**'
-          - 'wrangler.jsonc'
-          - 'wrangler.toml'
-          - 'astro.config.*'
-          - 'uno.config.*'
-          - 'tailwind.config.*'
-          - 'package.json'
-          - 'pnpm-lock.yaml'
-          - 'pnpm-workspace.yaml'
-          - 'go.mod'
-          - 'go.sum'
-          - 'scripts/**'
-          - 'Makefile'
-
-🎨 area:theme:
-  - changed-files:
-      - any-glob-to-any-file:
-          - 'src/components/**'
-          - 'src/styles/**'
-          - 'src/layouts/**'
-          - 'src/pages/**'
-
-📦 area:content:
-  - changed-files:
-      - any-glob-to-any-file:
-          - 'src/content/**'
-          - 'content/**'
-          - 'public/**'
+          - '.gitlab/**'
+          - 'config/**'
 
 🔖 priority:P0:
   - changed-files:
@@ -68,5 +62,4 @@
           - '.github/workflows/*ci*'
           - '.github/workflows/*release*'
           - 'AGENTS.md'
-          - 'security.md'
           - 'SECURITY.md'
