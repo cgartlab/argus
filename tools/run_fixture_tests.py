@@ -373,11 +373,19 @@ def run_argus_on_fixture(fixture_path: Path, model: str, verbose: bool,
         primary_output = output  # preserve for fallback exhaustion
 
         def _is_retryable(text: str) -> bool:
-            """Check if output indicates a retryable condition: rate limit or model unavailable."""
+            """Check if output indicates a retryable condition.
+
+            Rate limit, model unavailable, or transient upstream/gateway
+            failure (5xx) — the fallback queue helps in every case because
+            each zen model maps to a different upstream. Mirrors `retry_re`
+            in .github/actions/argus-review/action.yml; keep the two in sync.
+            """
             return bool(re.search(
                 r"429\s+(rate|too|exceeded|limit(?:ed|s)?)\b|rate\s*limit|too many requests|"
                 r"model\s+not\s+found|no\s+such\s+model|model\s+does\s+not\s+exist|"
-                r"upstream request failed|endpoint is unavailable|unavailable",
+                r"upstream request failed|upstream\s+error|endpoint is unavailable|"
+                r"unavailable|service\s+temporarily\s+overloaded|temporarily\s+overloaded|"
+                r"service\s+unavailable|server_error|bad\s+gateway|gateway\s+timeout",
                 text, re.IGNORECASE,
             ))
 

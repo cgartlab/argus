@@ -257,11 +257,21 @@ runs:
           local primary_exit_code=0
 
           # Shared regexes:
-          #   retry_re — rate-limit OR model-unavailable (fallback queue helps)
+          #   retry_re — rate-limit, model-unavailable, OR transient
+          #              upstream/gateway failure (5xx). The fallback queue
+          #              helps for all three: each zen model maps to a
+          #              different upstream, so a 503 from one provider
+          #              (e.g. "Upstream error from Nvidia: Service
+          #              temporarily overloaded") can still succeed on the
+          #              next. Patterns stay phrase-specific on purpose —
+          #              bare `unavailable` / bare `5xx` digits were dropped
+          #              because line numbers and review prose matched them.
+          #              NOTE: tools/run_fixture_tests.py mirrors this regex
+          #              in _is_retryable() — update both together.
           #   auth_re  — missing/invalid API key (every zen model shares the
           #              same key, so the fallback queue fails identically;
           #              fail fast with guidance instead of pointless retries)
-          local retry_re="429[[:space:]]+(rate|too|exceeded|limit(ed|s)?)[[:space:]]|rate[[:space:]]*limit|too many requests|model[[:space:]]+not[[:space:]]+found|no[[:space:]]+such[[:space:]]+model|model[[:space:]]+does[[:space:]]+not[[:space:]]+exist|upstream request failed|endpoint is unavailable"
+          local retry_re="429[[:space:]]+(rate|too|exceeded|limit(ed|s)?)[[:space:]]|rate[[:space:]]*limit|too many requests|model[[:space:]]+not[[:space:]]+found|no[[:space:]]+such[[:space:]]+model|model[[:space:]]+does[[:space:]]+not[[:space:]]+exist|upstream request failed|upstream[[:space:]]+error|endpoint is unavailable|service[[:space:]]+temporarily[[:space:]]+overloaded|temporarily[[:space:]]+overloaded|service[[:space:]]+unavailable|server_error|bad[[:space:]]+gateway|gateway[[:space:]]+timeout"
           local auth_re="401[[:space:]]+(unauthorized|invalid)|403[[:space:]]+(forbidden|invalid)|unauthorized|authentication[[:space:]]+(failed|error)|invalid[[:space:]]+api[[:space:]]+key|missing[[:space:]]+api[[:space:]]+key"
 
           print_auth_guidance() {
