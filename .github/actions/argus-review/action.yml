@@ -38,6 +38,13 @@ inputs:
       tests/fixtures/ for regression validation instead of reviewing a PR.
       Intended for use in the Argus repo's own CI only.
     default: "false"
+  opencode-version:
+    description: >
+      OpenCode CLI version to install. Must be an OpenCode 1.x release:
+      this action drives `opencode github run`, which OpenCode 2 removed.
+      Pinned to a known-good 1.x by default so an upstream default-installer
+      switch to v2 cannot break the action silently.
+    default: "1.19.3"
 
 runs:
   using: composite
@@ -83,10 +90,30 @@ runs:
       # integrity check on pipe-to-bash). opencode.ai does not publish a
       # checksum URL, so full verification is not yet possible — this at
       # least breaks the pipe-to-bash pattern so the script is inspectable.
+      #
+      # VERSION PIN: this action drives `opencode github run`, which is an
+      # OpenCode 1 command. OpenCode 2 removed it (its CLI exposes only
+      # run/api/session/service/...), so an unpinned install would break
+      # silently the moment the default installer starts shipping v2.
+      # Pin an explicit 1.x version and fail loudly if it cannot be resolved.
+      env:
+        OPENCODE_CLI_VERSION: ${{ inputs.opencode-version }}
       run: |
+        set -euo pipefail
+        VERSION="${OPENCODE_CLI_VERSION:-1.19.3}"
+        case "$VERSION" in
+          1.*) ;;
+          *)
+            echo "::error::opencode-version must be an OpenCode 1.x release (got '$VERSION')."
+            echo "::error::This action depends on 'opencode github run', which OpenCode 2 removed."
+            exit 1
+            ;;
+        esac
         curl -fsSL https://opencode.ai/install -o /tmp/opencode-install.sh
         test -s /tmp/opencode-install.sh
-        bash /tmp/opencode-install.sh
+        bash /tmp/opencode-install.sh --version "$VERSION"
+        echo "[argus] OpenCode CLI pinned to $VERSION"
+        opencode --version
       shell: bash
 
     - name: Load consumer configuration (.argus.yml)
