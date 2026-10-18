@@ -10,6 +10,12 @@ permissions:
   pull-requests: write
   issues: write
 
+env:
+  # Ref the review step consumes the action from. Defaults to `main`; set it to
+  # a released tag (e.g. v0.6.5) to freeze review behaviour to that release.
+  # Kept as a variable so switching is a one-line, reviewable change.
+  ARGUS_ACTION_REF: main
+
 jobs:
   review:
     # Skip Dependabot PRs: GitHub does not pass repository secrets to workflows
@@ -21,7 +27,19 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: cgartlab/argus/.github/actions/argus-review@main
+      # Self-test the PR's own action. The review step below consumes the action
+      # via `cgartlab/argus/...@<ref>`, so a PR that only changes action.yml would
+      # otherwise run the *old* main version and never exercise its own changes —
+      # that is exactly how the exit-127 PATH regression in #174 escaped review.
+      # This step runs the PR's action code with no secrets and no LLM call:
+      # tools/validate_action.py executes the quarantine/restore scripts in a
+      # sandbox and asserts the install/PATH invariants.
+      - name: Self-test action changes (this PR)
+        run: python3 tools/validate_action.py
+
+      # Real review. Ref defaults to `main` and can be pinned to a released tag
+      # (e.g. v0.6.5) to freeze the review behaviour; see release.yml.
+      - uses: cgartlab/argus/.github/actions/argus-review@${{ env.ARGUS_ACTION_REF }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           api-key: ${{ secrets.OPENCODE_API_KEY }}
