@@ -157,8 +157,8 @@ jobs:
       # The V1-compatibility quarantine must never be visible to git: OpenCode
       # 1.x's `github run` commits whatever `git status --porcelain` reports, so
       # a dirty worktree during a review gets pushed onto the consumer's branch
-      # (cgartlab/men#164). This runs the real step bodies in a throw-away repo.
-      - name: "Regression: quarantine is invisible to git (men#164)"
+      # (cgartlab/men@a21a4c44). This runs the real step bodies in a throw-away repo.
+      - name: "Regression: quarantine is invisible to git (cgartlab/men@a21a4c44)"
         run: |
           python3 tools/test_quarantine_git.py
           echo "quarantine git-visibility: all assertions ok"

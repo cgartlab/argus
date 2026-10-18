@@ -195,7 +195,7 @@ def check_quarantine_restore(steps: list[dict]) -> list[str]:
         problems.append("quarantine step does not record a manifest — restore has nothing to work from")
     if "cp -p" not in script:
         problems.append("quarantine step does not preserve a copy before rewriting the file")
-    # The core of the men#164 fix: quarantine must be invisible to git.
+    # The core of the cgartlab/men@a21a4c44 fix: quarantine must be invisible to git.
     # Deleting the file instead makes the worktree dirty, and `opencode github
     # run` (v1.19.3 pushToLocalBranch) would commit and push that deletion to
     # the consumer's PR branch.
@@ -203,13 +203,13 @@ def check_quarantine_restore(steps: list[dict]) -> list[str]:
         problems.append(
             "quarantine step does not hide rewritten paths with "
             "`git update-index --skip-worktree` — the worktree would stay dirty "
-            "and the review would commit the quarantine to the consumer's branch (men#164)"
+            "and the review would commit the quarantine to the consumer's branch (cgartlab/men@a21a4c44)"
         )
     for bad in ('rm -f "$rel"', 'rm -rf "$rel"', 'rm -f -- "$rel"'):
         if bad in script:
             problems.append(
                 f"quarantine step removes a consumer file with `{bad}` — that "
-                "deletion would be committed and pushed (men#164)"
+                "deletion would be committed and pushed (cgartlab/men@a21a4c44)"
             )
     restore_script = _run_of(restore)
     if "git update-index --no-skip-worktree" not in restore_script:
@@ -227,14 +227,14 @@ def check_worktree_gate(steps: list[dict]) -> list[str]:
 
     `opencode github run` commits whatever `git status --porcelain` reports, so
     the gate is the last line of defence against quarantines leaking into the
-    consumer's PR branch (men#164).
+    consumer's PR branch (cgartlab/men@a21a4c44).
     """
     problems = []
     gate = next((s for s in steps if WORKTREE_GATE_STEP in (s.get("name") or "")), None)
     if gate is None:
         return [
             f"missing '{WORKTREE_GATE_STEP}' step — a dirty worktree would be "
-            "committed and pushed to the consumer's PR branch (men#164)"
+            "committed and pushed to the consumer's PR branch (cgartlab/men@a21a4c44)"
         ]
     script = _run_of(gate)
     if "git status --porcelain" not in script:
@@ -308,7 +308,8 @@ def run_quarantine_roundtrip(steps: list[dict], bash: str | None) -> list[str]:
         repo = sandbox / "repo"
         (repo / ".opencode" / "agent").mkdir(parents=True)
 
-        # V2-format consumer config (the failing case from men#164).
+        # V2-format consumer config (the shape that got polluted in
+        # cgartlab/men@a21a4c44).
         opencode_json = json.dumps(
             {
                 "$schema": "https://opencode.ai/config.json",

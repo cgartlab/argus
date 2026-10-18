@@ -2,7 +2,7 @@
 """
 test_quarantine_git.py — prove the V1-compatibility quarantine stays invisible to git
 
-Bug pinned here (cgartlab/men#164, polluting commit a21a4c44)
+Bug pinned here (cgartlab/men@a21a4c44 — the polluting commit)
 --------------------------------------------------------------
 The old quarantine step *deleted* the consumer's V2 opencode config to satisfy
 the pinned OpenCode 1 CLI. OpenCode v1.19.3's github/index.ts commits whatever
@@ -12,7 +12,8 @@ the worktree reports:
     pushToLocalBranch()  -> `git add .` -> `git commit -m <summary>` -> `git push`
 
 So a dirty worktree during the review is *always* committed and pushed onto
-the consumer's PR branch. The pollution found in men#164 was exactly this:
+the consumer's PR branch. The pollution found in cgartlab/men@a21a4c44 was
+exactly this:
 
     opencode.json              deleted (V2 permissions: [...] lost)
     .opencode/agent/men.md     permissions: block stripped
@@ -66,7 +67,7 @@ from validate_action import (  # noqa: E402  - local module, must follow sys.pat
 ACTION_FILE = pathlib.Path(__file__).resolve().parent.parent / ".github" / "actions" / "argus-review" / "action.yml"
 
 # ---------------------------------------------------------------------------
-# A synthetic consumer repo in the exact shape men#164 had when it got burned:
+# A synthetic consumer repo in the shape men's config had when it got burned:
 # two V2 JSON configs, one agent file with a permissions block, the plugin
 # package the V1 CLI rewrites, and one legitimate source file a review agent
 # might legitimately edit.

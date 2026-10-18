@@ -272,7 +272,7 @@ runs:
       # when it actually carries a V2 `permissions` array, so V1-only consumers
       # are entirely untouched.
       #
-      # WHY IN-PLACE + --skip-worktree AND NOT `rm` (regression from men#164):
+      # WHY IN-PLACE + --skip-worktree AND NOT `rm` (regression from cgartlab/men@a21a4c44):
       #   OpenCode v1.19.3 commits the working tree whenever it is dirty --
       #   branchIsDirty() is a bare `git status --porcelain` check and
       #   pushToLocalBranch() follows with `git add .` -> `git commit` ->
@@ -470,7 +470,7 @@ runs:
       # branch. The quarantine step hides its own rewrites, so a non-empty
       # status here means something the review must NOT ship -- an earlier
       # step's artifact, or a masking failure. Fail closed: a red check beats a
-      # silently polluted consumer branch (cgartlab/men#164).
+      # silently polluted consumer branch (cgartlab/men@a21a4c44).
       shell: bash
       run: |
         set -uo pipefail
