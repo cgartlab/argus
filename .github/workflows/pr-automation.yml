@@ -18,8 +18,16 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Auto-label by branch name
+        # SECURITY: never interpolate ${{ github.head_ref }} (attacker-controlled
+        # PR branch name) directly into `run:` — GitHub expands expressions
+        # before bash parses, so shell metacharacters in the branch name would
+        # execute as code. Values passed via `env:` arrive as inert strings.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_REF: ${{ github.head_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          BRANCH="${{ github.head_ref }}"
+          BRANCH="$HEAD_REF"
           LABEL=""
           case "$BRANCH" in
             feat/*|feature/*)    LABEL="enhancement"      ;;
@@ -30,19 +38,18 @@ jobs:
           esac
           if [ -n "$LABEL" ]; then
             echo "[pr-automation] Adding label: $LABEL"
-            gh pr edit "${{ github.event.pull_request.number }}" --add-label "$LABEL" || true
+            gh pr edit "$PR_NUMBER" --add-label "$LABEL" || true
           fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Auto-assign PR author
         # Skip Dependabot PRs: App installation tokens cannot assign bot accounts.
         if: github.actor != 'dependabot[bot]' && github.actor != 'argus-flash[bot]'
-        run: |
-          gh pr edit "${{ github.event.pull_request.number }}" \
-            --add-assignee "${{ github.actor }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          gh pr edit "$PR_NUMBER" --add-assignee "$ACTOR"
 
       - name: Add to PC Automatic project
         uses: actions/add-to-project@v2
