@@ -63,7 +63,7 @@ When Argus gets something wrong about *your* codebase — a pattern that's legal
 | | |
 |---|---|
 | License | MIT |
-| Version | 0.6.4 |
+| Version | 0.6.5 |
 | Made by | [CGArtLab](https://github.com/cgartlab) |
 | Repository | [github.com/cgartlab/argus](https://github.com/cgartlab/argus) |
 | GitHub App | [github.com/apps/argus-flash](https://github.com/apps/argus-flash) |

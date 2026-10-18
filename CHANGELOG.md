@@ -1,3 +1,52 @@
+## [0.6.5] — 2026-10-18
+
+> **一句话概括**：这是一次**安全与稳定性**更新。修复了两个可以让别人在你的仓库里偷偷执行命令的漏洞，并让审查在模型服务商临时故障时不再直接失败。**你不需要做任何事**——如果你是 argus-flash App 或 composite action 的使用者，升级后自动生效。
+
+### Fixed
+
+- **两个安全漏洞：别人可以通过 PR 在你的仓库里执行命令** (#169, #170)
+
+  这是本版最重要的修复。GitHub Actions 有一个容易踩的坑：当你把 `${{ ... }}` 表达式直接写进 `run:` 脚本时，GitHub 会在 shell 解析之前就把值**当成代码拼进去**。如果那个值来自用户（比如 PR 的分支名、或者调用方传入的参数），里面夹带的 `;` `"` `$()` 就会被当成命令执行。
+
+  - **漏洞一（#169）**：`pr-automation.yml` 直接把 PR 分支名拼进脚本。**任何能开 PR 的人**都可以给自己的分支起个带命令的名字，在你的仓库里执行任意操作。现在分支名改为通过 `env:` 传入，只会被当成普通文本。
+  - **漏洞二（#170）**：`argus-review` composite action 有 10 处把调用方传入的参数（`api-key`、`model`、`config-path` 等）直接拼进脚本。这个 action 被多个仓库复用，**影响面是所有使用它的仓库**。现在全部改为 `env:` 传值。
+
+  > **如果你在自己的仓库里调用 `cgartlab/argus/.github/actions/argus-review@main`**：不需要改任何配置，拉取最新版本即可自动获得修复。action 的输入参数名和用法完全没变。
+
+- **模型服务商临时故障时，审查不再直接失败** (#162)
+
+  之前只有遇到限流（429）或模型不存在时才会切换到备用模型，但**服务商临时过载**（返回 503 "Service temporarily overloaded"）不在这份清单里，于是审查直接中断——尽管配置里明明准备了 7 个备用模型。现在这类临时故障也会触发切换。
+
+  > 实际遇到的问题：`Streaming response failed: [503] Upstream error from Nvidia: Service temporarily overloaded` → 以前会导致 PR 拿不到审查结果 → 现在会自动换下一个模型继续。
+
+- **ClawHub 发布到了错误的 slug** (#161)
+
+  发布脚本里把 slug 写死成 `argus-design-review`，但包内 `SKILL.md` 的 `name` 是 `argus-flash` ——于是发布出来的路径和预期不符。现在改为从包内文件派生，两边不会再漂移。
+
+### Changed
+
+- **站点依赖升级：sharp 0.35.5（修复 RCE 漏洞）** (#165)
+
+  `sharp` 图像处理库的 `librsvg` 依赖存在**远程代码执行**漏洞（[GHSA-wq5f-xc86-pv6w](https://github.com/advisories/GHSA-wq5f-xc86-pv6w) / CVE-2026-96889，高危）。站点的 lockfile 原本通过 Astro 的可选依赖锁在 0.35.4。
+
+  修复方式是把 `sharp` 提升为直接依赖并锁定 0.35.5，`npm install` 后确认 `found 0 vulnerabilities`。**仅影响文档站点的构建依赖，不影响审查功能。**
+
+- **PR 自动标签规则重写** (#166)
+
+  原来的标签配置是从一个通用站点模板照搬的，与 argus 的实际目录结构对不上，导致两个问题：① 改任何 `.md` 文件都会被误标成 `type:bug`；② 有些标签的路径规则指向了本仓库不存在的目录，永远不会生效。
+
+  现在按真实结构重写，并新增 4 个标签：`🧩 area:action`（Composite Action）、`📖 area:site`（文档站点）、`🐍 area:tools`（工具链）、`🧪 tests`（测试）。
+
+  > **`type:bug` 不再由文件路径自动推断**——改了什么文件并不能说明这次是修 bug 还是加功能。现在 `type:bug` 由 issue 模板承载，人工标注的标签也不会被自动清除。
+
+### Added
+
+- **PR / Issue 模板与自动分配** (#0fa9398)
+
+  新增了 Bug 报告、功能请求、任务三种 Issue 表单，以及 PR 模板；PR 打开后会自动分配作者、按分支名前缀打标签（`feat/` → enhancement，`fix/` → bug，`docs/` → documentation）。
+
+---
+
 ## [0.6.4] — 2026-10-16
 
 ### Changed
