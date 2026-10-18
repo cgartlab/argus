@@ -74,6 +74,34 @@ def _bash_available() -> str | None:
     return None
 
 
+# `${{ inputs.model }}` may be written with or without inner spaces, so match
+# the expression structurally instead of on an exact string.
+#
+# Only pass a `run:` body here. The correct pattern puts the expression in
+# `env:`, which callers deliberately exclude via `_run_of()`.
+_EXPR_RE = None
+
+
+def _has_expression(script: str, context: str) -> bool:
+    """True if `script` interpolates `${{ <context> }}` (any inner spacing).
+
+    Matches the context exactly or as a property access, so `inputs.model-family`
+    is not mistaken for `inputs.model`.
+    """
+    global _EXPR_RE
+    if _EXPR_RE is None:
+        import re
+
+        _EXPR_RE = re.compile(r"\$\{\{\s*([^}]+?)\s*\}\}")
+    for expr in _EXPR_RE.findall(script):
+        expr = expr.strip()
+        # exact match, or a property access on the same context, so that
+        # `inputs.model-family` is not mistaken for `inputs.model`
+        if expr == context or expr.startswith(context + "."):
+            return True
+    return False
+
+
 def check_shell_syntax(steps: list[dict], bash: str | None) -> list[str]:
     """Run `bash -n` over every shell step's script body."""
     problems: list[str] = []
@@ -294,6 +322,69 @@ def check_fixture_step(steps: list[dict]) -> list[str]:
     return problems
 
 
+# Caller-controlled contexts. `secrets.*` is deliberately excluded: the runner
+# masks those in logs, and the value is chosen by the repo owner, not by an
+# untrusted PR author. `inputs.*` is the dangerous set — the calling repo passes
+# them via `with:` and they are NOT masked, so interpolating them into a `run:`
+# body is a script-injection vector (see cgartlab/argus#169, #170).
+INJECTABLE_INPUT_CONTEXTS = (
+    "inputs.api-key",
+    "inputs.model",
+    "inputs.fallback-models",
+    "inputs.config-path",
+    "inputs.github-token",
+    "inputs.opencode-version",
+    "inputs.fixture-mode",
+)
+
+
+def check_no_injection(steps: list[dict]) -> list[str]:
+    """No caller-controlled value may appear inside any `run:` body.
+
+    GitHub expands `${{ ... }}` into the script text before bash parses it, so
+    an interpolated `inputs.*` value executes as code. Values must be passed
+    via `env:` instead, where they arrive as inert strings.
+    """
+    problems = []
+    for step in steps:
+        name = step.get("name") or step.get("uses") or "(unnamed step)"
+        script = _run_of(step)
+        if not script:
+            continue
+        for ctx in INJECTABLE_INPUT_CONTEXTS:
+            if _has_expression(script, ctx):
+                problems.append(
+                    f"{name}: '${{{{ {ctx} }}}}' interpolated into run: — "
+                    "caller-controlled value executes as shell; pass it via env:"
+                )
+    return problems
+
+
+def check_fixture_arg_array(steps: list[dict]) -> list[str]:
+    """The fixture step must build argv from a quoted bash array.
+
+    The pre-fix form used unquoted command substitution
+    (`$([ -n ... ] && echo --model "$X")`), which word-splits and re-parses
+    metacharacters. A quoted array keeps each value in exactly one argv element.
+    """
+    problems = []
+    fixture = next(
+        (s for s in steps if "fixture regression" in (s.get("name") or "").lower()), None
+    )
+    if fixture is None:
+        return []  # optional step, not an error
+    script = _run_of(fixture)
+    if "EXTRA_ARGS=()" not in script:
+        problems.append("fixture step does not initialise EXTRA_ARGS as an array")
+    if '"${EXTRA_ARGS[@]}"' not in script:
+        problems.append("fixture step does not expand EXTRA_ARGS with quotes")
+    if "echo --model" in script or "echo --fallback-models" in script:
+        problems.append(
+            "fixture step still uses unquoted command substitution for CLI args"
+        )
+    return problems
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--json", dest="output_json", metavar="FILE", help="Write results to FILE")
@@ -319,6 +410,8 @@ def main(argv: list[str] | None = None) -> int:
         "quarantine_restore": check_quarantine_restore(steps),
         "quarantine_roundtrip": run_quarantine_roundtrip(steps, bash),
         "fixture_step": check_fixture_step(steps),
+        "no_injection": check_no_injection(steps),
+        "fixture_arg_array": check_fixture_arg_array(steps),
     }
 
     failed = {k: v for k, v in checks.items() if v}
