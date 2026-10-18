@@ -63,13 +63,19 @@ runs:
           exit 1
         fi
     - name: Configure git
+      # SECURITY: the token is passed via env, never interpolated into the
+      # script text. Interpolated values are materialised into the script
+      # before bash parses it, which both breaks on shell metacharacters and
+      # exposes the value in step-debug logs.
+      env:
+        GH_TOKEN_VALUE: ${{ inputs.github-token }}
       run: |
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git config --global user.name "github-actions[bot]"
         # The token-bearing remote below is required only for opencode CLI to
         # push the review; the token is scrubbed from .git/config by the
         # "Scrub token from git config" step (always runs) after the review.
-        git remote set-url origin https://x-access-token:${{ inputs.github-token }}@github.com/${{ github.repository }}.git
+        git remote set-url origin "https://x-access-token:${GH_TOKEN_VALUE}@github.com/${{ github.repository }}.git"
       shell: bash
 
     - name: Install OpenCode CLI
@@ -85,9 +91,12 @@ runs:
 
     - name: Load consumer configuration (.argus.yml)
       id: load-config
+      # SECURITY: inputs.* are supplied by the calling repo via `with:` and are
+      # NOT masked by the runner. Interpolating them into `run:` lets the text
+      # execute as shell. Pass via `env:` so they arrive as inert data.
+      env:
+        CONFIG_PATH: ${{ inputs.config-path }}
       run: |
-        CONFIG_PATH="${{ inputs.config-path }}"
-
         # If the consumer has a .argus.yml, validate and emit env vars.
         # If not present, load_config.py will silently use defaults.
         python3 ${{ github.action_path }}/../../../tools/load_config.py \
@@ -225,8 +234,8 @@ runs:
       run: |
         # Auth: only export when the consumer supplied a key — never override
         # an existing environment value (e.g. the GitHub App's configured key).
-        if [ -n "${{ inputs.api-key }}" ]; then
-          export OPENCODE_API_KEY="${{ inputs.api-key }}"
+        if [ -n "$INPUT_API_KEY" ]; then
+          export OPENCODE_API_KEY="$INPUT_API_KEY"
         fi
         if [ -n "$OPENCODE_API_KEY" ]; then
           echo "[argus] OpenCode API key: configured"
@@ -237,7 +246,7 @@ runs:
         # Resolve primary model: explicit input wins; otherwise read from the
         # auto-refreshed config/free-models.yml (refreshed weekly by the
         # update-free-models workflow); last resort is a last-known-good default.
-        PRIMARY_MODEL="${{ inputs.model }}"
+        PRIMARY_MODEL="$INPUT_MODEL"
         if [ -z "$PRIMARY_MODEL" ]; then
           MODELS_FILE="${{ github.action_path }}/../../../config/free-models.yml"
           if [ -f "$MODELS_FILE" ]; then
@@ -415,7 +424,7 @@ runs:
         # auto-refreshed config/free-models.yml (updated every 12h by the
         # update-free-models workflow). Missing config is a hard error — this
         # repo must commit config/free-models.yml.
-        FALLBACK_MODELS="${{ inputs.fallback-models }}"
+        FALLBACK_MODELS="$INPUT_FALLBACK_MODELS"
         if [ -z "$FALLBACK_MODELS" ]; then
           MODELS_FILE="${{ github.action_path }}/../../../config/free-models.yml"
           if [ -f "$MODELS_FILE" ]; then
@@ -431,10 +440,16 @@ runs:
 
         run_with_fallback_queue "$PRIMARY_MODEL" "$FALLBACK_MODELS"
       env:
+        # SECURITY: caller-controlled inputs are delivered as environment
+        # variables (inert data), never interpolated into the script body.
+        # See the "Configure git" step for the rationale.
         GITHUB_TOKEN: ${{ inputs.github-token }}
         USE_GITHUB_TOKEN: "true"
         PROMPT: ${{ env.PROMPT }}
         OPENCODE_API_KEY: ${{ inputs.api-key }}
+        INPUT_API_KEY: ${{ inputs.api-key }}
+        INPUT_MODEL: ${{ inputs.model }}
+        INPUT_FALLBACK_MODELS: ${{ inputs.fallback-models }}
 
     - name: Scrub token from git config
       if: always()
@@ -443,11 +458,20 @@ runs:
 
     - name: Run fixture regression tests
       if: inputs.fixture-mode == 'true'
-      run: |
-        python3 ${{ github.action_path }}/../../../tools/run_fixture_tests.py \
-          $([ -n "${{ inputs.model }}" ] && echo --model "${{ inputs.model }}") \
-          $([ -n "${{ inputs.fallback-models }}" ] && echo --fallback-models "${{ inputs.fallback-models }}") \
-          --json fixture-results.json
-      shell: bash
+      # SECURITY: inputs arrive via env as inert data (see Configure git).
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        INPUT_MODEL: ${{ inputs.model }}
+        INPUT_FALLBACK_MODELS: ${{ inputs.fallback-models }}
+      run: |
+        EXTRA_ARGS=()
+        if [ -n "$INPUT_MODEL" ]; then
+          EXTRA_ARGS+=(--model "$INPUT_MODEL")
+        fi
+        if [ -n "$INPUT_FALLBACK_MODELS" ]; then
+          EXTRA_ARGS+=(--fallback-models "$INPUT_FALLBACK_MODELS")
+        fi
+        python3 "${{ github.action_path }}/../../../tools/run_fixture_tests.py" \
+          "${EXTRA_ARGS[@]}" \
+          --json fixture-results.json
+      shell: bash
