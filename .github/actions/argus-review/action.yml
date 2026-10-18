@@ -112,8 +112,13 @@ runs:
         curl -fsSL https://opencode.ai/install -o /tmp/opencode-install.sh
         test -s /tmp/opencode-install.sh
         bash /tmp/opencode-install.sh --version "$VERSION"
+        # The installer appends its bin dir to $GITHUB_PATH, which only takes
+        # effect for *later* steps. Export it for this step too so the version
+        # check below works; the check itself is non-fatal so a PATH quirk can
+        # never fail an otherwise-good install.
+        export PATH="$HOME/.opencode/bin:$PATH"
         echo "[argus] OpenCode CLI pinned to $VERSION"
-        opencode --version
+        opencode --version || echo "[argus] warning: could not read installed version (non-fatal)"
       shell: bash
 
     - name: Load consumer configuration (.argus.yml)
