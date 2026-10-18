@@ -10,12 +10,6 @@ permissions:
   pull-requests: write
   issues: write
 
-env:
-  # Ref the review step consumes the action from. Defaults to `main`; set it to
-  # a released tag (e.g. v0.6.5) to freeze review behaviour to that release.
-  # Kept as a variable so switching is a one-line, reviewable change.
-  ARGUS_ACTION_REF: main
-
 jobs:
   review:
     # Skip Dependabot PRs: GitHub does not pass repository secrets to workflows
@@ -37,9 +31,13 @@ jobs:
       - name: Self-test action changes (this PR)
         run: python3 tools/validate_action.py
 
-      # Real review. Ref defaults to `main` and can be pinned to a released tag
-      # (e.g. v0.6.5) to freeze the review behaviour; see release.yml.
-      - uses: cgartlab/argus/.github/actions/argus-review@${{ env.ARGUS_ACTION_REF }}
+      # Real review. Kept on `main` deliberately: this is the canonical
+      # consumer-facing reference documented in AGENTS.md / docs. To freeze the
+      # review behaviour to a specific release, replace `main` with that tag
+      # (e.g. v0.6.5) — a one-line, reviewable change. Do NOT template this with
+      # `${{ env.* }}`: the `env` context is unavailable when resolving a step's
+      # `uses:` key and yields "Unrecognized named-value: 'env'".
+      - uses: cgartlab/argus/.github/actions/argus-review@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           api-key: ${{ secrets.OPENCODE_API_KEY }}
