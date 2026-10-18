@@ -38,6 +38,13 @@ inputs:
       tests/fixtures/ for regression validation instead of reviewing a PR.
       Intended for use in the Argus repo's own CI only.
     default: "false"
+  opencode-version:
+    description: >
+      OpenCode CLI version to install. Must be an OpenCode 1.x release:
+      this action drives `opencode github run`, which OpenCode 2 removed.
+      Pinned to a known-good 1.x by default so an upstream default-installer
+      switch to v2 cannot break the action silently.
+    default: "1.19.3"
 
 runs:
   using: composite
@@ -83,10 +90,30 @@ runs:
       # integrity check on pipe-to-bash). opencode.ai does not publish a
       # checksum URL, so full verification is not yet possible — this at
       # least breaks the pipe-to-bash pattern so the script is inspectable.
+      #
+      # VERSION PIN: this action drives `opencode github run`, which is an
+      # OpenCode 1 command. OpenCode 2 removed it (its CLI exposes only
+      # run/api/session/service/...), so an unpinned install would break
+      # silently the moment the default installer starts shipping v2.
+      # Pin an explicit 1.x version and fail loudly if it cannot be resolved.
+      env:
+        OPENCODE_CLI_VERSION: ${{ inputs.opencode-version }}
       run: |
+        set -euo pipefail
+        VERSION="${OPENCODE_CLI_VERSION:-1.19.3}"
+        case "$VERSION" in
+          1.*) ;;
+          *)
+            echo "::error::opencode-version must be an OpenCode 1.x release (got '$VERSION')."
+            echo "::error::This action depends on 'opencode github run', which OpenCode 2 removed."
+            exit 1
+            ;;
+        esac
         curl -fsSL https://opencode.ai/install -o /tmp/opencode-install.sh
         test -s /tmp/opencode-install.sh
-        bash /tmp/opencode-install.sh
+        bash /tmp/opencode-install.sh --version "$VERSION"
+        echo "[argus] OpenCode CLI pinned to $VERSION"
+        opencode --version
       shell: bash
 
     - name: Load consumer configuration (.argus.yml)
@@ -225,6 +252,70 @@ runs:
           echo "[argus] loaded project lessons from ${ARGUS_LESSONS_PATH:-.argus/LESSONS.md}"
         else
           echo "[argus] no project lesson file found (using defaults)"
+        fi
+      shell: bash
+
+    - name: Quarantine V2-only opencode config (V1 CLI compatibility)
+      # The installer above pins OpenCode 1, whose config parser rejects the V2
+      # ordered `permissions` array with:
+      #   "V2 permissions are not supported by OpenCode V1"
+      # Consumer repos may legitimately keep V2 config (that is what their own
+      # local V2 CLI reads), so we must not rewrite it. Instead move such files
+      # aside for the duration of the run and restore them on exit.
+      #
+      # Detection is content-based, not filename-based: a file is quarantined
+      # only when it actually contains a V2 `permissions` array at the agent
+      # level, so V1-only consumers are entirely untouched.
+      run: |
+        set -euo pipefail
+        QUARANTINE_DIR="$(mktemp -d)"
+        : > "$QUARANTINE_DIR/manifest"
+        echo "QUARANTINE_DIR=$QUARANTINE_DIR" >> "$GITHUB_ENV"
+
+        quarantine_if_v2() {
+          local rel="$1"
+          [ -f "$rel" ] || return 0
+          # Match  "permissions" : [  ... ]  (V2 ordered array form)
+          if grep -Eq '"permissions"[[:space:]]*:[[:space:]]*\[' "$rel"; then
+            local dest="$QUARANTINE_DIR/$(echo "$rel" | tr '/' '_')"
+            cp -p "$rel" "$dest"
+            rm -f "$rel"
+            echo "$rel" >> "$QUARANTINE_DIR/manifest"
+            echo "[argus] quarantined V2-only config for V1 CLI: $rel"
+          fi
+        }
+
+        quarantine_if_v2 "opencode.json"
+        quarantine_if_v2 ".opencode/opencode.json"
+
+        # Agent markdown frontmatter can also carry a V2 permissions block.
+        for f in .opencode/agent/*.md; do
+          [ -f "$f" ] || continue
+          if grep -Eq '^permissions:[[:space:]]*$' "$f"; then
+            dest="$QUARANTINE_DIR/$(echo "$f" | tr '/' '_')"
+            cp -p "$f" "$dest"
+            # Strip only the V2 permission block from frontmatter; keep the agent
+            # definition itself so routing/description still work.
+            # The block is a top-level key followed by indented lines only.
+            # Deliberately does NOT consume blank lines or the closing `---`,
+            # otherwise the frontmatter would be left unterminated.
+            python3 - "$f" <<'PY'
+        import re
+        import sys
+        p = sys.argv[1]
+        src = open(p, encoding="utf-8").read()
+        src = re.sub(r"(?m)^permissions:[ \t]*\n(?:[ \t]+[^\n]*\n)+", "", src, count=1)
+        open(p, "w", encoding="utf-8").write(src)
+        PY
+            echo "$f" >> "$QUARANTINE_DIR/manifest"
+            echo "[argus] stripped V2 permissions from agent frontmatter: $f"
+          fi
+        done
+
+        if [ -s "$QUARANTINE_DIR/manifest" ]; then
+          echo "[argus] V1 compatibility quarantine applied to $(wc -l < "$QUARANTINE_DIR/manifest") file(s)"
+        else
+          echo "[argus] no V2-only config detected; nothing to quarantine"
         fi
       shell: bash
 
@@ -450,6 +541,28 @@ runs:
         INPUT_API_KEY: ${{ inputs.api-key }}
         INPUT_MODEL: ${{ inputs.model }}
         INPUT_FALLBACK_MODELS: ${{ inputs.fallback-models }}
+
+    - name: Restore quarantined opencode config
+      if: always()
+      # Always restore, so a failed review never leaves the consumer repo with
+      # its config missing (later steps or retries may need it).
+      run: |
+        set -uo pipefail
+        if [ -z "${QUARANTINE_DIR:-}" ] || [ ! -f "$QUARANTINE_DIR/manifest" ]; then
+          echo "[argus] nothing to restore"
+          exit 0
+        fi
+        while IFS= read -r rel; do
+          [ -n "$rel" ] || continue
+          src="$QUARANTINE_DIR/$(echo "$rel" | tr '/' '_')"
+          if [ -f "$src" ]; then
+            mkdir -p "$(dirname "$rel")"
+            cp -p "$src" "$rel"
+            echo "[argus] restored $rel"
+          fi
+        done < "$QUARANTINE_DIR/manifest"
+        rm -rf "$QUARANTINE_DIR"
+      shell: bash
 
     - name: Scrub token from git config
       if: always()
