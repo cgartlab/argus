@@ -1,37 +1,51 @@
-## [0.6.5] — 2026-10-18
+# Changelog
+
+本文件记录 argus 的所有显著变更。
+
+格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
+版本号遵循 [语义化版本 2.0.0](https://semver.org/lang/zh-CN/)。
+
+> `0.x` 阶段：接口与行为仍可能发生破坏性变更，升级前请阅读对应版本的**一句话概括**中的「你需要做什么」。
+
+## 条目模板
+
+每个版本的第一段必须是「一句话概括」；随后按 Keep a Changelog 六类分节。
+条目应先说明对使用者的影响，再写实现细节；涉及 issue 的一律写成可点击链接。
+
+## [0.6.5](https://github.com/cgartlab/argus/compare/v0.6.4...v0.6.5) — 2026-10-18
 
 > **一句话概括**：这是一次**安全与稳定性**更新。修复了两个可以让别人在你的仓库里偷偷执行命令的漏洞，并让审查在模型服务商临时故障时不再直接失败。**你不需要做任何事**——如果你是 argus-flash App 或 composite action 的使用者，升级后自动生效。
 
 ### Fixed
 
-- **两个安全漏洞：别人可以通过 PR 在你的仓库里执行命令** (#169, #170)
+- **两个安全漏洞：别人可以通过 PR 在你的仓库里执行命令** ([#169](https://github.com/cgartlab/argus/issues/169), [#170](https://github.com/cgartlab/argus/issues/170))
 
   这是本版最重要的修复。GitHub Actions 有一个容易踩的坑：当你把 `${{ ... }}` 表达式直接写进 `run:` 脚本时，GitHub 会在 shell 解析之前就把值**当成代码拼进去**。如果那个值来自用户（比如 PR 的分支名、或者调用方传入的参数），里面夹带的 `;` `"` `$()` 就会被当成命令执行。
 
-  - **漏洞一（#169）**：`pr-automation.yml` 直接把 PR 分支名拼进脚本。**任何能开 PR 的人**都可以给自己的分支起个带命令的名字，在你的仓库里执行任意操作。现在分支名改为通过 `env:` 传入，只会被当成普通文本。
-  - **漏洞二（#170）**：`argus-review` composite action 有 10 处把调用方传入的参数（`api-key`、`model`、`config-path` 等）直接拼进脚本。这个 action 被多个仓库复用，**影响面是所有使用它的仓库**。现在全部改为 `env:` 传值。
+  - **漏洞一（[#169](https://github.com/cgartlab/argus/issues/169)）**：`pr-automation.yml` 直接把 PR 分支名拼进脚本。**任何能开 PR 的人**都可以给自己的分支起个带命令的名字，在你的仓库里执行任意操作。现在分支名改为通过 `env:` 传入，只会被当成普通文本。
+  - **漏洞二（[#170](https://github.com/cgartlab/argus/issues/170)）**：`argus-review` composite action 有 10 处把调用方传入的参数（`api-key`、`model`、`config-path` 等）直接拼进脚本。这个 action 被多个仓库复用，**影响面是所有使用它的仓库**。现在全部改为 `env:` 传值。
 
   > **如果你在自己的仓库里调用 `cgartlab/argus/.github/actions/argus-review@main`**：不需要改任何配置，拉取最新版本即可自动获得修复。action 的输入参数名和用法完全没变。
 
-- **模型服务商临时故障时，审查不再直接失败** (#162)
+- **模型服务商临时故障时，审查不再直接失败** ([#162](https://github.com/cgartlab/argus/issues/162))
 
   之前只有遇到限流（429）或模型不存在时才会切换到备用模型，但**服务商临时过载**（返回 503 "Service temporarily overloaded"）不在这份清单里，于是审查直接中断——尽管配置里明明准备了 7 个备用模型。现在这类临时故障也会触发切换。
 
   > 实际遇到的问题：`Streaming response failed: [503] Upstream error from Nvidia: Service temporarily overloaded` → 以前会导致 PR 拿不到审查结果 → 现在会自动换下一个模型继续。
 
-- **ClawHub 发布到了错误的 slug** (#161)
+- **ClawHub 发布到了错误的 slug** ([#161](https://github.com/cgartlab/argus/issues/161))
 
   发布脚本里把 slug 写死成 `argus-design-review`，但包内 `SKILL.md` 的 `name` 是 `argus-flash` ——于是发布出来的路径和预期不符。现在改为从包内文件派生，两边不会再漂移。
 
 ### Changed
 
-- **站点依赖升级：sharp 0.35.5（修复 RCE 漏洞）** (#165)
+- **站点依赖升级：sharp 0.35.5（修复 RCE 漏洞）** ([#165](https://github.com/cgartlab/argus/issues/165))
 
   `sharp` 图像处理库的 `librsvg` 依赖存在**远程代码执行**漏洞（[GHSA-wq5f-xc86-pv6w](https://github.com/advisories/GHSA-wq5f-xc86-pv6w) / CVE-2026-96889，高危）。站点的 lockfile 原本通过 Astro 的可选依赖锁在 0.35.4。
 
   修复方式是把 `sharp` 提升为直接依赖并锁定 0.35.5，`npm install` 后确认 `found 0 vulnerabilities`。**仅影响文档站点的构建依赖，不影响审查功能。**
 
-- **PR 自动标签规则重写** (#166)
+- **PR 自动标签规则重写** ([#166](https://github.com/cgartlab/argus/issues/166))
 
   原来的标签配置是从一个通用站点模板照搬的，与 argus 的实际目录结构对不上，导致两个问题：① 改任何 `.md` 文件都会被误标成 `type:bug`；② 有些标签的路径规则指向了本仓库不存在的目录，永远不会生效。
 
@@ -47,11 +61,13 @@
 
 ---
 
-## [0.6.4] — 2026-10-16
+## [0.6.4](https://github.com/cgartlab/argus/compare/v0.6.3...v0.6.4) — 2026-10-16
+
+> **一句话概括**：这是一次**发布架构与稳定性**更新。`SKILL.md` 与注册表耦合的字段（summary / homepage / metadata.openclaw）移到 `config/skill-platforms.yml`；备用模型切换逻辑补上了「服务商临时过载（503）」等失败模式，临时故障不再中断审查。**你不需要做任何事——消费端配置无需改动。**
 
 ### Changed
 
-- **`SKILL.md` frontmatter de-coupled from registries where possible** (#153) — `summary`, `homepage`, and the `metadata.openclaw` block were non-standard, registry-coupled fields in the core skill file. They moved to the new `config/skill-platforms.yml` (`platforms.skillhub` / `platforms.clawhub`), so `SKILL.md` now carries only standard portable fields plus the two the SkillHub CLI requires.
+- **`SKILL.md` frontmatter de-coupled from registries where possible** ([#153](https://github.com/cgartlab/argus/issues/153)) — `summary`, `homepage`, and the `metadata.openclaw` block were non-standard, registry-coupled fields in the core skill file. They moved to the new `config/skill-platforms.yml` (`platforms.skillhub` / `platforms.clawhub`), so `SKILL.md` now carries only standard portable fields plus the two the SkillHub CLI requires.
   - `slug` and `displayName` **stay** in `SKILL.md`: the SkillHub CLI reads them directly from the file and fails with `SKILL.md 缺少 slug` when they are absent. Moving them to config broke the `skillhub` release job on v0.6.4 — that contract is now documented in both files so it is not "simplified" away again.
   - `tools/publish_skillhub.py` reads non-required display metadata from the platform config; `tools/publish_clawhub.py` reuses that loader for the ClawHub emoji.
 
@@ -63,7 +79,9 @@
 
 ---
 
-## [0.6.3] — 2026-10-16
+## [0.6.3](https://github.com/cgartlab/argus/compare/v0.6.2...v0.6.3) — 2026-10-16
+
+> **一句话概括**：这是一次**静态扫描器校准**。`hardcoded-spacing` 规则从 P1 降为 P2（与文档契约一致），此前每个硬编码间距都会阻塞合并；severity matrix 校验扩展到扫描器的 `emit()` 调用点。**你不需要做任何事——规则行为与既有文档对齐，合并阻塞减少。**
 
 ### Added
 
@@ -83,7 +101,9 @@
 
 ---
 
-## [0.6.2] — 2026-10-15
+## [0.6.2](https://github.com/cgartlab/argus/compare/v0.6.1...v0.6.2) — 2026-10-15
+
+> **一句话概括**：这是一次**小型 CI 修复**：扩展覆盖检查此前只字面匹配 `*.htm`，含 `.html` fixture 的 PR 会一直失败，现在两者等价。**你不需要做任何事。**
 
 ### Added
 
@@ -95,7 +115,9 @@
 
 ### Removed
 
-## [0.6.1] — 2026-10-15
+## [0.6.1](https://github.com/cgartlab/argus/compare/v0.6.0...v0.6.1) — 2026-10-15
+
+> **一句话概括**：这是一次**命名约定统一**：项目教训文件从单数 `.argus/LESSON.md` 统一为复数 `.argus/LESSONS.md`，行为不变。**使用 `.argus/LESSONS.md`（复数）的仓库不受影响；若你配置了单数旧路径，改名为复数即可。**
 
 ### Added
 
@@ -109,7 +131,9 @@
 
 ---
 
-## [0.6.0] — 2026-10-15
+## [0.6.0](https://github.com/cgartlab/argus/compare/v0.5.8...v0.6.0) — 2026-10-15
+
+> **一句话概括**：这是一次**能力扩展与诚实性修正**：新增每项目教训通道（`.argus/LESSONS.md`，每次审查自动加载）；JS/TS 文件不再静默返回「无发现」，而是明确提示改用 LLM 模式；质量测量区分静态回归锁与 LLM 代理质量（tracked，不 gated）。**你不需要做任何事；审查 `.js/.ts` 时按提示用 `--mode llm` 即可。**
 
 ### Added
 
@@ -137,7 +161,9 @@
 
 ---
 
-## [0.5.8] — 2026-09-23
+## [0.5.8](https://github.com/cgartlab/argus/compare/v0.5.7...v0.5.8) — 2026-09-23
+
+> **一句话概括**：这是一次**大型能力发布**：本地审查 CLI（无需 API key 的静态模式）、GitLab MR 审查、HTML/WCAG 报告、自定义规则 DSL、webhook 转发、质量引擎与 golden 评测集、`.argus.yml` JSON Schema、自托管指南等。**你不需要做任何事——全部为新增能力；想在本机体验可运行 `make review FILE=...`。**
 
 ### Added
 
@@ -170,7 +196,9 @@
 
 ---
 
-## [0.5.7] — 2026-09-12
+## [0.5.7](https://github.com/cgartlab/argus/compare/v0.5.6...v0.5.7) — 2026-09-12
+
+> **一句话概括**：这是一次**发布修复**：SkillHub 发布恢复使用既有手工 slug `argus-design-review`，release 流程会更新原始 Argus skill。**你不需要做任何事。**
 
 ### Added
 
@@ -184,7 +212,9 @@
 
 ---
 
-## [0.5.6] — 2026-09-12
+## [0.5.6](https://github.com/cgartlab/argus/compare/v0.5.5...v0.5.6) — 2026-09-12
+
+> **一句话概括**：这是一次**发布配置调整**：改用全局唯一 slug `cgartlab-argus-design-review`，避免与公开 slug `argus-design-review` 冲突。**你不需要做任何事。**
 
 ### Added
 
@@ -198,7 +228,9 @@
 
 ---
 
-## [0.5.5] — 2026-09-12
+## [0.5.5](https://github.com/cgartlab/argus/compare/v0.5.4...v0.5.5) — 2026-09-12
+
+> **一句话概括**：这是一次**发布脚本修复**：`publish_skillhub.py` 现在能正确提取带 `### Added` / `### Changed` 等子标题的 CHANGELOG 段落的首条内容。**你不需要做任何事。**
 
 ### Added
 
@@ -212,7 +244,9 @@
 
 ---
 
-## [0.5.4] — 2026-09-12
+## [0.5.4](https://github.com/cgartlab/argus/compare/v0.5.3...v0.5.4) — 2026-09-12
+
+> **一句话概括**：这是一次**发布自动化扩展**：GitHub Release 成功后自动把 skill 包发布到 SkillHub（需配置 `SKILLHUB_API_KEY`）。**你不需要做任何事——仅仓库维护者需配置 secret。**
 
 ### Added
 
@@ -230,7 +264,9 @@
 
 ---
 
-## [0.5.3] — 2026-09-12
+## [0.5.3](https://github.com/cgartlab/argus/compare/v0.5.2...v0.5.3) — 2026-09-12
+
+> **一句话概括**：这是一次**构建修复**：用 npm 10.9.8 重新生成 `site/package-lock.json`，修复 GitHub Pages 工作流 `npm ci` 失败。**你不需要做任何事。**
 
 ### Fixed
 
@@ -238,7 +274,9 @@
 
 ---
 
-## [0.5.2] — 2026-09-12
+## [0.5.2](https://github.com/cgartlab/argus/compare/v0.5.1...v0.5.2) — 2026-09-12
+
+> **一句话概括**：这是一次**发布安全加固**：`make release` 现在校验 tag/VERSION 一致性、拒绝重复或过期发布、要求版本文件已提交且本地 main 不落后；PR 审查与 bot 分配改用仓库 token。**你不需要做任何事——发版命令会先自我校验。**
 
 ### Added
 
@@ -260,7 +298,9 @@
 
 ---
 
-## [0.5.1] — 2026-09-06
+## [0.5.1](https://github.com/cgartlab/argus/compare/v0.4.1...v0.5.1) — 2026-09-06
+
+> **一句话概括**：这是一次**模型配置与鉴权体验更新**：默认主模型回到 `opencode/deepseek-v4-flash-free`（`hy3-free` 已下线）；新增 `api-key` 输入与 5 步修复指引；免费模型列表改为从公开 Zen API 实时刷新。**使用 composite action 需自行配置 `OPENCODE_API_KEY`（不内置 key）；已弃用模型会自动从队列移除。**
 
 ### Added
 
@@ -278,7 +318,9 @@
 
 ---
 
-## [0.5.0] — 2026-09-03
+## [0.5.0] — 2026-09-03 _(无 tag)_
+
+> **一句话概括**：这是一次**审查规则与误报控制升级**：审查提示改用真实设计系统 token 名（Ant Design v5 / Material 3 / Polaris），支持 `design-system: auto` 自动探测；新增误报基准与 P0/P1 不可降级规则矩阵。**你不需要做任何事——默认自动探测；可在 `.argus.yml` 显式指定 `design-system`。**
 
 ### Added
 
@@ -291,17 +333,19 @@
 
 ### Changed
 
-- **Scoped Static Fixes** — `run_fixture_tests.py` static-heuristic fixes are scoped to the offending rule instead of the whole file, aligning with the false-positives baseline (Phase 1, #18)
+- **Scoped Static Fixes** — `run_fixture_tests.py` static-heuristic fixes are scoped to the offending rule instead of the whole file, aligning with the false-positives baseline (Phase 1, [#18](https://github.com/cgartlab/argus/issues/18))
 
 ### Fixed
 
 ### Removed
 
-> **Note:** Phase 1 of #18 — Severity calibration. The 42 framework anti-pattern rules keep their existing inline P1/P2/P3 annotations unchanged.
+> **Note:** Phase 1 of [#18](https://github.com/cgartlab/argus/issues/18) — Severity calibration. The 42 framework anti-pattern rules keep their existing inline P1/P2/P3 annotations unchanged.
 
 ---
 
-## [0.4.1] — 2026-09-03
+## [0.4.1](https://github.com/cgartlab/argus/compare/v0.4.0...v0.4.1) — 2026-09-03
+
+> **一句话概括**：这是一次**规则扩充与准确性修正**：新增 CSS-in-JS / 响应式设计模式（44px 触控目标等），并移除/修正多处编造或过时的框架示例（Angular `destroyRegistry()`、Vue 2 时代规则等）。**你不需要做任何事。**
 
 ### Added
 
@@ -324,7 +368,9 @@
 
 ---
 
-## [0.4.0] — 2026-09-02
+## [0.4.0](https://github.com/cgartlab/argus/compare/v0.3.3...v0.4.0) — 2026-09-02
+
+> **一句话概括**：新增**营销官网**（`site/`，Astro 7，部署至 argus.cgartlab.com）与免费模型排名机制；默认审查模型切换为 `opencode/hy3-free`（该决定后来在 0.5.1 回退）。**你不需要做任何事——如需固定模型可在调用时显式指定。**
 
 ### Added
 
@@ -347,7 +393,9 @@
 
 ---
 
-## [0.3.3] — 2026-08-21
+## [0.3.3](https://github.com/cgartlab/argus/compare/v0.3.2...v0.3.3) — 2026-08-21
+
+> **一句话概括**：这是一次**CI 与可靠性修复**：fixture 测试接入 `ci.yml`（静态扫描器，无需 API key）、PR 自动化修复 checkout 顺序、修复 fallback 模型漂移与重复审查。**你不需要做任何事。**
 
 ### Changed
 
@@ -367,7 +415,9 @@
 
 ---
 
-## [0.3.2] — 2026-08-06
+## [0.3.2](https://github.com/cgartlab/argus/compare/v0.3.1...v0.3.2) — 2026-08-06
+
+> **一句话概括**：这是一次**降级可靠性升级**：主模型限流/不可用时按能力排序自动重试降级队列（`fallback-models` 可自定义）；修复 PR 审查 6 小时超时（`@main` 引用旧 action 所致）。**你不需要做任何事——升级后自动生效。**
 
 ### Added
 
@@ -394,11 +444,9 @@
 
 ---
 
-# Changelog
+## [0.3.1](https://github.com/cgartlab/argus/compare/v0.1.1...v0.3.1) — 2026-08-02
 
-All notable changes are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/).
-
-## [0.3.1] — 2026-08-02
+> **一句话概括**：这是一次**审查输出标准化与发布自动化**更新：固定反馈格式（summary + P0-P3 分组）、栈感知 API 审查、框架反模式库、自动 GitHub Release 与 skill 打包。**你不需要做任何事。**
 
 ### Added
 
@@ -425,7 +473,9 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 - **Version consistency** — All stale 0.2.0 references in documentation updated to 0.3.0/0.3.1
 - **SKILL.md corruption** — Repaired escaped code fences and bash-quoting artifacts that broke YAML frontmatter and Markdown rendering
 
-## [0.3.0] — 2026-06-25
+## [0.3.0] — 2026-06-25 _(无 tag)_
+
+> **一句话概括**：这是一次**消费端可配置化 + 回归测试**更新：新增 `.argus.yml` 配置层（`docs/argus-config-schema.md`、`tools/load_config.py`）与 fixture 回归套件（8 组输入/期望对），CI 重构为 3 个 job。**现有消费者无需任何操作——未配置 `.argus.yml` 时行为不变，新字段均有安全默认值。**
 
 ### Added
 
@@ -464,7 +514,9 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 ---
 
-## [0.2.0] — 2026-06-17
+## [0.2.0] — 2026-06-17 _(无 tag)_
+
+> **一句话概括**：这是一次**架构升级**：引入可复用 composite action（`.github/actions/argus-review`）与 `argus-flash` GitHub App，规则改为运行时动态注入——argus 仓库的规则更新会自动同步到所有消费仓库。**你不需要做任何事；任意仓库安装 argus-flash App 并加一个 26 行 review.yml 即可获得自动设计审查。**
 
 ### Added
 - `.github/actions/argus-review/action.yml` — Reusable composite action wrapping OpenCode CLI + dynamic rule injection
@@ -495,6 +547,8 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 ## [0.1.1] — 2026-06-17
 
+> **一句话概括**：这是一次**早期能力补充**：新增 `opencode.jsonc` 与 GitHub App PR 审查工作流；许可证从 MIT 迁移为 BSL 1.1（5 年后自动转 Apache 2.0）。**你不需要做任何事；若计划商业生产使用，请注意 BSL 1.1 条款。**
+
 ### Added
 - `opencode.jsonc` — Argus agent configuration for OpenCode, auto-loads AGENTS.md + SKILL.md
 - `.github/workflows/argus-review.yml` — GitHub App PR review workflow (triggers on PR open/sync/reopen)
@@ -508,7 +562,9 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 - Argus-flash GitHub App (https://github.com/apps/argus-flash) now integrated for PR review
 - BSL 1.1 allows research/fork but prohibits commercial production use; auto-converts to Apache 2.0 after 5 years
 
-## [0.1.0] — 2026-06-13
+## [0.1.0] — 2026-06-13 _(无 tag)_
+
+> **一句话概括**：**首个版本**：Argus 以文档驱动的设计审查 Agent 形态发布（AGENTS.md 硬规则 + SKILL.md 审查技能 + CI/发布工作流 + Makefile）。**这是初始发布，按 README/AGENTS.md 配置即可使用。**
 
 ### Added
 - `AGENTS.md` — identity, hard rules, Kold-Argus workflow, review dimensions, severity guide
