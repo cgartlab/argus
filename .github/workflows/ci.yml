@@ -84,6 +84,7 @@ jobs:
             tools/argus_webhook.py
             tools/eval_quality.py
             tools/validate_severity_matrix.py
+            tools/validate_action.py
             config/argus-config.schema.json
             config/argus.example.yml
             config/argus-rules.schema.json
@@ -137,6 +138,16 @@ jobs:
           python3 -m py_compile tools/argus_rules.py && echo "argus_rules.py: ok"
           python3 -m py_compile tools/argus_webhook.py && echo "argus_webhook.py: ok"
           python3 -m py_compile tools/eval_quality.py && echo "eval_quality.py: ok"
+          python3 -m py_compile tools/validate_action.py && echo "validate_action.py: ok"
+
+      # Self-test for the composite action. review.yml consumes this action via
+      # `...@main`, so a PR that only touches action.yml runs the *old* main
+      # version and its own changes are never exercised (#174 regression).
+      # This closes that gap on every PR, with no runner needed.
+      - name: Validate composite action (self-test)
+        run: |
+          python3 tools/validate_action.py
+          echo "argus-review action: shell syntax + invariants ok"
           python3 -m py_compile tools/validate_severity_matrix.py && echo "validate_severity_matrix.py: ok"
           python3 -m py_compile tools/validate_lessons.py && echo "validate_lessons.py: ok"
           python3 -m py_compile tools/add_fp_appeal.py && echo "add_fp_appeal.py: ok"

@@ -21,6 +21,22 @@ jobs:
         with:
           persist-credentials: false
 
+      # Self-test the PR's own action. The review step below consumes the action
+      # via `cgartlab/argus/...@<ref>`, so a PR that only changes action.yml would
+      # otherwise run the *old* main version and never exercise its own changes —
+      # that is exactly how the exit-127 PATH regression in #174 escaped review.
+      # This step runs the PR's action code with no secrets and no LLM call:
+      # tools/validate_action.py executes the quarantine/restore scripts in a
+      # sandbox and asserts the install/PATH invariants.
+      - name: Self-test action changes (this PR)
+        run: python3 tools/validate_action.py
+
+      # Real review. Kept on `main` deliberately: this is the canonical
+      # consumer-facing reference documented in AGENTS.md / docs. To freeze the
+      # review behaviour to a specific release, replace `main` with that tag
+      # (e.g. v0.6.5) — a one-line, reviewable change. Do NOT template this with
+      # `${{ env.* }}`: the `env` context is unavailable when resolving a step's
+      # `uses:` key and yields "Unrecognized named-value: 'env'".
       - uses: cgartlab/argus/.github/actions/argus-review@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
