@@ -48,6 +48,10 @@ REQUIRED_STEPS = (
 
 # Steps that must survive failures / be skipped in the right situations.
 ALWAYS_RESTORE_STEP = "Restore quarantined opencode config"
+QUARANTINE_STEP = "Quarantine V2-only opencode config"
+# Must sit between the quarantine step and the review, so a masking failure is
+# caught before `opencode github run` can commit it.
+WORKTREE_GATE_STEP = "Verify worktree is clean before review"
 
 
 def _load_action(path: pathlib.Path) -> dict:
@@ -171,27 +175,103 @@ def check_path_export(steps: list[dict]) -> list[str]:
 
 
 def check_quarantine_restore(steps: list[dict]) -> list[str]:
-    """V2-config quarantine must be paired with an always-on restore."""
+    """V2-config quarantine must hide from git, and must be restored."""
     problems = []
     restore = next(
         (s for s in steps if ALWAYS_RESTORE_STEP in (s.get("name") or "")), None
     )
     if restore is None:
-        return [f"missing '{ALWAYS_RESTORE_STEP}' step — a quarantined config would be lost on failure"]
+        return [f"missing '{ALWAYS_RESTORE_STEP}' step — a neutralised config would be left in place on failure"]
     if restore.get("if") != "always()":
         problems.append(f"'{ALWAYS_RESTORE_STEP}' must use `if: always()` so a failed review still restores config")
     quarantine = next(
-        (s for s in steps if "Quarantine" in (s.get("name") or "")), None
+        (s for s in steps if QUARANTINE_STEP in (s.get("name") or "")), None
     )
     if quarantine is None:
         problems.append("missing quarantine step (restore exists but nothing quarantines)")
-    else:
-        script = _run_of(quarantine)
-        if 'echo "$rel" >> "$QUARANTINE_DIR/manifest"' not in script:
-            problems.append("quarantine step does not record a manifest — restore has nothing to work from")
-        if "cp -p" not in script:
-            problems.append("quarantine step does not preserve a copy before removing the file")
+        return problems
+    script = _run_of(quarantine)
+    if 'echo "$rel" >> "$QUARANTINE_DIR/manifest"' not in script:
+        problems.append("quarantine step does not record a manifest — restore has nothing to work from")
+    if "cp -p" not in script:
+        problems.append("quarantine step does not preserve a copy before rewriting the file")
+    # The core of the men#164 fix: quarantine must be invisible to git.
+    # Deleting the file instead makes the worktree dirty, and `opencode github
+    # run` (v1.19.3 pushToLocalBranch) would commit and push that deletion to
+    # the consumer's PR branch.
+    if "git update-index --skip-worktree" not in script:
+        problems.append(
+            "quarantine step does not hide rewritten paths with "
+            "`git update-index --skip-worktree` — the worktree would stay dirty "
+            "and the review would commit the quarantine to the consumer's branch (men#164)"
+        )
+    for bad in ('rm -f "$rel"', 'rm -rf "$rel"', 'rm -f -- "$rel"'):
+        if bad in script:
+            problems.append(
+                f"quarantine step removes a consumer file with `{bad}` — that "
+                "deletion would be committed and pushed (men#164)"
+            )
+    restore_script = _run_of(restore)
+    if "git update-index --no-skip-worktree" not in restore_script:
+        problems.append(
+            "restore step does not clear `--skip-worktree` — the consumer's git "
+            "would keep hiding real edits after the action finished"
+        )
+    if 'cp -p "$src" "$rel"' not in restore_script:
+        problems.append("restore moves its backup instead of copying — a retried restore would find nothing")
     return problems
+
+
+def check_worktree_gate(steps: list[dict]) -> list[str]:
+    """The clean-worktree gate must run after quarantine and before the review.
+
+    `opencode github run` commits whatever `git status --porcelain` reports, so
+    the gate is the last line of defence against quarantines leaking into the
+    consumer's PR branch (men#164).
+    """
+    problems = []
+    gate = next((s for s in steps if WORKTREE_GATE_STEP in (s.get("name") or "")), None)
+    if gate is None:
+        return [
+            f"missing '{WORKTREE_GATE_STEP}' step — a dirty worktree would be "
+            "committed and pushed to the consumer's PR branch (men#164)"
+        ]
+    script = _run_of(gate)
+    if "git status --porcelain" not in script:
+        problems.append("gate step does not check `git status --porcelain`")
+    if "exit 1" not in script:
+        problems.append("gate step does not fail the run when the worktree is dirty")
+    if "::error::" not in script:
+        problems.append("gate step does not report the offending paths as GitHub Actions errors")
+    # Ordering: quarantine < gate < review. Anything earlier hides its own
+    # rewrites; anything later is already past the point of no return.
+    def index_of(fragment: str) -> int:
+        for i, s in enumerate(steps):
+            if fragment in (s.get("name") or ""):
+                return i
+        return -1
+
+    q, g, r = index_of(QUARANTINE_STEP), index_of(WORKTREE_GATE_STEP), index_of("Run OpenCode review")
+    if not (0 <= q < g < r):
+        problems.append(
+            f"step order must be quarantine -> worktree gate -> review (got {q}, {g}, {r})"
+        )
+    return problems
+
+
+def _find_keys(obj, key: str, prefix: str = "") -> list[str]:
+    """Return every dotted path at which `key` occurs, recursively."""
+    hits: list[str] = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            path = f"{prefix}.{k}" if prefix else k
+            if k == key:
+                hits.append(path)
+            hits.extend(_find_keys(v, key, path))
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            hits.extend(_find_keys(v, key, f"{prefix}[{i}]"))
+    return hits
 
 
 def _run_script(script: str, cwd: pathlib.Path, bash: str | None, extra_env: dict | None = None) -> subprocess.CompletedProcess:
@@ -229,34 +309,40 @@ def run_quarantine_roundtrip(steps: list[dict], bash: str | None) -> list[str]:
         (repo / ".opencode" / "agent").mkdir(parents=True)
 
         # V2-format consumer config (the failing case from men#164).
-        (repo / "opencode.json").write_text(
-            json.dumps(
-                {
-                    "$schema": "https://opencode.ai/config.json",
-                    "agent": {
-                        "men": {
-                            "model": "x/y",
-                            "permissions": [
-                                {"action": "question", "resource": "*", "effect": "allow"}
-                            ],
-                        }
+        opencode_json = json.dumps(
+            {
+                "$schema": "https://opencode.ai/config.json",
+                "default_agent": "men",
+                "agent": {
+                    "men": {
+                        "model": "x/y",
+                        "description": "orchestrator",
+                        "permissions": [
+                            {"action": "question", "resource": "*", "effect": "allow"}
+                        ],
                     },
-                }
-            ),
-            encoding="utf-8",
+                    "ji": {"model": "x/z", "permissions": [{"action": "edit", "effect": "deny"}]},
+                },
+            }
         )
+        (repo / "opencode.json").write_text(opencode_json, encoding="utf-8")
         # Agent markdown whose frontmatter carries a V2 permissions block.
         agent_md = repo / ".opencode" / "agent" / "men.md"
-        agent_md.write_text(
+        agent_md_text = (
             "---\ndescription: t\nmode: primary\nmodel: x/y\n"
             "permissions:\n  - action: question\n    effect: allow\n"
-            "---\n\n# men\n",
-            encoding="utf-8",
+            "---\n\n# men\n"
         )
+        agent_md.write_text(agent_md_text, encoding="utf-8")
         # A V1-only consumer file that must be left completely alone.
         v1_file = repo / "v1only.json"
         v1_file.write_text('{"agent":{"a":{"permission":{"question":"allow"}}}}', encoding="utf-8")
         v1_before = v1_file.read_text(encoding="utf-8")
+        # A file the V1 CLI rewrites itself (it adds @opencode-ai/plugin to it);
+        # quarantine must mask it, not rewrite it.
+        pkg = repo / ".opencode" / "package.json"
+        pkg.write_text('{"name": "plugins", "dependencies": {"@opencode/plugin": "2.0.6"}}', encoding="utf-8")
+        pkg_before = pkg.read_text(encoding="utf-8")
 
         gh_env = sandbox / "gh_env"
         gh_env.touch()
@@ -267,14 +353,37 @@ def run_quarantine_roundtrip(steps: list[dict], bash: str | None) -> list[str]:
             problems.append(f"quarantine script exited {r.returncode}: {r.stderr.strip()[:200]}")
             return problems
 
-        # After quarantine the V2 files must be gone and the frontmatter closed.
-        if (repo / "opencode.json").exists():
-            problems.append("quarantine did not remove opencode.json")
-        if "permissions:" in agent_md.read_text(encoding="utf-8"):
-            problems.append("quarantine did not strip the V2 permissions block from agent frontmatter")
+        # The fix neutralises the file in place instead of deleting it, so the
+        # V1 CLI still sees a working config and the worktree stays clean.
+        if not (repo / "opencode.json").exists():
+            problems.append("quarantine removed opencode.json instead of neutralising it in place")
+        try:
+            rewritten = json.loads((repo / "opencode.json").read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            problems.append(f"quarantine left opencode.json unparseable by the V1 CLI: {exc}")
+            rewritten = None
+        if rewritten is not None:
+            if rewritten.get("default_agent") != "men":
+                problems.append("quarantine dropped default_agent from opencode.json")
+            if rewritten.get("agent", {}).get("men", {}).get("model") != "x/y":
+                problems.append("quarantine dropped the agent model from opencode.json")
+            if rewritten.get("agent", {}).get("ji", {}).get("model") != "x/z":
+                problems.append("quarantine dropped the second agent from opencode.json")
+            if _find_keys(rewritten, "permissions"):
+                problems.append("quarantine left a `permissions` array in opencode.json")
+
         stripped = agent_md.read_text(encoding="utf-8")
-        if not stripped.rstrip().endswith("# men") or stripped.count("---") < 2:
+        if "permissions:" in stripped:
+            problems.append("quarantine did not strip the V2 permissions block from agent frontmatter")
+        if not stripped.startswith("---\n") or "# men" not in stripped or stripped.count("---") < 2:
             problems.append("stripped frontmatter lost its closing '---' — opencode would fail to parse it")
+        for keep in ("description:", "mode:", "model:"):
+            if keep not in stripped:
+                problems.append(f"quarantine dropped `{keep}` from the agent frontmatter")
+
+        # Masked-only files must keep their original bytes.
+        if pkg.read_text(encoding="utf-8") != pkg_before:
+            problems.append("quarantine rewrote a file it was only supposed to mask")
         if v1_file.read_text(encoding="utf-8") != v1_before:
             problems.append("quarantine touched a V1-only config file")
 
@@ -290,11 +399,12 @@ def run_quarantine_roundtrip(steps: list[dict], bash: str | None) -> list[str]:
         r2 = _run_script(_run_of(restore), repo, bash, {"QUARANTINE_DIR": qdir})
         if r2.returncode != 0:
             problems.append(f"restore script exited {r2.returncode}: {r2.stderr.strip()[:200]}")
-        restored_json = json.loads((repo / "opencode.json").read_text(encoding="utf-8"))
-        if "permissions" not in restored_json.get("agent", {}).get("men", {}):
-            problems.append("restore did not bring back the V2 permissions array")
-        if "permissions:" not in agent_md.read_text(encoding="utf-8"):
+        if (repo / "opencode.json").read_text(encoding="utf-8") != opencode_json:
+            problems.append("restore did not bring back opencode.json byte-for-byte")
+        if agent_md.read_text(encoding="utf-8") != agent_md_text:
             problems.append("restore did not bring back the agent frontmatter permissions block")
+        if pkg.read_text(encoding="utf-8") != pkg_before:
+            problems.append("restore did not bring back the masked package.json byte-for-byte")
         if v1_file.read_text(encoding="utf-8") != v1_before:
             problems.append("restore touched a V1-only config file")
         # Restore must copy, not move. It also cleans up the quarantine dir, so a
@@ -408,6 +518,7 @@ def main(argv: list[str] | None = None) -> int:
         "version_pin": check_version_pin(steps),
         "path_export": check_path_export(steps),
         "quarantine_restore": check_quarantine_restore(steps),
+        "worktree_gate": check_worktree_gate(steps),
         "quarantine_roundtrip": run_quarantine_roundtrip(steps, bash),
         "fixture_step": check_fixture_step(steps),
         "no_injection": check_no_injection(steps),

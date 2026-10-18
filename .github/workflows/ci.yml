@@ -85,6 +85,7 @@ jobs:
             tools/eval_quality.py
             tools/validate_severity_matrix.py
             tools/validate_action.py
+            tools/test_quarantine_git.py
             config/argus-config.schema.json
             config/argus.example.yml
             config/argus-rules.schema.json
@@ -139,6 +140,7 @@ jobs:
           python3 -m py_compile tools/argus_webhook.py && echo "argus_webhook.py: ok"
           python3 -m py_compile tools/eval_quality.py && echo "eval_quality.py: ok"
           python3 -m py_compile tools/validate_action.py && echo "validate_action.py: ok"
+          python3 -m py_compile tools/test_quarantine_git.py && echo "test_quarantine_git.py: ok"
 
       # Self-test for the composite action. review.yml consumes this action via
       # `...@main`, so a PR that only touches action.yml runs the *old* main
@@ -151,6 +153,15 @@ jobs:
           python3 -m py_compile tools/validate_severity_matrix.py && echo "validate_severity_matrix.py: ok"
           python3 -m py_compile tools/validate_lessons.py && echo "validate_lessons.py: ok"
           python3 -m py_compile tools/add_fp_appeal.py && echo "add_fp_appeal.py: ok"
+
+      # The V1-compatibility quarantine must never be visible to git: OpenCode
+      # 1.x's `github run` commits whatever `git status --porcelain` reports, so
+      # a dirty worktree during a review gets pushed onto the consumer's branch
+      # (cgartlab/men#164). This runs the real step bodies in a throw-away repo.
+      - name: "Regression: quarantine is invisible to git (men#164)"
+        run: |
+          python3 tools/test_quarantine_git.py
+          echo "quarantine git-visibility: all assertions ok"
 
       - name: Validate free model list (config/free-models.yml)
         run: |

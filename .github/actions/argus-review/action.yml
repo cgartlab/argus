@@ -265,46 +265,159 @@ runs:
       # ordered `permissions` array with:
       #   "V2 permissions are not supported by OpenCode V1"
       # Consumer repos may legitimately keep V2 config (that is what their own
-      # local V2 CLI reads), so we must not rewrite it. Instead move such files
-      # aside for the duration of the run and restore them on exit.
+      # local V2 CLI reads), so the V2 keys are neutralised in place for the
+      # duration of the run and restored byte-for-byte on exit.
       #
-      # Detection is content-based, not filename-based: a file is quarantined
-      # only when it actually contains a V2 `permissions` array at the agent
-      # level, so V1-only consumers are entirely untouched.
+      # Detection is content-based, not filename-based: a file is touched only
+      # when it actually carries a V2 `permissions` array, so V1-only consumers
+      # are entirely untouched.
+      #
+      # WHY IN-PLACE + --skip-worktree AND NOT `rm` (regression from men#164):
+      #   OpenCode v1.19.3 commits the working tree whenever it is dirty --
+      #   branchIsDirty() is a bare `git status --porcelain` check and
+      #   pushToLocalBranch() follows with `git add .` -> `git commit` ->
+      #   `git push` (packages/opencode/src/github/index.ts, tag v1.19.3). The
+      #   old `rm` therefore made the worktree dirty and the *deletions of the
+      #   consumer's own V2 config* were pushed onto their PR branch, silently
+      #   downgrading it to V1. Restoring afterwards is too late: the CLI has
+      #   already committed and pushed by the time this action's next step runs.
+      #   `git update-index --skip-worktree` makes git treat the rewritten path
+      #   as untouched, so status stays empty and the CLI commits nothing.
+      #   Untracked paths cannot be skip-worktree'd, so they are additionally
+      #   hidden in .git/info/exclude (worktree-local, never committed).
+      #
+      # The V1 CLI also rewrites .opencode/package.json itself (adding the
+      # @opencode-ai/plugin dependency it boots with) and may drop a lockfile
+      # beside it. Those carry no V2 config but dirty the worktree the same
+      # way, so they are masked unconditionally.
       run: |
         set -euo pipefail
         QUARANTINE_DIR="$(mktemp -d)"
         : > "$QUARANTINE_DIR/manifest"
         echo "QUARANTINE_DIR=$QUARANTINE_DIR" >> "$GITHUB_ENV"
 
-        quarantine_if_v2() {
+        # Record a path we are about to hide. Its backup must already exist in
+        # $QUARANTINE_DIR -- every caller copies first -- because restore
+        # replays this manifest by copying the backup back.
+        mask() {
           local rel="$1"
-          [ -f "$rel" ] || return 0
-          # Match  "permissions" : [  ... ]  (V2 ordered array form)
-          if grep -Eq '"permissions"[[:space:]]*:[[:space:]]*\[' "$rel"; then
-            local dest="$QUARANTINE_DIR/$(echo "$rel" | tr '/' '_')"
-            cp -p "$rel" "$dest"
-            rm -f "$rel"
-            echo "$rel" >> "$QUARANTINE_DIR/manifest"
-            echo "[argus] quarantined V2-only config for V1 CLI: $rel"
+          echo "$rel" >> "$QUARANTINE_DIR/manifest"
+          if git ls-files --error-unmatch -- "$rel" >/dev/null 2>&1; then
+            git update-index --skip-worktree -- "$rel"
           fi
         }
 
-        quarantine_if_v2 "opencode.json"
-        quarantine_if_v2 ".opencode/opencode.json"
+        # Refuse to run a review against config the V1 CLI cannot parse. A
+        # confusing parser crash would be worse than a red check, and this is
+        # the only case where the quarantine cannot hide anything.
+        fail_quarantine() {
+          echo "::error::[argus] could not neutralise V2 permissions in $1 -- refusing to run a review against config the V1 CLI cannot parse"
+          exit 1
+        }
+
+        # Remove every `permissions` array from opencode.json, leaving the rest
+        # of the config ($schema, default_agent, agent models) intact so the V1
+        # CLI still gets a working file instead of a missing one.
+        neutralise_json_permissions() {
+          python3 - "$1" <<'PY'
+        import json
+        import re
+        import sys
+
+        p = sys.argv[1]
+        src = open(p, encoding="utf-8").read()
+        ARRAY_KEY = re.compile(r'"permissions"[ \t]*:[ \t]*\[')
+
+        def strip(v):
+            if isinstance(v, dict):
+                return {
+                    k: strip(x)
+                    for k, x in v.items()
+                    if not (k == "permissions" and isinstance(x, list))
+                }
+            if isinstance(v, list):
+                return [strip(x) for x in v]
+            return v
+
+        try:
+            data = json.loads(src)
+        except Exception:
+            data = None  # JSONC (comments / trailing commas); see below
+
+        if data is not None:
+            open(p, "w", encoding="utf-8").write(
+                json.dumps(strip(data), indent=2, ensure_ascii=False) + "\n"
+            )
+        else:
+            # Remove only each `"permissions": [...]` pair so comments and every
+            # other byte survive. A comma left dangling at the object's end
+            # would invalidate the JSON, so drop it along with the pair.
+            out = []
+            i = 0
+            while True:
+                m = ARRAY_KEY.search(src, i)
+                if m is None:
+                    out.append(src[i:])
+                    break
+                j = src.index("[", m.start())
+                depth = 0
+                in_str = False
+                escaped = False
+                while j < len(src):
+                    c = src[j]
+                    if in_str:
+                        if escaped:
+                            escaped = False
+                        elif c == "\\":
+                            escaped = True
+                        elif c == '"':
+                            in_str = False
+                    elif c == '"':
+                        in_str = True
+                    elif c == "[":
+                        depth += 1
+                    elif c == "]":
+                        depth -= 1
+                        if depth == 0:
+                            j += 1
+                            break
+                    j += 1
+                if depth != 0:
+                    sys.exit(1)  # unbalanced brackets: refuse to guess
+                out.append(re.sub(r",\s*$", "", src[i : m.start()]))
+                i = j
+            open(p, "w", encoding="utf-8").write("".join(out))
+
+        # Success means no V2 array is left for the V1 parser to choke on.
+        if ARRAY_KEY.search(open(p, encoding="utf-8").read()):
+            sys.exit(1)
+        PY
+        }
+
+        for rel in opencode.json .opencode/opencode.json; do
+          [ -f "$rel" ] || continue
+          grep -Eq '"permissions"[[:space:]]*:[[:space:]]*\[' "$rel" || continue
+          # Back up BEFORE neutralising, so restore can bring the original bytes
+          # back. Backing up afterwards would restore the neutralised config and
+          # silently downgrade the consumer's V2 file again.
+          cp -p "$rel" "$QUARANTINE_DIR/$(echo "$rel" | tr '/' '_')"
+          neutralise_json_permissions "$rel" || fail_quarantine "$rel"
+          mask "$rel"
+          echo "[argus] neutralised V2 permissions in $rel (kept in place for the V1 CLI)"
+        done
 
         # Agent markdown frontmatter can also carry a V2 permissions block.
         for f in .opencode/agent/*.md; do
           [ -f "$f" ] || continue
-          if grep -Eq '^permissions:[[:space:]]*$' "$f"; then
-            dest="$QUARANTINE_DIR/$(echo "$f" | tr '/' '_')"
-            cp -p "$f" "$dest"
-            # Strip only the V2 permission block from frontmatter; keep the agent
-            # definition itself so routing/description still work.
-            # The block is a top-level key followed by indented lines only.
-            # Deliberately does NOT consume blank lines or the closing `---`,
-            # otherwise the frontmatter would be left unterminated.
-            python3 - "$f" <<'PY'
+          grep -Eq '^permissions:[[:space:]]*$' "$f" || continue
+          dest="$QUARANTINE_DIR/$(echo "$f" | tr '/' '_')"
+          cp -p "$f" "$dest"
+          # Strip only the V2 permission block from frontmatter; keep the agent
+          # definition itself so routing/description still work.
+          # The block is a top-level key followed by indented lines only.
+          # Deliberately does NOT consume blank lines or the closing `---`,
+          # otherwise the frontmatter would be left unterminated.
+          python3 - "$f" <<'PY'
         import re
         import sys
         p = sys.argv[1]
@@ -312,17 +425,65 @@ runs:
         src = re.sub(r"(?m)^permissions:[ \t]*\n(?:[ \t]+[^\n]*\n)+", "", src, count=1)
         open(p, "w", encoding="utf-8").write(src)
         PY
-            echo "$f" >> "$QUARANTINE_DIR/manifest"
-            echo "[argus] stripped V2 permissions from agent frontmatter: $f"
+          if grep -Eq '^permissions:[[:space:]]*$' "$f"; then
+            fail_quarantine "$f"
           fi
+          mask "$f"
+          echo "[argus] stripped V2 permissions from agent frontmatter: $f"
         done
 
-        if [ -s "$QUARANTINE_DIR/manifest" ]; then
-          echo "[argus] V1 compatibility quarantine applied to $(wc -l < "$QUARANTINE_DIR/manifest") file(s)"
+        # The V1 CLI writes these while booting; they carry no V2 config, so
+        # only mask them. A path that does not exist yet is recorded anyway, so
+        # the .git/info/exclude block below hides a lockfile the CLI creates
+        # mid-run before this step's summary is printed.
+        for rel in .opencode/package.json .opencode/bun.lock .opencode/package-lock.json; do
+          if [ -f "$rel" ]; then
+            cp -p "$rel" "$QUARANTINE_DIR/$(echo "$rel" | tr '/' '_')"
+          fi
+          mask "$rel"
+        done
+
+        # Untracked paths cannot be hidden with --skip-worktree (git rejects the
+        # path), so hide every masked path in .git/info/exclude. That file is
+        # worktree-local and never committed; the restore step deletes this
+        # block. Without it, a lockfile the V1 CLI creates mid-run would show as
+        # untracked and be swept into the CLI's own `git add .` commit.
+        GITDIR="$(git rev-parse --git-dir 2>/dev/null || echo "")"
+        if [ -n "$GITDIR" ] && [ -d "$GITDIR" ]; then
+          {
+            echo "# argus-quarantine:BEGIN"
+            cat "$QUARANTINE_DIR/manifest"
+            echo "# argus-quarantine:END"
+          } >> "$GITDIR/info/exclude"
         else
-          echo "[argus] no V2-only config detected; nothing to quarantine"
+          echo "::warning::[argus] not inside a git repository -- quarantine cannot be hidden from git"
         fi
+
+        echo "[argus] V1 compatibility quarantine applied to $(wc -l < "$QUARANTINE_DIR/manifest") path(s)"
       shell: bash
+
+    - name: Verify worktree is clean before review
+      if: inputs.fixture-mode == 'false'
+      # OpenCode v1.19.3 publishes whatever it finds: branchIsDirty() is
+      # `git status --porcelain` being non-empty, and pushToLocalBranch() then
+      # runs `git add .` -> `git commit` -> `git push` onto the consumer's PR
+      # branch. The quarantine step hides its own rewrites, so a non-empty
+      # status here means something the review must NOT ship -- an earlier
+      # step's artifact, or a masking failure. Fail closed: a red check beats a
+      # silently polluted consumer branch (cgartlab/men#164).
+      shell: bash
+      run: |
+        set -uo pipefail
+        dirty="$(git status --porcelain)"
+        if [ -z "$dirty" ]; then
+          echo "[argus] worktree clean before review (quarantine hidden from git)"
+        else
+          echo "::error::Worktree is dirty before the review starts:"
+          echo "$dirty" | sed 's/^/::error::  /'
+          echo "::error::OpenCode's 'github run' commits whatever it finds (branchIsDirty() -> pushToLocalBranch(): git add . && git commit && git push)."
+          echo "::error::Those paths would be pushed to the consumer's PR branch. Fix the step that created them, or add them to .gitignore, then re-run."
+          exit 1
+        fi
 
     - name: Run OpenCode review (with fallback queue)
       if: inputs.fixture-mode == 'false'
@@ -550,20 +711,46 @@ runs:
     - name: Restore quarantined opencode config
       if: always()
       # Always restore, so a failed review never leaves the consumer repo with
-      # its config missing (later steps or retries may need it).
+      # its config neutralised (later steps or retries may need it).
+      #
+      # The --skip-worktree flags and the .git/info/exclude block MUST both be
+      # cleared, or the consumer's own git would keep treating these paths as
+      # untouched and keep hiding real edits long after this action finished.
       run: |
         set -uo pipefail
         if [ -z "${QUARANTINE_DIR:-}" ] || [ ! -f "$QUARANTINE_DIR/manifest" ]; then
           echo "[argus] nothing to restore"
           exit 0
         fi
+        GITDIR="$(git rev-parse --git-dir 2>/dev/null || echo "")"
+        if [ -n "$GITDIR" ] && [ -f "$GITDIR/info/exclude" ]; then
+          # awk + temp file instead of `sed -i`: BSD sed (macOS self-hosted
+          # runners) needs `sed -i ''`, so an in-place sed would break there.
+          awk '
+            /^# argus-quarantine:BEGIN$/ { skip = 1; next }
+            /^# argus-quarantine:END$/   { skip = 0; next }
+            skip != 1 { print }
+          ' "$GITDIR/info/exclude" > "$QUARANTINE_DIR/exclude.filtered" \
+            && mv "$QUARANTINE_DIR/exclude.filtered" "$GITDIR/info/exclude"
+        fi
         while IFS= read -r rel; do
           [ -n "$rel" ] || continue
+          # Clear the flag before writing, so the path is never left both
+          # visible to git and still carrying the neutralised content.
+          git update-index --no-skip-worktree -- "$rel" 2>/dev/null || true
           src="$QUARANTINE_DIR/$(echo "$rel" | tr '/' '_')"
           if [ -f "$src" ]; then
             mkdir -p "$(dirname "$rel")"
             cp -p "$src" "$rel"
             echo "[argus] restored $rel"
+          else
+            # No backup means the path did not exist when quarantine ran, so
+            # anything there now is a CLI side effect (typically
+            # .opencode/package-lock.json). Delete it rather than committing it.
+            if [ -e "$rel" ]; then
+              rm -f -- "$rel"
+              echo "[argus] removed CLI side effect: $rel"
+            fi
           fi
         done < "$QUARANTINE_DIR/manifest"
         rm -rf "$QUARANTINE_DIR"
