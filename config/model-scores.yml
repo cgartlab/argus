@@ -67,3 +67,39 @@ models:
     source: https://opencode.ai/zen/v1/models
     confidence: low
     deprecated: true
+  opencode/beam-free:
+    underlying: "Beam (free variant)"
+    score: 0
+    benchmark: none
+    source: https://opencode.ai/zen/v1/models
+    confidence: low
+    # 地区封锁：实测（2026-10-19，opencode CLI + Zen API key）返回
+    # `RegionError: This model is not available in your country`。
+    # 目录里存在 ≠ 本账号所在地区可调用——生成器只看目录，看不到这层。
+    # regions 列出**可用**地区；空列表 = 已知在任何地区都不可用于 API 调用，
+    # 生成器据此跳过该模型（见 tools/update_free_models.py 的 region 过滤）。
+    regions: []
+  # ── 2026-10-19 实测可调用（opencode CLI，各连跑 2 次均返回正常）─────────────
+  # 这三个是当前 Zen 免费目录里**唯一**能被本账号正常调用的模型。
+  # 其余目录项要么被 RegionError 封锁（beam-free），要么 API 列出但 CLI 无法解析
+  # （nemotron-3.5-lightning / glm-5.3 / longcat-2.5 / mimo-v2.6 / minimax-m3.1 / jev-1.13）。
+  # 它们的 score 仍为 0（无公开 benchmark 数据），但必须存在条目，否则生成器
+  # 会因「unknown model 不得升为 primary」而无法选出任何可用主模型。
+  opencode/deepseek-v4.1-flash-free:
+    underlying: "DeepSeek V4.1 Flash (free variant)"
+    score: 0
+    benchmark: none
+    source: https://opencode.ai/zen/v1/models
+    confidence: low
+  opencode/nemotron-3.5-super-vl-free:
+    underlying: "NVIDIA Nemotron 3.5 Super VL (free variant)"
+    score: 0
+    benchmark: none
+    source: https://opencode.ai/zen/v1/models
+    confidence: low
+  opencode/space-bunny-free:
+    underlying: "Space Bunny (free variant)"
+    score: 0
+    benchmark: none
+    source: https://opencode.ai/zen/v1/models
+    confidence: low
