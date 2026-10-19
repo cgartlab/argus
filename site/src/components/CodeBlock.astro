@@ -11,7 +11,7 @@ const { code, lang = 'text', title } = Astro.props
 const langLabel = lang && lang !== 'text' ? lang.toUpperCase() : null
 ---
 
-<div class="code-card group my-6 overflow-hidden rounded-xl border border-border bg-surface shadow-sm ring-1 ring-border/40">
+<div class="code-card group my-6 overflow-hidden rounded-[13.5px] border border-border bg-surface shadow-sm ring-1 ring-border/40">
   {
     title && (
       <div class="flex items-center gap-3 border-b border-border bg-surface-2 px-4 py-2.5">
@@ -27,7 +27,7 @@ const langLabel = lang && lang !== 'text' ? lang.toUpperCase() : null
         </div>
         <span class="font-mono text-xs font-medium text-fg-muted">{title}</span>
         {langLabel && (
-          <span class="ml-auto rounded border border-border bg-surface px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+          <span class="ml-auto rounded-[6.5px] border border-border bg-surface px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
             {langLabel}
           </span>
         )}
@@ -38,7 +38,7 @@ const langLabel = lang && lang !== 'text' ? lang.toUpperCase() : null
   <div class="not-prose relative">
     <button
       type="button"
-      class="copy-btn absolute right-3 top-3 z-10 inline-flex min-h-6 items-center gap-1.5 rounded-md border border-border bg-surface/90 px-2 py-1.5 font-mono text-xs font-medium text-fg-muted opacity-60 backdrop-blur transition-all hover:opacity-100 focus:opacity-100 hover:text-fg"
+      class="copy-btn absolute right-3 top-3 z-10 inline-flex min-h-6 items-center gap-1.5 rounded-[6.5px] border border-strong bg-surface/90 px-2 py-1.5 font-mono text-xs font-medium text-fg-muted opacity-60 backdrop-blur transition-all hover:opacity-100 focus:opacity-100 hover:text-fg"
       aria-label="Copy code to clipboard"
       data-copy-target
     >

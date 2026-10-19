@@ -10,7 +10,14 @@
   --color-fg-invert: #ffffff;
   /* RGB triplet for rgba() interpolation (light) — must mirror --color-fg-invert */
   --color-fg-invert-rgb: 255, 255, 255;
-  --color-border: #e2e8f0;
+  /* Border system (iOS-style): hairlines derived from the ink colour at low
+     opacity, NOT a separate grey ramp — borders stay harmonious with text in
+     both themes automatically. --color-border is the quiet structural hairline
+     (cards, code, prose rules, pills); --color-border-strong is the
+     interactive boundary tier (btn-secondary, copy-btn), still ink-tinted but
+     clearly perceptible. */
+  --color-border: color-mix(in srgb, var(--color-fg) 20%, transparent);
+  --color-border-strong: color-mix(in srgb, var(--color-fg) 52%, transparent);
   /* Argus brand accent — amber (flash / vigilance, warm-aligned with logo) */
   --color-accent: #a16207; /* Darkened from #d97706 to pass WCAG AA 4.5:1 on white (4.92:1) */
   --color-accent-strong: #b45309;
@@ -82,7 +89,8 @@
   --color-fg-invert: #0f172a;
   /* RGB triplet for rgba() interpolation (dark) — must mirror --color-fg-invert */
   --color-fg-invert-rgb: 15, 23, 42;
-  --color-border: #334155;
+  --color-border: color-mix(in srgb, var(--color-fg) 8%, transparent);
+  --color-border-strong: color-mix(in srgb, var(--color-fg) 24%, transparent);
   --color-accent: #fbbf24;
   --color-accent-strong: #fcd34d;
   --color-accent-soft: #78350f;
