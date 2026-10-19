@@ -537,12 +537,19 @@ def refresh(dry_run: bool = False) -> int:
                     print(f"  - {mid}")
             live_free = live_free & cli_free
 
-    if not live_free:
-        print("[update-free-models] ✗ CLI cross-check emptied the live set — aborting to avoid clobbering config",
-              file=sys.stderr)
-        return 2
-
     scores = _load_model_scores()
+
+    # Drop models flagged deprecated in model-scores.yml — the Zen API still
+    # lists models that are dead at the gateway (e.g. disabled or renamed),
+    # but a human has marked them dead in model-scores.yml. Excluding them
+    # here means refresh() never proposes a deprecated model, so --check
+    # never has to reject one and the weekly workflow can reach the push step.
+    deprecated = {mid for mid, entry in scores.items() if entry.get("deprecated")}
+    if deprecated & live_free:
+        print("[update-free-models] − Skipping models flagged deprecated in model-scores.yml:")
+        for mid in sorted(deprecated & live_free):
+            print(f"  - {mid}")
+        live_free = live_free - deprecated
 
     # Region filter: the Zen catalogue lists models that this account's region
     # cannot actually call (see _apply_region_filter). Drop them before primary
@@ -550,10 +557,11 @@ def refresh(dry_run: bool = False) -> int:
     filtered = _apply_region_filter(live_free, scores)
     if filtered != live_free:
         live_free = filtered
-        if not live_free:
-            print("[update-free-models] ✗ Region filter emptied the live set — aborting to avoid clobbering config",
-                  file=sys.stderr)
-            return 2
+
+    if not live_free:
+        print("[update-free-models] ✗ Filtering emptied the live set — aborting to avoid clobbering config",
+              file=sys.stderr)
+        return 2
 
     current = _parse_config(CONFIG_PATH)
     primary = current.get("primary") or BUILTIN_PRIMARY
