@@ -98,8 +98,6 @@ runs:
       # Complementary guard: the "Verify worktree is clean before review" step
       # fails the run if anything is dirty, so agent-created files are caught
       # even though they can no longer be pushed.
-      env:
-        GH_TOKEN_VALUE: ${{ inputs.github-token }}
       run: |
         # Commit identity: local to this repository only (no --global, which
         # would leak into unrelated repositories on the same runner).
@@ -783,13 +781,17 @@ runs:
 
     - name: Scrub token from git config
       if: always()
-      # Belt-and-braces: "Configure git" no longer writes a token-bearing
-      # remote, so there should be nothing to scrub. Verify rather than assume
-      # — if a token ever reappears in .git/config, fail loudly instead of
-      # leaving a credential on disk.
+      # "Configure git" no longer writes a token-bearing remote, so this step is
+      # defence in depth in two stages:
+      #   1. restore the credential-free remote unconditionally — the behaviour
+      #      this step always had. A cleanup step must clean, not just complain,
+      #      otherwise a stray credential would survive the run.
+      #   2. then verify it really is gone, so a future regression that writes a
+      #      credential somewhere else still fails loudly in CI.
       run: |
+        git remote set-url origin "https://github.com/${{ github.repository }}.git"
         if git config --get-regexp 'remote\..*\.url' 2>/dev/null | grep -Eq 'x-access-token|oauth2|ghp_|github_pat_'; then
-          echo "::error::A credential-bearing git remote is still configured; refusing to leave it on disk."
+          echo "::error::A credential-bearing git remote is still configured after scrubbing; refusing to continue."
           exit 1
         fi
         echo "[argus] git remotes carry no credentials"
