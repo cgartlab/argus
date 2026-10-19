@@ -34,18 +34,17 @@ jobs:
           python3 tools/update_free_models.py --check
         shell: bash
 
-      - name: Generate argus-flash token
-        id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ secrets.ARGUS_FLASH_APP_ID }}
-          private-key: ${{ secrets.ARGUS_FLASH_PRIVATE_KEY }}
-
       - name: Create Pull Request
+        # GITHUB_TOKEN (not argus-flash app token) — the argus-flash app is
+        # installed with pull-requests:write for code review only; it lacks
+        # contents:write, so git push to the branch fails with HTTP 403
+        # (see #179: "RPC failed; HTTP 403"). This workflow already declares
+        # contents:write + pull-requests:write at the top, so GITHUB_TOKEN has
+        # both permissions here.
         id: cpr
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ github.token }}
           branch: models-auto/refresh
           delete-branch: true
           commit-message: "chore(models): refresh free model list from opencode [skip changelog]"
