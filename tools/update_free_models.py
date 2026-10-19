@@ -392,6 +392,32 @@ def _fetch_live_free_models() -> set[str] | None:
     return models
 
 
+def _apply_region_filter(models: set[str], scores: dict[str, dict]) -> set[str]:
+    """Drop models whose ``regions`` list is explicitly empty.
+
+    ``config/model-scores.yml`` documents ``regions`` as "list of region codes
+    where the model is available". An **empty list** therefore means "known to
+    be unavailable everywhere we can reach" — the model shows up in the Zen
+    catalogue but the API rejects it, e.g.::
+
+        RegionError: This model is not available in your country
+
+    The catalogue cannot express this: a model present in ``/models`` is not
+    necessarily callable from this account's region. Keeping such a model in
+    the queue means the primary and every fallback fail for a reason that has
+    nothing to do with the review itself.
+    """
+    kept: set[str] = set()
+    for mid in models:
+        entry = scores.get(mid) or {}
+        regions = entry.get("regions")
+        if isinstance(regions, list) and len(regions) == 0:
+            print(f"[update-free-models] − Skipped region-blocked: {mid}")
+            continue
+        kept.add(mid)
+    return kept
+
+
 def _list_free_models(opencode: str) -> set[str]:
     """CLI fallback: run `opencode models opencode --refresh` and return free model IDs."""
     try:
@@ -511,12 +537,13 @@ def refresh(dry_run: bool = False) -> int:
                     print(f"  - {mid}")
             live_free = live_free & cli_free
 
+    scores = _load_model_scores()
+
     # Drop models flagged deprecated in model-scores.yml — the Zen API still
     # lists models that are dead at the gateway (e.g. disabled or renamed),
     # but a human has marked them dead in model-scores.yml. Excluding them
     # here means refresh() never proposes a deprecated model, so --check
     # never has to reject one and the weekly workflow can reach the push step.
-    scores = _load_model_scores()
     deprecated = {mid for mid, entry in scores.items() if entry.get("deprecated")}
     if deprecated & live_free:
         print("[update-free-models] − Skipping models flagged deprecated in model-scores.yml:")
@@ -524,8 +551,15 @@ def refresh(dry_run: bool = False) -> int:
             print(f"  - {mid}")
         live_free = live_free - deprecated
 
+    # Region filter: the Zen catalogue lists models that this account's region
+    # cannot actually call (see _apply_region_filter). Drop them before primary
+    # re-selection so a region-blocked model can never be promoted.
+    filtered = _apply_region_filter(live_free, scores)
+    if filtered != live_free:
+        live_free = filtered
+
     if not live_free:
-        print("[update-free-models] ✗ CLI cross-check emptied the live set — aborting to avoid clobbering config",
+        print("[update-free-models] ✗ Filtering emptied the live set — aborting to avoid clobbering config",
               file=sys.stderr)
         return 2
 
@@ -647,6 +681,24 @@ def check() -> int:
         if entry.get("deprecated"):
             errors.append(
                 f"model '{mid}' is marked deprecated in model-scores.yml but still in fallback_models"
+            )
+
+    # Models explicitly region-blocked (`regions: []`) must not be the primary
+    # or sit in the queue: they exist in the Zen catalogue but the API refuses
+    # them for this account's region, so every review would fail on them.
+    region_blocked = {
+        mid for mid, entry in scores.items()
+        if isinstance(entry.get("regions"), list) and len(entry["regions"]) == 0
+    }
+    if primary in region_blocked:
+        errors.append(
+            f"primary '{primary}' is region-blocked in model-scores.yml (regions: []) — "
+            f"the API rejects it with RegionError"
+        )
+    for mid in fallback:
+        if mid in region_blocked:
+            errors.append(
+                f"model '{mid}' is region-blocked in model-scores.yml (regions: []) but still in fallback_models"
             )
 
     if errors:

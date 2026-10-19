@@ -510,9 +510,20 @@ runs:
 
     - name: Run OpenCode review (with fallback queue)
       if: inputs.fixture-mode == 'false'
-      # Safety net: the step-level timeout catches any hang that the per-model
-      # `timeout` below doesn't (e.g. the fallback-queue loop itself).
-      timeout-minutes: 12
+      # NO step-level timeout-minutes here, on purpose. A composite action's
+      # steps[] cannot carry timeout-minutes: the runner rejects the manifest at
+      # load time with "Unexpected value 'timeout-minutes'", which fails the
+      # entire review job before any step runs — it silently breaks every
+      # consumer repo pinned to @main. (Regression 2a2ef56, hit by
+      # cgartlab/goto-github PR #53: the job died in 7s at "Failed to load
+      # action.yml" instead of reviewing.)
+      #
+      # Two mechanisms cover the hang the original safety net was for:
+      #   - GNU `timeout` wraps each `opencode github run` call below, so a
+      #     hung model attempt fails in $REVIEW_TIMEOUT (480s) and the
+      #     fallback queue still runs (exit 124 is retryable).
+      #   - the CONSUMING workflow sets job-level timeout-minutes, which IS
+      #     valid at job scope; see .github/workflows/review.yml.
       shell: bash
       run: |
         # Auth: only export when the consumer supplied a key — never override
