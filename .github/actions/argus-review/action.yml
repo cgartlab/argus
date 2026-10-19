@@ -510,9 +510,6 @@ runs:
 
     - name: Run OpenCode review (with fallback queue)
       if: inputs.fixture-mode == 'false'
-      # Safety net: the step-level timeout catches any hang that the per-model
-      # `timeout` below doesn't (e.g. the fallback-queue loop itself).
-      timeout-minutes: 12
       shell: bash
       run: |
         # Auth: only export when the consumer supplied a key — never override
