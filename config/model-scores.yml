@@ -17,39 +17,53 @@ models:
     benchmark: swebench_verified
     source: https://llm-stats.com/benchmarks/swe-bench-verified
     confidence: medium
+    deprecated: true
   opencode/nemotron-3-ultra-free:
     underlying: "NVIDIA Nemotron 3 Ultra (550B MoE, 55B active)"
     score: 70.7
     benchmark: swebench_verified
     source: https://developer.nvidia.com/blog/nvidia-nemotron-3-ultra-powers-faster-more-efficient-reasoning-for-long-running-agents/
     confidence: high
+    deprecated: true
   opencode/muse-spark-1.2-contributor-free:
     underlying: "Meta Muse Spark 1.2 (Superintelligence Labs)"
     score: 54.0
     benchmark: intelligence_index
     source: https://artificialanalysis.ai/articles/muse-spark-1-2
     confidence: medium
+    deprecated: true
   opencode/nemotron-3.5-lightning-free:
     underlying: "NVIDIA Nemotron 3.5 Lightning (30B MoE, 3B active)"
     score: 51.6
     benchmark: swebench_verifiable
     source: https://anotherwrapper.com/tools/llm-pricing/deepseek-v3-0324/nemotron-3.5-lightning-30b-a3b
     confidence: high
+    deprecated: true
   opencode/mimo-v2.5-free:
     underlying: "Xiaomi MiMo-V2.5 (1.02T MoE, 42B active)"
     score: 56.1
     benchmark: swebench_pro
     source: https://www.gradually.ai/en/open-llms/
     confidence: low
+    deprecated: true
   opencode/muse-spark-1.3-contributor-free:
     underlying: "Meta Muse Spark 1.3 (Superintelligence Labs; xhigh public variant)"
     score: 61.0
     benchmark: intelligence_index
     source: https://artificialanalysis.ai/articles/muse-spark-1-3
     confidence: medium
+    deprecated: true
   opencode/ling-3.0-flash-fin-free:
     underlying: "Ant Group Ling 3.0 Flash Fin (124B MoE, 5.1B active) — finance-tuned; parent Ling 3.0 Flash score, Fin tuning unmeasured"
     score: 38.0
     benchmark: intelligence_index
     source: https://artificialanalysis.ai/models/ling-3-0-flash
     confidence: medium
+    deprecated: true
+  opencode/jev-1.13-free:
+    underlying: "Jev 1.13 (free variant)"
+    score: 0
+    benchmark: none
+    source: https://opencode.ai/zen/v1/models
+    confidence: low
+    deprecated: true
