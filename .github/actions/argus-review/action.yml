@@ -75,37 +75,61 @@ runs:
       # before bash parses it, which both breaks on shell metacharacters and
       # exposes the value in step-debug logs.
       #
-      # NO TOKEN REMOTE (regression fix).
-      # OpenCode's `github run` runs `branchIsDirty() -> pushToLocalBranch()`,
-      # i.e. `git add . && git commit && git push` — whatever it finds. That
-      # means the review agent can push code to the consumer's PR branch, and
-      # on cgartlab/men#170 it did exactly that: twice, identically, it pushed
-      # three destructive changes (deleted opencode.json, stripped V2
-      # `permissions` from .opencode/agent/men.md, re-added the V1
-      # `@opencode-ai/plugin` dependency), breaking 19 of men's 273 tests.
+      # FETCH NEEDS CREDENTIALS; ONLY PUSH MUST BE BLOCKED.
+      # OpenCode's `github run` first checks out the PR branch with
+      # `git fetch origin --depth=20 <branch>`, and only then posts the review
+      # comment. On a private consumer repo an anonymous fetch fails with
+      # `fatal: could not read Username for 'https://github.com'` (code 128),
+      # so stripping the credential from the remote breaks the review itself
+      # — regression #195, observed on cgartlab/ArcLab PR #33.
       #
-      # The fix removes only the *push credential*. Commit identity is kept so
-      # a `git commit` inside the agent session still succeeds — a review agent
-      # must be able to finish its review even if it decides to commit, and a
-      # hard failure there would take the whole review down. Without a
-      # credential on the remote, any push fails instead of authenticating, so
-      # destructive changes can never reach the consumer's branch.
+      # The original threat (#183, cgartlab/men#170) was the agent *pushing*
+      # code: `branchIsDirty() -> pushToLocalBranch()` runs
+      # `git add . && git commit && git push` on whatever it finds. Fetch and
+      # push are different operations, so only the push is blocked here:
       #
-      # Posting the review comment does NOT need git: `opencode github run`
-      # calls the GitHub API with GITHUB_TOKEN from the environment (see the
-      # review step). Reviews therefore keep working.
+      #   - the remote keeps its credential, so fetch/checkout works on
+      #     private repos;
+      #   - a local `pre-push` hook exits 1, so `git push` fails inside the
+      #     agent session before any data leaves the runner.
       #
-      # Complementary guard: the "Verify worktree is clean before review" step
-      # fails the run if anything is dirty, so agent-created files are caught
-      # even though they can no longer be pushed.
+      # Why a hook and not a server-side permission: the token is minted by
+      # the *consumer's* workflow (`create-github-app-token`), so its
+      # permission set is outside this action's control — a consumer that
+      # grants `contents: write` would still let a push through. The hook is
+      # enforced locally regardless of what the token could do.
+      env:
+        GH_TOKEN_VALUE: ${{ inputs.github-token }}
       run: |
         # Commit identity: local to this repository only (no --global, which
         # would leak into unrelated repositories on the same runner).
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git config user.name "github-actions[bot]"
-        # Strip any credential from the remote so a `git push` inside the agent
-        # session fails rather than authenticating.
-        git remote set-url origin "https://github.com/${{ github.repository }}.git"
+
+        # Credential-bearing remote: required for `opencode github run`'s
+        # `git fetch origin --depth=20 <branch>` on private repos. Push is
+        # blocked locally instead (below), not by removing the credential.
+        git remote set-url origin "https://x-access-token:${GH_TOKEN_VALUE}@github.com/${{ github.repository }}.git"
+
+        # Local pre-push hook: unconditionally refuses every push. git always
+        # consults core.hooksPath, so this holds for any `git push` the agent
+        # session runs, including one nested in a script.
+        # Scoped to pre-push only — no pre-fetch/pre-commit hooks exist or are
+        # needed, and adding none keeps fetch and commit working.
+        HOOKS_DIR="${{ runner.temp }}/argus-no-push-hooks"
+        mkdir -p "$HOOKS_DIR"
+        cat > "$HOOKS_DIR/pre-push" <<'HOOK'
+        #!/bin/sh
+        # Installed by the Argus review action. The review agent must not push
+        # to the consumer's branch (regression #183), but it still needs to
+        # fetch the PR branch to review it (#195) — so only push is blocked.
+        echo "[argus] git push is disabled during the review run (pre-push hook)."
+        echo "[argus] The review is posted as a PR comment instead; nothing is pushed."
+        exit 1
+        HOOK
+        chmod +x "$HOOKS_DIR/pre-push"
+        git config core.hooksPath "$HOOKS_DIR"
+        echo "[argus] push blocked via pre-push hook at $HOOKS_DIR"
       shell: bash
 
     - name: Install OpenCode CLI
@@ -815,20 +839,27 @@ runs:
 
     - name: Scrub token from git config
       if: always()
-      # "Configure git" no longer writes a token-bearing remote, so this step is
-      # defence in depth in two stages:
-      #   1. restore the credential-free remote unconditionally — the behaviour
-      #      this step always had. A cleanup step must clean, not just complain,
-      #      otherwise a stray credential would survive the run.
-      #   2. then verify it really is gone, so a future regression that writes a
-      #      credential somewhere else still fails loudly in CI.
+      # The review is over; restore the repo to the state the consumer handed
+      # it in, so a later job on the same runner/worktree is unaffected:
+      #   1. drop the pre-push hook this action installed (core.hooksPath),
+      #   2. restore the credential-free remote,
+      #   3. verify neither survived.
+      # The credential is removed here — and only here — because the remote
+      # needs it during the run for `git fetch` on private repos (#195), while
+      # push was blocked by the hook instead of by removing it (#183).
       run: |
+        git config --unset core.hooksPath 2>/dev/null || true
+        rm -rf "${{ runner.temp }}/argus-no-push-hooks" 2>/dev/null || true
         git remote set-url origin "https://github.com/${{ github.repository }}.git"
         if git config --get-regexp 'remote\..*\.url' 2>/dev/null | grep -Eq 'x-access-token|oauth2|ghp_|github_pat_'; then
           echo "::error::A credential-bearing git remote is still configured after scrubbing; refusing to continue."
           exit 1
         fi
-        echo "[argus] git remotes carry no credentials"
+        if [ -n "$(git config --get core.hooksPath 2>/dev/null || true)" ]; then
+          echo "::error::core.hooksPath is still set after scrubbing; refusing to continue."
+          exit 1
+        fi
+        echo "[argus] git remotes carry no credentials; pre-push hook removed"
       shell: bash
 
     - name: Run fixture regression tests
