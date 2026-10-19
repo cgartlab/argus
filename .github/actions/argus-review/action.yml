@@ -74,15 +74,40 @@ runs:
       # script text. Interpolated values are materialised into the script
       # before bash parses it, which both breaks on shell metacharacters and
       # exposes the value in step-debug logs.
+      #
+      # NO TOKEN REMOTE (regression fix).
+      # OpenCode's `github run` runs `branchIsDirty() -> pushToLocalBranch()`,
+      # i.e. `git add . && git commit && git push` — whatever it finds. That
+      # means the review agent can push code to the consumer's PR branch, and
+      # on cgartlab/men#170 it did exactly that: twice, identically, it pushed
+      # three destructive changes (deleted opencode.json, stripped V2
+      # `permissions` from .opencode/agent/men.md, re-added the V1
+      # `@opencode-ai/plugin` dependency), breaking 19 of men's 273 tests.
+      #
+      # The fix removes only the *push credential*. Commit identity is kept so
+      # a `git commit` inside the agent session still succeeds — a review agent
+      # must be able to finish its review even if it decides to commit, and a
+      # hard failure there would take the whole review down. Without a
+      # credential on the remote, any push fails instead of authenticating, so
+      # destructive changes can never reach the consumer's branch.
+      #
+      # Posting the review comment does NOT need git: `opencode github run`
+      # calls the GitHub API with GITHUB_TOKEN from the environment (see the
+      # review step). Reviews therefore keep working.
+      #
+      # Complementary guard: the "Verify worktree is clean before review" step
+      # fails the run if anything is dirty, so agent-created files are caught
+      # even though they can no longer be pushed.
       env:
         GH_TOKEN_VALUE: ${{ inputs.github-token }}
       run: |
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git config --global user.name "github-actions[bot]"
-        # The token-bearing remote below is required only for opencode CLI to
-        # push the review; the token is scrubbed from .git/config by the
-        # "Scrub token from git config" step (always runs) after the review.
-        git remote set-url origin "https://x-access-token:${GH_TOKEN_VALUE}@github.com/${{ github.repository }}.git"
+        # Commit identity: local to this repository only (no --global, which
+        # would leak into unrelated repositories on the same runner).
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git config user.name "github-actions[bot]"
+        # Strip any credential from the remote so a `git push` inside the agent
+        # session fails rather than authenticating.
+        git remote set-url origin "https://github.com/${{ github.repository }}.git"
       shell: bash
 
     - name: Install OpenCode CLI
@@ -758,7 +783,16 @@ runs:
 
     - name: Scrub token from git config
       if: always()
-      run: git remote set-url origin https://github.com/${{ github.repository }}.git
+      # Belt-and-braces: "Configure git" no longer writes a token-bearing
+      # remote, so there should be nothing to scrub. Verify rather than assume
+      # — if a token ever reappears in .git/config, fail loudly instead of
+      # leaving a credential on disk.
+      run: |
+        if git config --get-regexp 'remote\..*\.url' 2>/dev/null | grep -Eq 'x-access-token|oauth2|ghp_|github_pat_'; then
+          echo "::error::A credential-bearing git remote is still configured; refusing to leave it on disk."
+          exit 1
+        fi
+        echo "[argus] git remotes carry no credentials"
       shell: bash
 
     - name: Run fixture regression tests
