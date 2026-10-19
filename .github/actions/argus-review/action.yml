@@ -292,7 +292,7 @@ runs:
       # way, so they are masked unconditionally.
       run: |
         set -euo pipefail
-        QUARANTINE_DIR="$(mktemp -d)"
+        QUARANTINE_DIR="$(mktemp -d -t argus-quarantine-XXXXXX)"
         : > "$QUARANTINE_DIR/manifest"
         echo "QUARANTINE_DIR=$QUARANTINE_DIR" >> "$GITHUB_ENV"
 
