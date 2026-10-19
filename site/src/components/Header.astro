@@ -32,7 +32,7 @@ const pathname = Astro.url.pathname
                   rel={isExternal ? 'noopener noreferrer' : undefined}
                   aria-current={isActive ? 'page' : undefined}
                   class:list={[
-                    'rounded-lg px-3 py-2 text-sm font-medium no-underline transition-colors',
+                    'rounded-[6.5px] px-3 py-2 text-sm font-medium no-underline transition-colors',
                     isActive
                       ? 'text-accent-strong bg-accent-soft'
                       : 'text-fg-muted hover:text-fg hover:bg-surface-2',
@@ -48,7 +48,7 @@ const pathname = Astro.url.pathname
           <button
             type="button"
             id="theme-toggle"
-            class="inline-flex size-9 items-center justify-center rounded-lg text-fg-muted transition-colors hover:text-fg hover:bg-surface-2"
+            class="inline-flex size-9 items-center justify-center rounded-[6.5px] text-fg-muted transition-colors hover:text-fg hover:bg-surface-2"
             aria-label="Toggle light/dark mode"
             title="Toggle light/dark mode"
           >

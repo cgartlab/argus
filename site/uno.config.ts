@@ -41,25 +41,40 @@ export default defineConfig({
   },
   shortcuts: {
     'container-site': 'mx-auto max-w-6xl px-6',
-    'btn-primary': 'inline-flex items-center gap-2 rounded-lg bg-accent text-fg-invert px-5 py-2.5 text-sm font-medium transition-colors hover:bg-accent-strong active:bg-accent-strong/80',
-    'btn-secondary': 'inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-5 py-2.5 text-sm font-medium transition-colors hover:bg-surface-2 active:bg-surface-2/80',
-    'card': 'rounded-xl border border-border bg-surface p-6',
+    // iOS-style: prominent action buttons are fully-rounded capsules; the
+    // secondary keeps a hairline ink-tinted outline (border-strong tier).
+    'btn-primary': 'inline-flex items-center gap-2 rounded-full bg-accent text-fg-invert px-5 py-2.5 text-sm font-medium transition-colors hover:bg-accent-strong active:bg-accent-strong/80',
+    'btn-secondary': 'inline-flex items-center gap-2 rounded-full border border-strong bg-surface px-5 py-2.5 text-sm font-medium transition-colors hover:bg-surface-2 active:bg-surface-2/80',
+    // Card containers use the iOS "large" 13.5pt corner with the quiet
+    // structural hairline border.
+    'card': 'rounded-[13.5px] border border-border bg-surface p-6',
   },
   theme: {
     colors: {
       // Mapped to CSS custom properties defined in global.css.
       // Using color-mix + calc so opacity modifiers (e.g. bg-bg/80) work
       // correctly. <alpha-value> is 0–1; *100 converts to percentage.
-      bg: 'color-mix(in srgb, var(--color-bg) calc(<alpha-value> * 100)%, transparent)',
-      surface: 'color-mix(in srgb, var(--color-surface) calc(<alpha-value> * 100)%, transparent)',
-      'surface-2': 'color-mix(in srgb, var(--color-surface-2) calc(<alpha-value> * 100)%, transparent)',
-      fg: 'color-mix(in srgb, var(--color-fg) calc(<alpha-value> * 100)%, transparent)',
-      'fg-muted': 'color-mix(in srgb, var(--color-fg-muted) calc(<alpha-value> * 100)%, transparent)',
-      'fg-invert': 'color-mix(in srgb, var(--color-fg-invert) calc(<alpha-value> * 100)%, transparent)',
-      border: 'color-mix(in srgb, var(--color-border) calc(<alpha-value> * 100)%, transparent)',
-      accent: 'color-mix(in srgb, var(--color-accent) calc(<alpha-value> * 100)%, transparent)',
-      'accent-strong': 'color-mix(in srgb, var(--color-accent-strong) calc(<alpha-value> * 100)%, transparent)',
-      'accent-soft': 'color-mix(in srgb, var(--color-accent-soft) calc(<alpha-value> * 100)%, transparent)',
+      //
+      // REGRESSION NOTE (2026-10): the % sign must live INSIDE the calc() —
+      // `calc(<alpha-value> * 100%)` — not outside. `calc(1 * 100)%` is not a
+      // valid CSS percentage token; every declaration using it is dropped at
+      // parse time, which silently removed ALL themed colours from the site
+      // (bg/fg/border utilities resolved to black/transparent). Introduced by
+      // 3e0826e ("color-mix opacity support"), shipped broken since.
+      bg: 'color-mix(in srgb, var(--color-bg) calc(<alpha-value> * 100%), transparent)',
+      surface: 'color-mix(in srgb, var(--color-surface) calc(<alpha-value> * 100%), transparent)',
+      'surface-2': 'color-mix(in srgb, var(--color-surface-2) calc(<alpha-value> * 100%), transparent)',
+      fg: 'color-mix(in srgb, var(--color-fg) calc(<alpha-value> * 100%), transparent)',
+      'fg-muted': 'color-mix(in srgb, var(--color-fg-muted) calc(<alpha-value> * 100%), transparent)',
+      'fg-invert': 'color-mix(in srgb, var(--color-fg-invert) calc(<alpha-value> * 100%), transparent)',
+      border: 'color-mix(in srgb, var(--color-border) calc(<alpha-value> * 100%), transparent)',
+      // Stronger interactive-boundary tier (btn-secondary, copy-btn) — an
+      // ink-tinted outline that stays perceptible on cards, unlike the quiet
+      // structural hairline. iOS-style: derived from ink, not a grey ramp.
+      strong: 'color-mix(in srgb, var(--color-border-strong) calc(<alpha-value> * 100%), transparent)',
+      accent: 'color-mix(in srgb, var(--color-accent) calc(<alpha-value> * 100%), transparent)',
+      'accent-strong': 'color-mix(in srgb, var(--color-accent-strong) calc(<alpha-value> * 100%), transparent)',
+      'accent-soft': 'color-mix(in srgb, var(--color-accent-soft) calc(<alpha-value> * 100%), transparent)',
       // NOTE: no custom red/amber/green keys here. CodeBlock's macOS-style
       // traffic light dots use presetUno standard palette classes
       // (bg-red-500 / bg-yellow-500 / bg-green-500) instead — guaranteed to
