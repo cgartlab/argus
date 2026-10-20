@@ -53,6 +53,25 @@ QUARANTINE_STEP = "Quarantine V2-only opencode config"
 # caught before `opencode github run` can commit it.
 WORKTREE_GATE_STEP = "Verify worktree is clean before review"
 
+# Composite action steps accept only these keys (GitHub metadata syntax).
+# A key outside this set is rejected by the runner at action-load time with
+# "Unexpected value '<key>'" — the action then fails to load for EVERY
+# consumer. Regression: timeout-minutes (a workflow job-step-only key) on a
+# composite step, 2026-10-19 (argus 2a2ef567), which broke every consumer's
+# argus-review until 02045919.
+COMPOSITE_STEP_KEYS = frozenset({
+    "name",
+    "id",
+    "if",
+    "uses",
+    "run",
+    "env",
+    "shell",
+    "working-directory",
+    "with",
+    "continue-on-error",
+})
+
 
 def _load_action(path: pathlib.Path) -> dict:
     text = path.read_text(encoding="utf-8")
@@ -133,6 +152,29 @@ def check_required_steps(steps: list[dict]) -> list[str]:
     for required in REQUIRED_STEPS:
         if not any(required in n for n in names):
             problems.append(f"missing required step: {required}")
+    return problems
+
+
+def check_step_keys(steps: list[dict]) -> list[str]:
+    """Composite action steps only accept a fixed set of keys.
+
+    The runner rejects the whole action manifest when a step carries an
+    unknown key ("Unexpected value '<key>'"), so the action fails to load
+    for every consumer — the failure surfaces in the consumer's CI, not
+    here. 2026-10-19: `timeout-minutes` (a job-step-only key) on a
+    composite step broke every consumer's argus-review.
+    """
+    problems: list[str] = []
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        for key in step:
+            if key not in COMPOSITE_STEP_KEYS:
+                name = step.get("name", "(unnamed)")
+                problems.append(
+                    f"step '{name}' has unsupported key '{key}' — composite action "
+                    f"steps accept only: {', '.join(sorted(COMPOSITE_STEP_KEYS))}"
+                )
     return problems
 
 
@@ -515,6 +557,7 @@ def main(argv: list[str] | None = None) -> int:
     bash = _bash_available()
     checks = {
         "shell_syntax": check_shell_syntax(steps, bash),
+        "step_keys": check_step_keys(steps),
         "required_steps": check_required_steps(steps),
         "version_pin": check_version_pin(steps),
         "path_export": check_path_export(steps),
