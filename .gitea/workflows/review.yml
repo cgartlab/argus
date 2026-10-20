@@ -43,14 +43,45 @@ jobs:
           # Gitea rejects secret names starting with GITEA_ or GITHUB_, so the
           # API token is stored under ARGUS_GITEA_TOKEN.
           GITEA_TOKEN: ${{ secrets.ARGUS_GITEA_TOKEN }}
+          # The job runs inside a container on its own bridge network, where
+          # the NAS LAN address 192.168.31.92 is NOT reachable. The docker0
+          # gateway 172.17.0.1 is the host, and Gitea listens on *:8418.
+          GITEA_URL: http://172.17.0.1:8418
         run: |
           set -uo pipefail
           python3 --version
 
-          CHANGED=$(git diff --name-only \
-            "refs/remotes/origin/${{ gitea.event.pull_request.base.ref }}" \
-            "refs/pull/${{ gitea.event.pull_request.number }}/head" \
-            2>/dev/null | grep -E '\.(css|scss|less|html|vue|svelte)$' || true)
+          # actions/checkout writes PR heads to refs/remotes/pull/N/head
+          # (its refspec is +refs/pull/N/head:refs/remotes/pull/N/head).
+          #
+          # IMPORTANT: the "Checkout Argus" step below uses path: .argus-source,
+          # which makes actions/checkout initialise a SEPARATE git repository
+          # there. So refs/remotes/origin/<base> exists only in
+          # .argus-source, never in this working directory. Fetch the base
+          # branch here explicitly instead of assuming a previous step left
+          # it behind.
+          BASE_REF="${{ gitea.event.pull_request.base.ref }}"
+          PR_NUM="${{ gitea.event.pull_request.number }}"
+          PR_HEAD="refs/remotes/pull/$PR_NUM/head"
+
+          # The base branch is not present in this repository: the Checkout
+          # step fetched only the PR refspec, and Checkout Argus created its
+          # own separate repository under .argus-source. Fetch it here.
+          git fetch --no-tags --depth=1 origin \
+            "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF" \
+            || { echo "[argus] ERROR: could not fetch base branch $BASE_REF" >&2; exit 1; }
+
+          for ref in "$PR_HEAD" "refs/remotes/origin/$BASE_REF"; do
+            if ! git rev-parse --verify --quiet "$ref" >/dev/null; then
+              echo "[argus] ERROR: $ref not found; cannot determine changed files." >&2
+              echo "[argus] refs present:" >&2
+              git for-each-ref --format='  %(refname) %(objectname:short)' >&2
+              exit 1
+            fi
+          done
+
+          CHANGED=$(git diff --name-only "refs/remotes/origin/$BASE_REF" "$PR_HEAD" |
+            grep -E '\.(css|scss|less|html|vue|svelte)$' || true)
 
           if [ -z "$CHANGED" ]; then
             echo "[argus] no frontend files changed in this PR; nothing to review."
