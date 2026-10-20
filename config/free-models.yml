@@ -7,23 +7,6 @@
 #
 # Scoring: SWE-bench (Verifiable/Verified) → SWE-bench Pro → Intelligence
 # Index → unknown. See config/model-scores.yml for details.
-#
-# ── 2026-10-19 手工校正（有实测依据，见下）────────────────────────────────
-# 生成器按「目录里存在」选模型，但目录存在 ≠ 能调用。用 Zen API key 逐个实测
-# （opencode CLI，每个连跑 2 次）得到的真实可用集只有三个：
-#   opencode/deepseek-v4.1-flash-free       OK  |  OK
-#   opencode/nemotron-3.5-super-vl-free     OK  |  OK
-#   opencode/space-bunny-free               OK  |  OK
-# 被排除的及原因：
-#   opencode/beam-free                      RegionError: not available in your country
-#   opencode/nemotron-3.5-lightning-free    Model unavailable（API 列出但 CLI 无法解析）
-#   opencode/glm-5.3-flash-free             同上
-#   opencode/longcat-2.5-preview-free       同上
-#   opencode/mimo-v2.6-flash-free           同上
-#   opencode/minimax-m3.1-flash-free        同上
-#   opencode/jev-1.13-free                  同上
-# 生成器在 V1 CLI（CI 环境）里能靠 CLI 交叉校验自动排除后者；本地是 V2 CLI，
-# `opencode models opencode --refresh` 已不被支持，因此该步静默空转——本次手工核正。
-generated_at: 2026-10-19T12:06:32Z
+generated_at: 2026-10-20T11:33:01Z
 primary: opencode/deepseek-v4.1-flash-free
-fallback_models: opencode/nemotron-3.5-super-vl-free,opencode/space-bunny-free
+fallback_models: opencode/nemotron-3.5-super-vl-free,opencode/glm-5.3-flash-free,opencode/longcat-2.5-preview-free,opencode/mimo-v2.6-flash-free,opencode/minimax-m3.1-flash-free
