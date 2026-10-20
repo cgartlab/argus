@@ -369,6 +369,22 @@ def check_model_ids_callable(action: dict) -> list[str]:
             if reason:
                 problems.append(f"manifest.yaml preferred_models references {model_id} — {reason}")
 
+    # 3. The updater's own last-resort literal. It is named without consulting
+    #    config, exactly like the action default above.
+    updater_path = REPO_ROOT / "tools" / "update_free_models.py"
+    if updater_path.exists():
+        match = re.search(
+            r'^BUILTIN_PRIMARY\s*=\s*"([^"]+)"',
+            updater_path.read_text(encoding="utf-8"),
+            re.MULTILINE,
+        )
+        if match:
+            reason = classify(match.group(1))
+            if reason:
+                problems.append(
+                    f"tools/update_free_models.py BUILTIN_PRIMARY is {match.group(1)} — {reason}"
+                )
+
     return problems
 
 

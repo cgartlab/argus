@@ -582,12 +582,23 @@ def refresh(dry_run: bool = False) -> int:
         print(f"[update-free-models] ⚠ New model needs review: {mid} — NOT in model-scores.yml")
 
     # Re-select primary: keep the current primary while it is still live;
-    # otherwise promote the highest-ranked live model (composite score desc,
-    # ties broken alphabetically).
+    # otherwise promote the highest-ranked **known** live model (composite score
+    # desc, ties broken alphabetically).
+    #
+    # Restricting to `known_live` is what makes the "never auto-promoted"
+    # promise above true: an unregistered model has no score data and no
+    # callability signal, so promoting it would put an unvetted ID in the
+    # primary slot of every consumer. Regression: the promise existed only in
+    # the comment while this line ranked `live_free` (argus review, PR #203).
+    known_live = [m for m in live_free if m in scores]
     if primary not in live_free:
-        new_primary = rank_models(list(live_free))[0]
-        print(f"[update-free-models] ↻ Primary re-selected: {primary} → {new_primary}")
-        primary = new_primary
+        if not known_live:
+            print("[update-free-models] ⚠ No scored live model to promote — keeping current primary",
+                  file=sys.stderr)
+        else:
+            new_primary = rank_models(known_live)[0]
+            print(f"[update-free-models] ↻ Primary re-selected: {primary} → {new_primary}")
+            primary = new_primary
 
     new_fallback = compute_fallback(live_free, primary)
 

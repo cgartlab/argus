@@ -75,9 +75,10 @@ models:
     source: https://opencode.ai/zen/v1/models
     confidence: low
     # 2026-10-19 实测可调用；2026-10-20 复核已从 Zen 目录下架（GET /zen/v1/models
-    # 不再返回该 ID）。标 deprecated 而不是删除条目：删除会让它变成 unknown model，
-    # 而生成器拒绝把 unknown model 升为 primary。留着仅为记录 score 数据，
-    # **不要再用它当 fallback 或 primary**（men 于 PR #173 从自己的 pin 里移除了它）。
+    # 不再返回该 ID）。保留条目仅为记录 score 数据——删除会让它变成 unknown model，
+    # 而 unknown model 永远不会被升为 primary（见 update_free_models.py 的
+    # known_live 过滤）。**不要再用它当 fallback 或 primary**
+    # （men 于 PR #173 从自己的 fallback 里移除了它）。
     deprecated: true
   # ── 仍在 Zen 目录，但 CLI 无法解析（调用必失败）────────────────────────
   opencode/nemotron-3.5-lightning-free:
@@ -155,13 +156,15 @@ models:
     # 生成器据此跳过（见 tools/update_free_models.py 的 region 过滤）。
     regions: []
   # ── 实测可调用（2026-10-19 实测，2026-10-20 复核）──────────────────────
-  # 2026-10-20 复核结论：Zen 目录里 9 个 free 模型中，只有下面两个能真正调用。
-  # 其余全部被排除——7 个已从目录消失（见上方 deprecated 组），2 个目录里还在但
-  # CLI 无法解析（nemotron-3.5-lightning / jev-1.13），5 个地区封锁或 CLI 不可解析
+  # 2026-10-20 复核结论：当前 Zen 目录里 9 个 free 模型中，只有下面两个能真正调用。
+  # 其余 7 个不可调用——2 个仍在目录但 CLI 无法解析（nemotron-3.5-lightning /
+  # jev-1.13，见上方 deprecated 组），5 个地区封锁或 CLI 不可解析
   # （beam / glm-5.3 / longcat-2.5 / mimo-v2.6 / minimax-m3.1，标 regions: []）。
+  # 另有 7 个已从目录消失，不属于这 9 个——见上方「已从 Zen 目录消失」组。
   #
-  # 它们的 score 仍为 0（无公开 benchmark 数据），但必须存在条目，否则生成器
-  # 会因「unknown model 不得升为 primary」而无法选出任何可用主模型。
+  # 下面两个的 score 仍为 0（无公开 benchmark 数据）。保留条目是为了让它们
+  # 计入 known_live：refresh() 只会从**已登记**的存活模型里选 primary，
+  # 未登记者一律不升级（见 tools/update_free_models.py 的 known_live 过滤）。
   opencode/deepseek-v4.1-flash-free:
     underlying: "DeepSeek V4.1 Flash (free variant)"
     score: 0
