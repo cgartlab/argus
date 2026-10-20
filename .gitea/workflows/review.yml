@@ -1,0 +1,84 @@
+# ============================================================
+# GENERATED FILE - DO NOT EDIT BY HAND
+# Source: .github/workflows/review.yml
+# Regenerate: pwsh D:\github-repos\scripts\generate-gitea-workflows.ps1
+# Platform: Gitea Actions (disaster-recovery copy)
+# ============================================================
+name: Argus Design Review (Gitea)
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  argus-review:
+    name: Design Code Review (static)
+    # Dependabot PRs get a read-only token; posting a comment always fails.
+    if: gitea.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ gitea.event.pull_request.number }}/head
+
+      - name: Checkout Argus
+        uses: actions/checkout@v4
+        with:
+          repository: cgartlab/argus
+          ref: main
+          path: .argus-source
+
+      - name: Run Argus static review
+        env:
+          # Gitea rejects secret names starting with GITEA_ or GITHUB_, so the
+          # API token is stored under ARGUS_GITEA_TOKEN.
+          GITEA_TOKEN: ${{ secrets.ARGUS_GITEA_TOKEN }}
+        run: |
+          set -uo pipefail
+          python3 --version
+
+          CHANGED=$(git diff --name-only \
+            "refs/remotes/origin/${{ gitea.event.pull_request.base.ref }}" \
+            "refs/pull/${{ gitea.event.pull_request.number }}/head" \
+            2>/dev/null | grep -E '\.(css|scss|less|html|vue|svelte)$' || true)
+
+          if [ -z "$CHANGED" ]; then
+            echo "[argus] no frontend files changed in this PR; nothing to review."
+            exit 0
+          fi
+
+          echo "[argus] reviewing changed files:"
+          echo "$CHANGED" | sed 's/^/  /'
+
+          rm -rf .argus-review && mkdir -p .argus-review
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            if [ -f "$f" ]; then
+              mkdir -p ".argus-review/$(dirname "$f")"
+              cp "$f" ".argus-review/$f"
+            fi
+          done <<< "$CHANGED"
+
+          python3 .argus-source/tools/argus_review.py \
+            --mode static \
+            --json .argus-findings.json \
+            .argus-review || echo "[argus] scanner exited non-zero (may be LLM-only extensions in the diff)"
+
+          if [ ! -f .argus-findings.json ]; then
+            echo "[argus] no findings file produced; posting an empty summary"
+            printf '{"total_issues": 0, "by_severity": {"P0": 0, "P1": 0, "P2": 0, "P3": 0}, "files_reviewed": 0, "stack": "auto", "findings": []}' > .argus-findings.json
+          fi
+
+          python3 .argus-source/tools/argus_review_gitea.py \
+            --repo-owner "${{ gitea.repository_owner }}" \
+            --repo-name "${{ gitea.event.repository.name }}" \
+            --pr "${{ gitea.event.pull_request.number }}" \
+            --findings .argus-findings.json
