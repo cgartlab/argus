@@ -103,8 +103,17 @@ SCORE_WEIGHTS = {
     "none": 0.0,
 }
 # Last-known-good primary — used as a built-in fallback when the config file
-# is missing or the live list cannot be fetched.
-BUILTIN_PRIMARY = "opencode/deepseek-v4-flash-free"
+# is missing or has no ``primary`` key.
+#
+# This value MUST stay callable. It is the only model this tool will name
+# without consulting config/, so a stale entry here silently poisons the queue
+# whenever config/free-models.yml loses its primary. It previously pointed at
+# ``opencode/deepseek-v4-flash-free``, which had been deprecated (it carries
+# ``deprecated: true`` in config/model-scores.yml) — the fallback was dead.
+#
+# Verified callable 2026-10-20 with a real ``opencode run`` against the Zen API;
+# it was also the auto-refreshed primary at that time.
+BUILTIN_PRIMARY = "opencode/deepseek-v4.1-flash-free"
 
 HEADER = """\
 # Argus free model list — single source of truth for the fallback queue.
