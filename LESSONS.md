@@ -30,6 +30,12 @@
 ### V2-only 配置会让 V1 CLI 崩溃
 - 失误：消费仓库的 `opencode.json` 含 V2 专属字段，固定的 V1 CLI 解析崩溃 → 规则：action 内隔离 V2-only 配置，CLI 版本固定到 1.x（commit e830943、8e1cee4）
 
+### bash 函数必须先定义后调用
+- 失误：重构超时分支时，把 `dismiss_stale_reviews` 的**调用**挪到了定义之前。bash 在调用时解析函数名，于是 primary 超时 → `command not found`（exit 127）→ `set -e` 崩掉整个 step，**fallback 队列一次都没跑**。#185 的超时保护因此只生效了一半，潜伏数月才在 PR #203 暴露（只有超时才触发）→ 规则：函数定义一律放在 step 脚本开头；`validate_action.py` 的 `check_function_order` 会校验「首次调用行号 > 定义行号」。注意 `bash -n` 抓不到这个——语法完全合法（PR #203）
+
+### 超时不要靠输出文本判断可重试
+- 失误：超时分支之后又走 `grep retry_re` 门禁，但 `timeout` 杀掉挂住的进程时输出为空串，任何模式都匹配不上，于是 `return 124` 直接放弃、fallback 循环永远进不去 → 规则：exit 124 **本身就是可重试信号**，用标志位短路文本判定，不要让它参与 grep（PR #203）。回归测试：`tests/action/test_timeout_fallback.sh`
+
 ## 安全（评审 agent 会拿到消费方写权限）
 
 ### 禁止评审 agent 推代码到消费仓库
