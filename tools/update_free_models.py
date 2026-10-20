@@ -715,6 +715,14 @@ def check() -> int:
             f"primary '{primary}' is region-blocked in model-scores.yml (regions: []) — "
             f"the API rejects it with RegionError"
         )
+    # A deprecated primary is worse than a deprecated fallback: every review
+    # fails, with no queue to fall through to until the config is regenerated.
+    # Fallbacks are checked above; the primary slot needs the same rule.
+    if scores.get(primary, {}).get("deprecated"):
+        errors.append(
+            f"primary '{primary}' is marked deprecated in model-scores.yml — "
+            f"select a callable model"
+        )
     for mid in fallback:
         if mid in region_blocked:
             errors.append(

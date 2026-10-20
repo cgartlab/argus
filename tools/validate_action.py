@@ -419,6 +419,14 @@ def check_model_ids_callable(action: dict) -> list[str]:
                 problems.append(
                     f"tools/update_free_models.py BUILTIN_PRIMARY is {match.group(1)} — {reason}"
                 )
+        else:
+            # Fail closed: if the constant is renamed or reshaped the regex
+            # stops matching, and a silent pass is worse than a false alarm —
+            # this guard exists precisely to catch a dead last-resort model.
+            problems.append(
+                "tools/update_free_models.py: BUILTIN_PRIMARY not found — "
+                "cannot validate the last-resort primary model"
+            )
 
     return problems
 
