@@ -12,6 +12,43 @@
 每个版本的第一段必须是「一句话概括」；随后按 Keep a Changelog 六类分节。
 条目应先说明对使用者的影响，再写实现细节；涉及 issue 的一律写成可点击链接。
 
+## [Unreleased](https://github.com/cgartlab/argus/compare/v0.6.6...main)
+
+## [0.6.6](https://github.com/cgartlab/argus/compare/v0.6.5...v0.6.6) — 2026-10-20
+
+> **一句话概括**：这是一次**免费模型队列的可靠性**更新。修掉了「会自动挑一个用不了的模型」这条链上的五个缺陷，并给 composite action 加了一道防止它把**所有下游仓库**一起弄挂的语法门槛。**你不需要做任何事**——`@main` 使用者自动生效；如果你自己 pin 了模型，可以考虑去掉（见下）。
+
+### Fixed
+
+- **自动刷新的免费模型队列会挑到用不了的模型**（[#187](https://github.com/cgartlab/argus/pull/187), [#188](https://github.com/cgartlab/argus/pull/188), [#199](https://github.com/cgartlab/argus/pull/199), [#201](https://github.com/cgartlab/argus/pull/201)）
+
+  队列是按「模型是否出现在 Zen 的 `/models` 目录」生成的，但**目录里存在 ≠ 能调用**。于是队列一度推荐了 8 个实际不可用的模型，下游仓库的审查全都红灯。现在有两道过滤：
+
+  - `deprecated: true` —— 模型已下架或已改名，跳过
+  - `regions: []` —— 模型还在目录里，但本账号调用必失败（地区封锁，或 API 列出而 CLI 无法解析），跳过
+
+  同时给 `config/model-scores.yml` 的每个不可用条目补上了**判定依据与验核日期**——此前只有一句 `deprecated: true`，没人知道为什么。
+
+- **composite action 上的一个非法字段会让所有下游仓库的审查全部中断**（[#189](https://github.com/cgartlab/argus/pull/189), [#202](https://github.com/cgartlab/argus/pull/202)）
+
+  [`2a2ef567`](https://github.com/cgartlab/argus/commit/2a2ef567) 给 action 的一个 step 加了 `timeout-minutes`。这个字段只在 **workflow 的 job step** 上合法，在 composite action 的 step 上是非法的——runner 在**加载 action.yml 时**就直接拒绝整个清单，于是**每一个**使用 `cgartlab/argus/.github/actions/argus-review@main` 的仓库，审查全部失败。故障持续 33 分钟。
+
+  修掉字段只是止血；真正的修复是让这类错误**在 argus 自己的 CI 里就被拦住**：`tools/validate_action.py` 现在会校验每个 step 的键名是否在白名单内，非法键直接报错并指名是哪个 step、哪个键。
+
+  > 此前拦不住的原因：CI 里的 YAML 检查只做 `safe_load`（语法层，`timeout-minutes: 12` 是合法 YAML），而原有的 9 项语义检查都在看 step 的**内容**，没有人看 step 的**键名**。
+
+- **兜底主模型是个早已下架的模型**（[`tools/update_free_models.py`](https://github.com/cgartlab/argus/blob/main/tools/update_free_models.py)）
+
+  `BUILTIN_PRIMARY` 是一个「配置文件缺 primary 时」的兜底值，但它指向 `opencode/deepseek-v4-flash-free`——早已 deprecated 并被排除。也就是说配置文件一旦出问题，兜底反而会静默塞进一个死模型。已改为当前实测可调的 `opencode/deepseek-v4.1-flash-free`，并在注释里写明这个值必须保持可调用。
+
+### Changed
+
+- **`config/free-models.yml` 现在精确等于「实际能调用」的集合**
+
+  当前结论：Zen 目录 9 个免费模型中，只有 `deepseek-v4.1-flash-free`（primary）和 `nemotron-3.5-super-vl-free`（fallback）可以真正调用。
+
+  > **如果你在自己的仓库里 pin 了模型**：可以考虑去掉 pin，直接用 argus 的自动队列——队列现在每周自动刷新，且带上述两道过滤。pin 与队列是两份要各自维护的清单，容易漂移（`cgartlab/men` 已因此移除 pin）。
+
 ## [0.6.5](https://github.com/cgartlab/argus/compare/v0.6.4...v0.6.5) — 2026-10-18
 
 > **一句话概括**：这是一次**安全与稳定性**更新。修复了两个可以让别人在你的仓库里偷偷执行命令的漏洞，并让审查在模型服务商临时故障时不再直接失败。**你不需要做任何事**——如果你是 argus-flash App 或 composite action 的使用者，升级后自动生效。

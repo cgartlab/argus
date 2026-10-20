@@ -25,6 +25,7 @@ import argparse
 import json
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -89,11 +90,46 @@ def _run_of(step: dict) -> str:
     return value if isinstance(value, str) else ""
 
 
+def _python3_is_store_stub() -> bool:
+    """True when `python3` on PATH is the Microsoft Store launcher stub.
+
+    The stub ships on every Windows box, exits non-zero, and prints an install
+    prompt instead of running code. Assuming it is a real interpreter turns
+    every shell-out check into a permanent false red.
+    """
+    found = shutil.which("python3")
+    if not found:
+        return False
+    return "WindowsApps" in pathlib.Path(found).as_posix().replace("/", "\\")
+
+
 def _bash_available() -> str | None:
-    for candidate in ("bash", r"C:\Program Files\Git\bin\bash.exe"):
-        found = shutil.which(candidate) or candidate
-        if pathlib.Path(found).exists():
-            return found
+    """Return a *working* bash, or None.
+
+    `shutil.which("bash")` on Windows resolves to the Microsoft Store stub
+    (`WindowsApps\\bash.exe`), which exists but only prints a WSL install
+    prompt and exits 1 — so every `bash -n` check reported a bogus failure
+    and this validator's whole shell layer silently produced no signal.
+    Try the real Git Bash first, and probe each candidate by running it.
+    """
+    candidates = [r"C:\Program Files\Git\bin\bash.exe", r"C:\Program Files\Git\usr\bin\bash.exe"]
+    which = shutil.which("bash")
+    if which:
+        candidates.append(which)
+    for candidate in candidates:
+        if not pathlib.Path(candidate).exists():
+            continue
+        try:
+            probe = subprocess.run(
+                [candidate, "--noprofile", "--norc", "-c", "echo argus-bash-ok"],
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if probe.returncode == 0 and "argus-bash-ok" in (probe.stdout or ""):
+            return candidate
     return None
 
 
@@ -301,6 +337,100 @@ def check_worktree_gate(steps: list[dict]) -> list[str]:
     return problems
 
 
+def check_model_ids_callable(action: dict) -> list[str]:
+    """Every hard-coded model ID in the action/manifest must still be callable.
+
+    The review resolves its model from config/free-models.yml, but two places
+    name a model *without* consulting that file: the action's last-resort
+    ``PRIMARY_MODEL`` default, and ``manifest.yaml``'s ``preferred_models``.
+    Those are exactly the paths that get exercised when config is broken, so a
+    stale ID there is the worst case — and it silently rots as the Zen
+    catalogue churns.
+
+    Regression (PR #203, found by argus review): the action still defaulted to
+    ``opencode/nemotron-3-ultra-free`` and the manifest still preferred
+    ``opencode/deepseek-v4-flash-free``; both had been delisted, while the rest
+    of the same PR was busy removing exactly this class of dead reference.
+
+    A model is callable when config/model-scores.yml lists it and it carries
+    neither ``deprecated: true`` nor ``regions: []``.
+    """
+    problems: list[str] = []
+
+    scores_path = REPO_ROOT / "config" / "model-scores.yml"
+    try:
+        import yaml  # noqa: PLC0415 - optional at import time
+    except ImportError:
+        return ["PyYAML is required to validate model IDs — skipped"]
+    if not scores_path.exists():
+        return [f"{scores_path} not found — cannot validate hard-coded model IDs"]
+    with scores_path.open(encoding="utf-8") as f:
+        scores = (yaml.safe_load(f) or {}).get("models", {}) or {}
+
+    def classify(model_id: str) -> str | None:
+        entry = scores.get(model_id)
+        if entry is None:
+            return "not listed in config/model-scores.yml"
+        if entry.get("deprecated"):
+            return "marked deprecated in config/model-scores.yml"
+        if entry.get("regions") == []:
+            return "marked regions: [] (known unreachable) in config/model-scores.yml"
+        return None
+
+    model_re = re.compile(r"opencode/[A-Za-z0-9._-]*free")
+
+    # 1. Every model ID appearing in any step body.
+    for step in _steps(action):
+        script = _run_of(step)
+        if not script:
+            continue
+        name = step.get("name", "(unnamed)")
+        for model_id in sorted(set(model_re.findall(script))):
+            reason = classify(model_id)
+            if reason:
+                problems.append(f"step '{name}' references {model_id} — {reason}")
+
+    # 2. manifest.yaml preferred_models.
+    manifest_path = REPO_ROOT / "manifest.yaml"
+    if manifest_path.exists():
+        try:
+            with manifest_path.open(encoding="utf-8") as f:
+                manifest = yaml.safe_load(f) or {}
+        except Exception as exc:  # noqa: BLE001 - report any parse failure
+            problems.append(f"manifest.yaml is not valid YAML: {exc}")
+            manifest = {}
+        for model_id in manifest.get("preferred_models", []) or []:
+            reason = classify(str(model_id))
+            if reason:
+                problems.append(f"manifest.yaml preferred_models references {model_id} — {reason}")
+
+    # 3. The updater's own last-resort literal. It is named without consulting
+    #    config, exactly like the action default above.
+    updater_path = REPO_ROOT / "tools" / "update_free_models.py"
+    if updater_path.exists():
+        match = re.search(
+            r'^BUILTIN_PRIMARY\s*=\s*"([^"]+)"',
+            updater_path.read_text(encoding="utf-8"),
+            re.MULTILINE,
+        )
+        if match:
+            reason = classify(match.group(1))
+            if reason:
+                problems.append(
+                    f"tools/update_free_models.py BUILTIN_PRIMARY is {match.group(1)} — {reason}"
+                )
+        else:
+            # Fail closed: if the constant is renamed or reshaped the regex
+            # stops matching, and a silent pass is worse than a false alarm —
+            # this guard exists precisely to catch a dead last-resort model.
+            problems.append(
+                "tools/update_free_models.py: BUILTIN_PRIMARY not found — "
+                "cannot validate the last-resort primary model"
+            )
+
+    return problems
+
+
 def _find_keys(obj, key: str, prefix: str = "") -> list[str]:
     """Return every dotted path at which `key` occurs, recursively."""
     hits: list[str] = []
@@ -340,6 +470,11 @@ def run_quarantine_roundtrip(steps: list[dict], bash: str | None) -> list[str]:
     """
     if bash is None:
         return ["bash not found — skipped quarantine round-trip"]
+    if _python3_is_store_stub():
+        # The step shells out to `python3`; the Store stub exits non-zero with
+        # an install prompt, which would otherwise look exactly like a real
+        # regression. Report as a skip (see SKIP_OUTCOMES in main).
+        return ["SKIP: python3 is a Microsoft Store stub on this host"]
     quarantine = next((s for s in steps if "Quarantine" in (s.get("name") or "")), None)
     restore = next((s for s in steps if ALWAYS_RESTORE_STEP in (s.get("name") or "")), None)
     if quarantine is None or restore is None:
@@ -393,7 +528,8 @@ def run_quarantine_roundtrip(steps: list[dict], bash: str | None) -> list[str]:
         problems: list[str] = []
         r = _run_script(_run_of(quarantine), repo, bash, {"GITHUB_ENV": str(gh_env)})
         if r.returncode != 0:
-            problems.append(f"quarantine script exited {r.returncode}: {r.stderr.strip()[:200]}")
+            detail = f"{r.stderr.strip()[:200]} {r.stdout.strip()[:200]}".strip()
+            problems.append(f"quarantine script exited {r.returncode}: {detail}")
             return problems
 
         # The fix neutralises the file in place instead of deleting it, so the
@@ -538,6 +674,56 @@ def check_fixture_arg_array(steps: list[dict]) -> list[str]:
     return problems
 
 
+def check_function_order(steps: list[dict]) -> list[str]:
+    """A shell function must be defined in a script before it is called.
+
+    Bash resolves function names at call time, so calling one that appears
+    later in the same script fails with ``command not found`` (exit 127) —
+    and under ``set -e`` that aborts the whole step. This is easy to
+    introduce by moving a call during a refactor: the function still exists
+    in the file, so review-by-reading looks fine.
+
+    Regression (#189 / 2a2ef56, observed live on PR #203): the timeout branch
+    called ``dismiss_stale_reviews`` three lines *above* its definition, so
+    every primary-model timeout — the exact case #185's timeout guard exists
+    for — died at exit 127 instead of falling through to the fallback queue.
+
+    ``bash -n`` cannot catch this: it is valid syntax. Only ordering matters.
+    """
+    problems: list[str] = []
+    # `name() {` / `function name {` at the start of a line (any indent).
+    def_re = re.compile(r"^\s*(?:function\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*\(\)\s*\{", re.MULTILINE)
+
+    for step in steps:
+        script = _run_of(step)
+        if not script:
+            continue
+        name = step.get("name", "(unnamed)")
+
+        definitions: dict[str, int] = {}
+        for m in def_re.finditer(script):
+            definitions.setdefault(m.group(1), script.count("\n", 0, m.start()) + 1)
+
+        for func, def_line in definitions.items():
+            # First line where the bare name is invoked as a command.
+            call_re = re.compile(rf"^\s*{re.escape(func)}\s*(?:$|[^()\w])", re.MULTILINE)
+            first_call = None
+            for m in call_re.finditer(script):
+                line = script.count("\n", 0, m.start()) + 1
+                if line == def_line:
+                    continue
+                first_call = line
+                break
+            if first_call is not None and first_call < def_line:
+                problems.append(
+                    f"step '{name}': function '{func}' is called on line {first_call} "
+                    f"but defined on line {def_line} — bash fails with exit 127 "
+                    f"('command not found'); move the definition above its first call"
+                )
+
+    return problems
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--json", dest="output_json", metavar="FILE", help="Write results to FILE")
@@ -567,17 +753,29 @@ def main(argv: list[str] | None = None) -> int:
         "fixture_step": check_fixture_step(steps),
         "no_injection": check_no_injection(steps),
         "fixture_arg_array": check_fixture_arg_array(steps),
+        "model_ids_callable": check_model_ids_callable(action),
+        "function_order": check_function_order(steps),
     }
 
-    failed = {k: v for k, v in checks.items() if v}
+    failed = {
+        k: v
+        for k, v in checks.items()
+        if v and not all(str(p).startswith("SKIP: ") for p in v)
+    }
     for name, problems in checks.items():
-        if problems:
+        if problems and name not in failed:
+            print(f"[argus:action] {name}: {problems[0][len('SKIP: '):]}")
+        elif problems:
             for p in problems:
                 print(f"[argus:action] {name}: {p}", file=sys.stderr)
         else:
             print(f"[argus:action] {name}: ok")
 
-    print(f"[argus:action] {len(steps)} steps checked, {sum(len(v) for v in failed.values())} problem(s)")
+    skipped = [k for k, v in checks.items() if v and k not in failed]
+    print(
+        f"[argus:action] {len(steps)} steps checked, {sum(len(v) for v in failed.values())} problem(s)"
+        + (f", skipped: {', '.join(skipped)}" if skipped else "")
+    )
 
     if args.output_json:
         pathlib.Path(args.output_json).write_text(

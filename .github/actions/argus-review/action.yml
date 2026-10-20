@@ -573,7 +573,13 @@ runs:
         fi
         if [ -z "$PRIMARY_MODEL" ]; then
           echo "[argus] ⚠ No primary model configured; using last-known-good default"
-          PRIMARY_MODEL="opencode/nemotron-3-ultra-free"
+          # Must stay callable: this is the only model named without consulting
+          # config/, so a stale ID here silently poisons every review whenever
+          # free-models.yml is missing or unreadable. It previously pointed at
+          # nemotron-3-ultra-free, which had been delisted. Kept in sync with
+          # BUILTIN_PRIMARY in tools/update_free_models.py and validated by
+          # tools/validate_action.py against config/model-scores.yml.
+          PRIMARY_MODEL="opencode/deepseek-v4.1-flash-free"
         fi
 
         # Per-model timeout: `opencode github run` can hang after the review
@@ -582,6 +588,29 @@ runs:
         # parking the job for the full 6 h GitHub default. Exit 124 (timeout)
         # is treated as retryable below, so the fallback queue still runs.
         REVIEW_TIMEOUT="${INPUT_TIMEOUT:-480}"
+
+        # Defined FIRST, before any call: bash resolves function names at call
+        # time, so a call that lexically precedes the definition fails with
+        # "command not found" (exit 127) and kills the whole step.
+        # Regression (#189 / 2a2ef56): the timeout branch called this three
+        # lines above the definition, so every primary timeout or retryable
+        # failure died at exit 127 instead of running the fallback queue —
+        # the timeout guard fired, and with it the fallback. Verified on
+        # PR #203: `line 114: dismiss_stale_reviews: command not found`.
+        dismiss_stale_reviews() {
+          local pr_number="${{ github.event.pull_request.number }}"
+          [ -z "$pr_number" ] && return 0
+          echo "[argus] Dismissing stale/pending reviews from failed primary run..."
+          reviews=$(gh api repos/${{ github.repository }}/pulls/${pr_number}/reviews \
+                      --jq '.[] | select(.state == "PENDING" or .state == "COMMENTED") | .id' 2>/dev/null || true)
+          for rid in $reviews; do
+            gh api repos/${{ github.repository }}/pulls/${pr_number}/reviews/${rid}/dismissals \
+              -X PUT -f event=DISMISS \
+              -f message="Dismissed incomplete review before fallback retry" 2>/dev/null \
+              && echo "[argus]   Dismissed review #${rid}" \
+              || true
+          done
+        }
 
         run_with_fallback_queue() {
           local primary_model="$1"
@@ -659,10 +688,17 @@ runs:
             return 0
           fi
 
-          # Timeout (exit 124) — treat as retryable so the fallback queue runs
+          # Timeout (exit 124) — retryable by definition, so the fallback queue
+          # must run. Do NOT gate this on `retry_re`: on a hung model `timeout`
+          # kills the process and `$primary_output` is empty, so no pattern can
+          # ever match and the queue would be skipped (regression found by
+          # argus review on PR #203 — the guard existed but the gate below
+          # returned first).
+          local primary_retryable=0
           if [ $primary_exit_code -eq 124 ]; then
             echo "[argus] ⚠ Primary model '$primary_model' timed out after ${REVIEW_TIMEOUT}s"
             echo "$primary_output" | tail -5
+            primary_retryable=1
             dismiss_stale_reviews
           fi
 
@@ -675,7 +711,7 @@ runs:
           fi
 
           # Check if retryable (rate-limited / model unavailable)
-          if ! echo "$primary_output" | grep -qiE "$retry_re"; then
+          if [ "$primary_retryable" -eq 0 ] && ! echo "$primary_output" | grep -qiE "$retry_re"; then
             # Not a retryable condition — fail as-is
             echo "$primary_output"
             return $primary_exit_code
@@ -686,21 +722,8 @@ runs:
 
           # Dismiss any pending or stale review the primary model may have
           # posted before failing, so the fallback doesn't create a duplicate
-          # conflicting review on the same PR.
-          dismiss_stale_reviews() {
-            local pr_number="${{ github.event.pull_request.number }}"
-            [ -z "$pr_number" ] && return 0
-            echo "[argus] Dismissing stale/pending reviews from failed primary run..."
-            reviews=$(gh api repos/${{ github.repository }}/pulls/${pr_number}/reviews \
-                        --jq '.[] | select(.state == "PENDING" or .state == "COMMENTED") | .id' 2>/dev/null || true)
-            for rid in $reviews; do
-              gh api repos/${{ github.repository }}/pulls/${pr_number}/reviews/${rid}/dismissals \
-                -X PUT -f event=DISMISS \
-                -f message="Dismissed incomplete review before fallback retry" 2>/dev/null \
-                && echo "[argus]   Dismissed review #${rid}" \
-                || true
-            done
-          }
+          # conflicting review on the same PR. (Function is defined at the top
+          # of this step — see the comment there.)
           dismiss_stale_reviews
 
           # Iterate through fallback queue.

@@ -156,6 +156,8 @@ jobs:
         run: |
           python3 tools/validate_action.py
           echo "argus-review action: shell syntax + invariants ok"
+          bash tests/action/test_timeout_fallback.sh
+          echo "argus-review action: timeout reaches the fallback queue"
           python3 -m py_compile tools/validate_severity_matrix.py && echo "validate_severity_matrix.py: ok"
           python3 -m py_compile tools/validate_lessons.py && echo "validate_lessons.py: ok"
           python3 -m py_compile tools/add_fp_appeal.py && echo "add_fp_appeal.py: ok"

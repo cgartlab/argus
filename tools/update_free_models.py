@@ -103,8 +103,17 @@ SCORE_WEIGHTS = {
     "none": 0.0,
 }
 # Last-known-good primary — used as a built-in fallback when the config file
-# is missing or the live list cannot be fetched.
-BUILTIN_PRIMARY = "opencode/deepseek-v4-flash-free"
+# is missing or has no ``primary`` key.
+#
+# This value MUST stay callable. It is the only model this tool will name
+# without consulting config/, so a stale entry here silently poisons the queue
+# whenever config/free-models.yml loses its primary. It previously pointed at
+# ``opencode/deepseek-v4-flash-free``, which had been deprecated (it carries
+# ``deprecated: true`` in config/model-scores.yml) — the fallback was dead.
+#
+# Verified callable 2026-10-20 with a real ``opencode run`` against the Zen API;
+# it was also the auto-refreshed primary at that time.
+BUILTIN_PRIMARY = "opencode/deepseek-v4.1-flash-free"
 
 HEADER = """\
 # Argus free model list — single source of truth for the fallback queue.
@@ -573,12 +582,23 @@ def refresh(dry_run: bool = False) -> int:
         print(f"[update-free-models] ⚠ New model needs review: {mid} — NOT in model-scores.yml")
 
     # Re-select primary: keep the current primary while it is still live;
-    # otherwise promote the highest-ranked live model (composite score desc,
-    # ties broken alphabetically).
+    # otherwise promote the highest-ranked **known** live model (composite score
+    # desc, ties broken alphabetically).
+    #
+    # Restricting to `known_live` is what makes the "never auto-promoted"
+    # promise above true: an unregistered model has no score data and no
+    # callability signal, so promoting it would put an unvetted ID in the
+    # primary slot of every consumer. Regression: the promise existed only in
+    # the comment while this line ranked `live_free` (argus review, PR #203).
+    known_live = [m for m in live_free if m in scores]
     if primary not in live_free:
-        new_primary = rank_models(list(live_free))[0]
-        print(f"[update-free-models] ↻ Primary re-selected: {primary} → {new_primary}")
-        primary = new_primary
+        if not known_live:
+            print("[update-free-models] ⚠ No scored live model to promote — keeping current primary",
+                  file=sys.stderr)
+        else:
+            new_primary = rank_models(known_live)[0]
+            print(f"[update-free-models] ↻ Primary re-selected: {primary} → {new_primary}")
+            primary = new_primary
 
     new_fallback = compute_fallback(live_free, primary)
 
@@ -694,6 +714,14 @@ def check() -> int:
         errors.append(
             f"primary '{primary}' is region-blocked in model-scores.yml (regions: []) — "
             f"the API rejects it with RegionError"
+        )
+    # A deprecated primary is worse than a deprecated fallback: every review
+    # fails, with no queue to fall through to until the config is regenerated.
+    # Fallbacks are checked above; the primary slot needs the same rule.
+    if scores.get(primary, {}).get("deprecated"):
+        errors.append(
+            f"primary '{primary}' is marked deprecated in model-scores.yml — "
+            f"select a callable model"
         )
     for mid in fallback:
         if mid in region_blocked:

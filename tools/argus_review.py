@@ -13,7 +13,7 @@ Usage:
   python3 tools/argus_review.py path/to/file.css
   python3 tools/argus_review.py src/components/*.css --stack antd5
   python3 tools/argus_review.py --dir src/ --ignore '*.test.*' --json review.json
-  python3 tools/argus_review.py src/App.tsx --model opencode/deepseek-v4-flash-free
+  python3 tools/argus_review.py src/App.tsx --model opencode/deepseek-v4.1-flash-free
   python3 tools/argus_review.py src/ --lessons .argus/LESSONS.md
 
 Options:
