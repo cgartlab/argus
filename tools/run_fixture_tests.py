@@ -183,8 +183,20 @@ def parse_expected(expected_path: Path) -> ExpectedFile:
 
 # Last-resort built-in queue = known free models ranked by coding ability,
 # excluding the built-in primary (the primary is never part of the fallback queue).
+#
+# Deprecated and region-blocked models must be filtered out here too: this queue
+# is what the review falls back to when config/free-models.yml is missing or has
+# no fallback_models — i.e. exactly the "config broke" scenario — and scores sort
+# descending, so every dead model would rank ahead of the only callable fallback.
+# Regression: this list still led with deepseek-v4-flash-free (deprecated) and
+# beam/glm/longcat/mimo/minimax (regions: []), the same "dead fallback" class
+# fixed for BUILTIN_PRIMARY in the same change (argus review, PR #203).
 BUILTIN_FALLBACK_MODELS = ",".join(
-    m for m in _rank_models(list(_MODEL_SCORES.keys())) if m != _BUILTIN_PRIMARY
+    m
+    for m in _rank_models(list(_MODEL_SCORES.keys()))
+    if m != _BUILTIN_PRIMARY
+    and not _MODEL_SCORES[m].get("deprecated")
+    and _MODEL_SCORES[m].get("regions") != []
 )
 
 
