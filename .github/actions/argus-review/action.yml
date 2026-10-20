@@ -688,10 +688,17 @@ runs:
             return 0
           fi
 
-          # Timeout (exit 124) — treat as retryable so the fallback queue runs
+          # Timeout (exit 124) — retryable by definition, so the fallback queue
+          # must run. Do NOT gate this on `retry_re`: on a hung model `timeout`
+          # kills the process and `$primary_output` is empty, so no pattern can
+          # ever match and the queue would be skipped (regression found by
+          # argus review on PR #203 — the guard existed but the gate below
+          # returned first).
+          local primary_retryable=0
           if [ $primary_exit_code -eq 124 ]; then
             echo "[argus] ⚠ Primary model '$primary_model' timed out after ${REVIEW_TIMEOUT}s"
             echo "$primary_output" | tail -5
+            primary_retryable=1
             dismiss_stale_reviews
           fi
 
@@ -704,7 +711,7 @@ runs:
           fi
 
           # Check if retryable (rate-limited / model unavailable)
-          if ! echo "$primary_output" | grep -qiE "$retry_re"; then
+          if [ "$primary_retryable" -eq 0 ] && ! echo "$primary_output" | grep -qiE "$retry_re"; then
             # Not a retryable condition — fail as-is
             echo "$primary_output"
             return $primary_exit_code

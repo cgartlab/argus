@@ -90,11 +90,46 @@ def _run_of(step: dict) -> str:
     return value if isinstance(value, str) else ""
 
 
+def _python3_is_store_stub() -> bool:
+    """True when `python3` on PATH is the Microsoft Store launcher stub.
+
+    The stub ships on every Windows box, exits non-zero, and prints an install
+    prompt instead of running code. Assuming it is a real interpreter turns
+    every shell-out check into a permanent false red.
+    """
+    found = shutil.which("python3")
+    if not found:
+        return False
+    return "WindowsApps" in pathlib.Path(found).as_posix().replace("/", "\\")
+
+
 def _bash_available() -> str | None:
-    for candidate in ("bash", r"C:\Program Files\Git\bin\bash.exe"):
-        found = shutil.which(candidate) or candidate
-        if pathlib.Path(found).exists():
-            return found
+    """Return a *working* bash, or None.
+
+    `shutil.which("bash")` on Windows resolves to the Microsoft Store stub
+    (`WindowsApps\\bash.exe`), which exists but only prints a WSL install
+    prompt and exits 1 — so every `bash -n` check reported a bogus failure
+    and this validator's whole shell layer silently produced no signal.
+    Try the real Git Bash first, and probe each candidate by running it.
+    """
+    candidates = [r"C:\Program Files\Git\bin\bash.exe", r"C:\Program Files\Git\usr\bin\bash.exe"]
+    which = shutil.which("bash")
+    if which:
+        candidates.append(which)
+    for candidate in candidates:
+        if not pathlib.Path(candidate).exists():
+            continue
+        try:
+            probe = subprocess.run(
+                [candidate, "--noprofile", "--norc", "-c", "echo argus-bash-ok"],
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if probe.returncode == 0 and "argus-bash-ok" in (probe.stdout or ""):
+            return candidate
     return None
 
 
@@ -427,6 +462,11 @@ def run_quarantine_roundtrip(steps: list[dict], bash: str | None) -> list[str]:
     """
     if bash is None:
         return ["bash not found — skipped quarantine round-trip"]
+    if _python3_is_store_stub():
+        # The step shells out to `python3`; the Store stub exits non-zero with
+        # an install prompt, which would otherwise look exactly like a real
+        # regression. Report as a skip (see SKIP_OUTCOMES in main).
+        return ["SKIP: python3 is a Microsoft Store stub on this host"]
     quarantine = next((s for s in steps if "Quarantine" in (s.get("name") or "")), None)
     restore = next((s for s in steps if ALWAYS_RESTORE_STEP in (s.get("name") or "")), None)
     if quarantine is None or restore is None:
@@ -480,7 +520,8 @@ def run_quarantine_roundtrip(steps: list[dict], bash: str | None) -> list[str]:
         problems: list[str] = []
         r = _run_script(_run_of(quarantine), repo, bash, {"GITHUB_ENV": str(gh_env)})
         if r.returncode != 0:
-            problems.append(f"quarantine script exited {r.returncode}: {r.stderr.strip()[:200]}")
+            detail = f"{r.stderr.strip()[:200]} {r.stdout.strip()[:200]}".strip()
+            problems.append(f"quarantine script exited {r.returncode}: {detail}")
             return problems
 
         # The fix neutralises the file in place instead of deleting it, so the
@@ -708,15 +749,25 @@ def main(argv: list[str] | None = None) -> int:
         "function_order": check_function_order(steps),
     }
 
-    failed = {k: v for k, v in checks.items() if v}
+    failed = {
+        k: v
+        for k, v in checks.items()
+        if v and not all(str(p).startswith("SKIP: ") for p in v)
+    }
     for name, problems in checks.items():
-        if problems:
+        if problems and name not in failed:
+            print(f"[argus:action] {name}: {problems[0][len('SKIP: '):]}")
+        elif problems:
             for p in problems:
                 print(f"[argus:action] {name}: {p}", file=sys.stderr)
         else:
             print(f"[argus:action] {name}: ok")
 
-    print(f"[argus:action] {len(steps)} steps checked, {sum(len(v) for v in failed.values())} problem(s)")
+    skipped = [k for k, v in checks.items() if v and k not in failed]
+    print(
+        f"[argus:action] {len(steps)} steps checked, {sum(len(v) for v in failed.values())} problem(s)"
+        + (f", skipped: {', '.join(skipped)}" if skipped else "")
+    )
 
     if args.output_json:
         pathlib.Path(args.output_json).write_text(
