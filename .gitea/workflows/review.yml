@@ -5,7 +5,12 @@
 # this one runs the platform-independent static scanner (tools/argus_review_gitea.py)
 # and posts through the Gitea REST API. The two share no code.
 #
-# See docs/gitea-platform-guide.md §2 for the two-platform workflow isolation rule.
+# Two-platform workflow isolation rule: the two platforms are fully isolated —
+# .gitea/workflows/ is hand-maintained and never generated from
+# .github/workflows/. Gitea's WORKFLOW_DIRS takes the FIRST directory that
+# exists, so while this directory exists, .github/workflows/ is ignored by
+# Gitea entirely. That is intentional: Gitea runs only this static review,
+# while the real CI gate lives on GitHub. Do not add generated copies here.
 name: Argus Design Review (Gitea)
 
 on:
