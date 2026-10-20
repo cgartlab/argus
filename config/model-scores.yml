@@ -79,6 +79,49 @@ models:
     # regions 列出**可用**地区；空列表 = 已知在任何地区都不可用于 API 调用，
     # 生成器据此跳过该模型（见 tools/update_free_models.py 的 region 过滤）。
     regions: []
+  # ── 2026-10-19 实测不可调用（opencode CLI + Zen API key，各连跑 2 次均失败）──
+  # API 目录里存在但 CLI 无法解析——调用必失败。regions 空列表 = 已知不可调用，
+  # 生成器据此跳过（复用 beam-free 的 region 过滤机制，见 PR #188）。
+  opencode/glm-5.3-flash-free:
+    underlying: "GLM 5.3 Flash (free variant)"
+    score: 0
+    benchmark: none
+    source: https://opencode.ai/zen/v1/models
+    confidence: low
+    # 实测（2026-10-19，opencode CLI + Zen API key，各连跑 2 次）：Model unavailable
+    # —— API 目录列出但 CLI 无法解析，调用必失败。regions 空列表 = 已知不可调用，
+    # 生成器据此跳过（见 tools/update_free_models.py 的 region 过滤）。
+    regions: []
+  opencode/longcat-2.5-preview-free:
+    underlying: "LongCat 2.5 Preview (free variant)"
+    score: 0
+    benchmark: none
+    source: https://opencode.ai/zen/v1/models
+    confidence: low
+    # 实测（2026-10-19，opencode CLI + Zen API key，各连跑 2 次）：Model unavailable
+    # —— API 目录列出但 CLI 无法解析，调用必失败。regions 空列表 = 已知不可调用，
+    # 生成器据此跳过（见 tools/update_free_models.py 的 region 过滤）。
+    regions: []
+  opencode/mimo-v2.6-flash-free:
+    underlying: "Xiaomi MiMo V2.6 Flash (free variant)"
+    score: 0
+    benchmark: none
+    source: https://opencode.ai/zen/v1/models
+    confidence: low
+    # 实测（2026-10-19，opencode CLI + Zen API key，各连跑 2 次）：Model unavailable
+    # —— API 目录列出但 CLI 无法解析，调用必失败。regions 空列表 = 已知不可调用，
+    # 生成器据此跳过（见 tools/update_free_models.py 的 region 过滤）。
+    regions: []
+  opencode/minimax-m3.1-flash-free:
+    underlying: "MiniMax M3.1 Flash (free variant)"
+    score: 0
+    benchmark: none
+    source: https://opencode.ai/zen/v1/models
+    confidence: low
+    # 实测（2026-10-19，opencode CLI + Zen API key，各连跑 2 次）：Model unavailable
+    # —— API 目录列出但 CLI 无法解析，调用必失败。regions 空列表 = 已知不可调用，
+    # 生成器据此跳过（见 tools/update_free_models.py 的 region 过滤）。
+    regions: []
   # ── 2026-10-19 实测可调用（opencode CLI，各连跑 2 次均返回正常）─────────────
   # 这三个是当前 Zen 免费目录里**唯一**能被本账号正常调用的模型。
   # 其余目录项要么被 RegionError 封锁（beam-free），要么 API 列出但 CLI 无法解析
