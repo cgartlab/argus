@@ -68,6 +68,17 @@ models:
     confidence: medium
     # 2026-10-20 核对：已不在 Zen 目录。
     deprecated: true
+  opencode/space-bunny-free:
+    underlying: "Space Bunny (free variant)"
+    score: 0
+    benchmark: none
+    source: https://opencode.ai/zen/v1/models
+    confidence: low
+    # 2026-10-19 实测可调用；2026-10-20 复核已从 Zen 目录下架（GET /zen/v1/models
+    # 不再返回该 ID）。标 deprecated 而不是删除条目：删除会让它变成 unknown model，
+    # 而生成器拒绝把 unknown model 升为 primary。留着仅为记录 score 数据，
+    # **不要再用它当 fallback 或 primary**（men 于 PR #173 从自己的 pin 里移除了它）。
+    deprecated: true
   # ── 仍在 Zen 目录，但 CLI 无法解析（调用必失败）────────────────────────
   opencode/nemotron-3.5-lightning-free:
     underlying: "NVIDIA Nemotron 3.5 Lightning (30B MoE, 3B active)"
@@ -145,7 +156,7 @@ models:
     regions: []
   # ── 实测可调用（2026-10-19 实测，2026-10-20 复核）──────────────────────
   # 2026-10-20 复核结论：Zen 目录里 9 个 free 模型中，只有下面两个能真正调用。
-  # 其余全部被排除——6 个已从目录消失（见上方 deprecated 组），2 个目录里还在但
+  # 其余全部被排除——7 个已从目录消失（见上方 deprecated 组），2 个目录里还在但
   # CLI 无法解析（nemotron-3.5-lightning / jev-1.13），5 个地区封锁或 CLI 不可解析
   # （beam / glm-5.3 / longcat-2.5 / mimo-v2.6 / minimax-m3.1，标 regions: []）。
   #
@@ -165,14 +176,3 @@ models:
     source: https://opencode.ai/zen/v1/models
     confidence: low
     # 2026-10-20 实测：OK（opencode CLI，连跑 2 次均成功）。当前 fallback。
-  opencode/space-bunny-free:
-    underlying: "Space Bunny (free variant)"
-    score: 0
-    benchmark: none
-    source: https://opencode.ai/zen/v1/models
-    confidence: low
-    # 2026-10-19 实测可调用；2026-10-20 复核已从 Zen 目录下架（GET /zen/v1/models
-    # 不再返回该 ID）。标 deprecated 而不是删除条目：删除会让它变成 unknown model，
-    # 而生成器拒绝把 unknown model 升为 primary。留着仅为记录 score 数据，
-    # **不要再用它当 fallback 或 primary**（men 于 PR #173 从自己的 pin 里移除了它）。
-    deprecated: true
