@@ -25,6 +25,7 @@ import argparse
 import json
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -301,6 +302,76 @@ def check_worktree_gate(steps: list[dict]) -> list[str]:
     return problems
 
 
+def check_model_ids_callable(action: dict) -> list[str]:
+    """Every hard-coded model ID in the action/manifest must still be callable.
+
+    The review resolves its model from config/free-models.yml, but two places
+    name a model *without* consulting that file: the action's last-resort
+    ``PRIMARY_MODEL`` default, and ``manifest.yaml``'s ``preferred_models``.
+    Those are exactly the paths that get exercised when config is broken, so a
+    stale ID there is the worst case — and it silently rots as the Zen
+    catalogue churns.
+
+    Regression (PR #203, found by argus review): the action still defaulted to
+    ``opencode/nemotron-3-ultra-free`` and the manifest still preferred
+    ``opencode/deepseek-v4-flash-free``; both had been delisted, while the rest
+    of the same PR was busy removing exactly this class of dead reference.
+
+    A model is callable when config/model-scores.yml lists it and it carries
+    neither ``deprecated: true`` nor ``regions: []``.
+    """
+    problems: list[str] = []
+
+    scores_path = REPO_ROOT / "config" / "model-scores.yml"
+    try:
+        import yaml  # noqa: PLC0415 - optional at import time
+    except ImportError:
+        return ["PyYAML is required to validate model IDs — skipped"]
+    if not scores_path.exists():
+        return [f"{scores_path} not found — cannot validate hard-coded model IDs"]
+    with scores_path.open(encoding="utf-8") as f:
+        scores = (yaml.safe_load(f) or {}).get("models", {}) or {}
+
+    def classify(model_id: str) -> str | None:
+        entry = scores.get(model_id)
+        if entry is None:
+            return "not listed in config/model-scores.yml"
+        if entry.get("deprecated"):
+            return "marked deprecated in config/model-scores.yml"
+        if entry.get("regions") == []:
+            return "marked regions: [] (known unreachable) in config/model-scores.yml"
+        return None
+
+    model_re = re.compile(r"opencode/[A-Za-z0-9._-]*free")
+
+    # 1. Every model ID appearing in any step body.
+    for step in _steps(action):
+        script = _run_of(step)
+        if not script:
+            continue
+        name = step.get("name", "(unnamed)")
+        for model_id in sorted(set(model_re.findall(script))):
+            reason = classify(model_id)
+            if reason:
+                problems.append(f"step '{name}' references {model_id} — {reason}")
+
+    # 2. manifest.yaml preferred_models.
+    manifest_path = REPO_ROOT / "manifest.yaml"
+    if manifest_path.exists():
+        try:
+            with manifest_path.open(encoding="utf-8") as f:
+                manifest = yaml.safe_load(f) or {}
+        except Exception as exc:  # noqa: BLE001 - report any parse failure
+            problems.append(f"manifest.yaml is not valid YAML: {exc}")
+            manifest = {}
+        for model_id in manifest.get("preferred_models", []) or []:
+            reason = classify(str(model_id))
+            if reason:
+                problems.append(f"manifest.yaml preferred_models references {model_id} — {reason}")
+
+    return problems
+
+
 def _find_keys(obj, key: str, prefix: str = "") -> list[str]:
     """Return every dotted path at which `key` occurs, recursively."""
     hits: list[str] = []
@@ -567,6 +638,7 @@ def main(argv: list[str] | None = None) -> int:
         "fixture_step": check_fixture_step(steps),
         "no_injection": check_no_injection(steps),
         "fixture_arg_array": check_fixture_arg_array(steps),
+        "model_ids_callable": check_model_ids_callable(action),
     }
 
     failed = {k: v for k, v in checks.items() if v}

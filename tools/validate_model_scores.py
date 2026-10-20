@@ -105,7 +105,7 @@ def _validate_entry(mid: str, fields: dict[str, Any]) -> list[str]:
     if not MODEL_ID_RE.fullmatch(mid):
         errs.append(
             f"{mid}: invalid model id — must match "
-            f"'opencode/<id>-free' (e.g. 'opencode/deepseek-v4-flash-free')"
+            f"'opencode/<id>-free' (e.g. 'opencode/deepseek-v4.1-flash-free')"
         )
 
     # Required fields: presence first

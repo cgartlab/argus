@@ -573,7 +573,13 @@ runs:
         fi
         if [ -z "$PRIMARY_MODEL" ]; then
           echo "[argus] ⚠ No primary model configured; using last-known-good default"
-          PRIMARY_MODEL="opencode/nemotron-3-ultra-free"
+          # Must stay callable: this is the only model named without consulting
+          # config/, so a stale ID here silently poisons every review whenever
+          # free-models.yml is missing or unreadable. It previously pointed at
+          # nemotron-3-ultra-free, which had been delisted. Kept in sync with
+          # BUILTIN_PRIMARY in tools/update_free_models.py and validated by
+          # tools/validate_action.py against config/model-scores.yml.
+          PRIMARY_MODEL="opencode/deepseek-v4.1-flash-free"
         fi
 
         # Per-model timeout: `opencode github run` can hang after the review

@@ -6,7 +6,10 @@ description: Frontend design code review agent — validates correctness, access
 # No standalone `accessibility` skill is shipped — a11y rules are built into the
 # SKILL.md Review Dimensions.
 preferred_models:
-  - opencode/deepseek-v4-flash-free
+  # Must stay callable — this is what a consumer falls back to when it resolves
+  # no model of its own. Previously deepseek-v4-flash-free, which has since been
+  # delisted from the Zen catalogue. Validated by tools/validate_action.py.
+  - opencode/deepseek-v4.1-flash-free
 required_capabilities:
   - code_review
   - lint
