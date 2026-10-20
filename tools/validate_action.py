@@ -625,6 +625,56 @@ def check_fixture_arg_array(steps: list[dict]) -> list[str]:
     return problems
 
 
+def check_function_order(steps: list[dict]) -> list[str]:
+    """A shell function must be defined in a script before it is called.
+
+    Bash resolves function names at call time, so calling one that appears
+    later in the same script fails with ``command not found`` (exit 127) —
+    and under ``set -e`` that aborts the whole step. This is easy to
+    introduce by moving a call during a refactor: the function still exists
+    in the file, so review-by-reading looks fine.
+
+    Regression (#189 / 2a2ef56, observed live on PR #203): the timeout branch
+    called ``dismiss_stale_reviews`` three lines *above* its definition, so
+    every primary-model timeout — the exact case #185's timeout guard exists
+    for — died at exit 127 instead of falling through to the fallback queue.
+
+    ``bash -n`` cannot catch this: it is valid syntax. Only ordering matters.
+    """
+    problems: list[str] = []
+    # `name() {` / `function name {` at the start of a line (any indent).
+    def_re = re.compile(r"^\s*(?:function\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*\(\)\s*\{", re.MULTILINE)
+
+    for step in steps:
+        script = _run_of(step)
+        if not script:
+            continue
+        name = step.get("name", "(unnamed)")
+
+        definitions: dict[str, int] = {}
+        for m in def_re.finditer(script):
+            definitions.setdefault(m.group(1), script.count("\n", 0, m.start()) + 1)
+
+        for func, def_line in definitions.items():
+            # First line where the bare name is invoked as a command.
+            call_re = re.compile(rf"^\s*{re.escape(func)}\s*(?:$|[^()\w])", re.MULTILINE)
+            first_call = None
+            for m in call_re.finditer(script):
+                line = script.count("\n", 0, m.start()) + 1
+                if line == def_line:
+                    continue
+                first_call = line
+                break
+            if first_call is not None and first_call < def_line:
+                problems.append(
+                    f"step '{name}': function '{func}' is called on line {first_call} "
+                    f"but defined on line {def_line} — bash fails with exit 127 "
+                    f"('command not found'); move the definition above its first call"
+                )
+
+    return problems
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--json", dest="output_json", metavar="FILE", help="Write results to FILE")
@@ -655,6 +705,7 @@ def main(argv: list[str] | None = None) -> int:
         "no_injection": check_no_injection(steps),
         "fixture_arg_array": check_fixture_arg_array(steps),
         "model_ids_callable": check_model_ids_callable(action),
+        "function_order": check_function_order(steps),
     }
 
     failed = {k: v for k, v in checks.items() if v}
