@@ -12,10 +12,11 @@
 #   capabilities — (optional) list of capabilities (e.g. code_review)
 #
 # ── 两种失效标记的区别（都让生成器跳过该模型）────────────────────────────
-#   deprecated: true  → 模型**已不该被选用**：已从 Zen 目录消失，或已改名。
-#                       没有「以后会恢复」的预期，条目保留仅为记录 score 数据。
-#   regions: []       → 模型**仍在目录里，但本账号调用必失败**：地区封锁，
-#                       或 API 列出而 CLI 无法解析。目录看得见 ≠ 能调用。
+#   deprecated: true  → 模型**已不该被选用**：已从 Zen 目录消失、已改名，或仍在
+#                       目录里但 CLI 无法解析且没有恢复预期。条目保留仅为记录
+#                       score 数据，不再被引用。
+#   regions: []       → 模型**仍在目录里，但本账号调用必失败**：地区封锁，或
+#                       API 列出而 CLI 无法解析。目录看得见 ≠ 能调用。
 #   每个条目的注释写明**判定依据与日期**，避免下一个人重新实测一遍。
 models:
   # ── 已从 Zen 目录消失（2026-10-20 核对 GET /zen/v1/models，不在返回集内）──
@@ -171,6 +172,7 @@ models:
     source: https://opencode.ai/zen/v1/models
     confidence: low
     # 2026-10-19 实测可调用；2026-10-20 复核已从 Zen 目录下架（GET /zen/v1/models
-    # 不再返回该 ID），不能标 deprecated 就把条目删掉——生成器会因 unknown model
-    # 拒绝升为 primary，留着条目是无害的，但**不要再把它当可用模型引用**。
+    # 不再返回该 ID）。标 deprecated 而不是删除条目：删除会让它变成 unknown model，
+    # 而生成器拒绝把 unknown model 升为 primary。留着仅为记录 score 数据，
+    # **不要再用它当 fallback 或 primary**（men 于 PR #173 从自己的 pin 里移除了它）。
     deprecated: true
