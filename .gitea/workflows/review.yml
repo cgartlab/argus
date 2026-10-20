@@ -1,9 +1,11 @@
-# ============================================================
-# GENERATED FILE - DO NOT EDIT BY HAND
-# Source: .github/workflows/review.yml
-# Regenerate: pwsh D:\github-repos\scripts\generate-gitea-workflows.ps1
-# Platform: Gitea Actions (disaster-recovery copy)
-# ============================================================
+# Gitea Actions workflow — Argus design review (static scanner).
+#
+# Hand-maintained, NOT generated and NOT a copy of .github/workflows/review.yml:
+# the GitHub version runs the LLM review via the argus-flash GitHub App, while
+# this one runs the platform-independent static scanner (tools/argus_review_gitea.py)
+# and posts through the Gitea REST API. The two share no code.
+#
+# See docs/gitea-platform-guide.md §2 for the two-platform workflow isolation rule.
 name: Argus Design Review (Gitea)
 
 on:
