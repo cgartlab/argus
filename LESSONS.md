@@ -66,6 +66,19 @@
 ### 删掉旧版本标题会让 Release Notes 串版
 - 失误：改 CHANGELOG 时 prepend 新版本，把 `## [0.6.5]` 标题行一并替换掉，0.6.5 的正文变成悬空内容被算进 0.6.6。`release.yml` 用 awk 从 `## [x.y.z]` 截到下一个 `## [`，所以 v0.6.6 的 GitHub Release Notes 会把 0.6.5 的安全修复当成这一版的内容发布出去 → 规则：`validate_versioning.py` 现在校验标题唯一、严格降序、且每个「一句话概括」摘要行上方必须紧邻版本标题（孤立正文 = 标题被删）。**顺序检查单独不够**——删标题不会破坏降序（0.6.6 → 0.6.4 仍降序），必须查孤立正文（PR #203）
 
+
+### Markdown 标题行不会以换行结尾
+- 失误：`bump_version.py` 用 `^## \[Unreleased\]\n` 匹配「待发布块」，但真实标题带 compare 链接（`## [Unreleased](.../compare/...)`），`]` 后不是换行——正则**从未匹配过**，每次都走「没有 Unreleased」分支，把空模板插到文件最顶部（`# Changelog` 之上），已写好的说明留在原地永不提升；`make release` 抽出的发布说明是空骨架 → 规则：匹配 Markdown 标题**只锚定前缀**，不要假设标题行以 `\n` 结尾（标题常带链接/日期后缀）；改这类提取逻辑必须配 fixture 测试，样本要用真实文件形状（带 compare URL）（issue #208）
+
+### 插入位置要用「原来那块在哪」，不是「文件开头」
+- 失误：同一函数把新版本块拼到 `content` 最前面，假设 `[Unreleased]` 在文件顶部；实际开头是 `# Changelog` 前言，版本节跑到前言之上，`validate_versioning.py` 报 `summary block has no version heading above it` → 规则：移动章节时按原位置替换，不按文件头拼接
+
+### 「没跑成」与「跑了但有问题」必须在数据层区分
+- 失误：校验器在依赖缺失时返回 `"bash not found — skipped ..."`，文字写着 skipped 但没有 `SKIP: ` 前缀，而分类器只认前缀——「本机少个工具」被报成「代码有错」，退出码 1，日志指向 action.yml → 规则：用机器可判的标记（前缀/枚举）表达「跳过」，不要靠自然语言里的 "skipped"；并加断言锁住（`tests/action/test_skip_contract.py`）
+
+### 不要依赖 runner 镜像的预装包
+- 失误：`tools/` 有 5 个脚本 `import yaml`，`release.yml` 显式装了 PyYAML，但 `ci.yml` 没装也没声明 `requirements.txt`——CI 靠 `ubuntu-latest` 恰好预装才绿；换自托管 runner / slim 镜像就静默降级 → 规则：第三方依赖必须在仓库里有声明文件，CI 显式安装；CI 与 release 用同一个 `actions/setup-python` 版本常量（issue #208）
+
 ## 规则与质量门禁
 
 ### 改规则必须配 fixture
