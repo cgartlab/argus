@@ -1,0 +1,10 @@
+# Runtime dependencies for argus tools.
+#
+# PyYAML is the only third-party package the tools/ scripts import — everything
+# else is standard library. It was previously an implicit dependency: CI relied
+# on ubuntu-latest happening to ship it, so the validators silently degraded on
+# any runner that did not (issue #208).
+#
+# Pin the major/minor: YAML 1.1 vs 1.2 loader defaults have changed across
+# releases, and the validators parse action.yml / config/*.yml.
+PyYAML>=6.0,<7.0

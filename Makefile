@@ -187,7 +187,17 @@ eval-llm:
 
 # ─── Combined pre-release check ──────────────────────────────────
 .PHONY: test
-test: validate test-fixtures
+# ─── Composite action tests ──────────────────────────────────────
+.PHONY: test-action
+test-action:
+	@echo "── Composite action: skip contract (issue #208) ──"
+	@python3 tests/action/test_skip_contract.py
+	@echo "── Composite action: timeout reaches fallback queue ──"
+	@bash tests/action/test_timeout_fallback.sh
+	@echo "── Release tooling: bump_version promotes [Unreleased] ──"
+	@python3 tests/test_bump_version.py
+
+test: validate test-fixtures test-action
 	@echo ""
 	@echo "All checks passed — ready to release ✓"
 
