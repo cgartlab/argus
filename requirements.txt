@@ -5,6 +5,6 @@
 # on ubuntu-latest happening to ship it, so the validators silently degraded on
 # any runner that did not (issue #208).
 #
-# Pin the major/minor: YAML 1.1 vs 1.2 loader defaults have changed across
+# Pin the major version: PyYAML's loader defaults have changed across major
 # releases, and the validators parse action.yml / config/*.yml.
 PyYAML>=6.0,<7.0

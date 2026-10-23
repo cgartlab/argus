@@ -193,7 +193,11 @@ test-action:
 	@echo "── Composite action: skip contract (issue #208) ──"
 	@python3 tests/action/test_skip_contract.py
 	@echo "── Composite action: timeout reaches fallback queue ──"
-	@bash tests/action/test_timeout_fallback.sh
+	@if command -v bash >/dev/null 2>&1; then \
+		bash tests/action/test_timeout_fallback.sh; \
+	else \
+		echo "SKIP: bash not found — timeout fallback not run"; \
+	fi
 	@echo "── Release tooling: bump_version promotes [Unreleased] ──"
 	@python3 tests/test_bump_version.py
 

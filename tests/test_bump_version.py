@@ -92,6 +92,20 @@ class BumpPromotesUnreleasedTest(unittest.TestCase):
         for empty_section in ("### Added\n\n### Changed", "### Removed\n\n---"):
             self.assertNotIn(empty_section, text)
 
+    def test_preserves_compare_link(self) -> None:
+        """The promoted heading keeps a compare link, like the real file.
+
+        Dropping it made `0.6.7` inconsistent with every other section and
+        required a manual edit after the bump.
+        """
+        self.mod.prepend_changelog("1.1.0")
+        text = self.changelog.read_text(encoding="utf-8")
+        self.assertRegex(
+            text,
+            r"(?m)^## \[1\.1\.0\]\(https://github\.com/example/compare/v1\.0\.0\.\.\.v1\.1\.0\)",
+            "promoted heading must keep the compare link with the new version",
+        )
+
     def test_preserves_previous_release(self) -> None:
         self.mod.prepend_changelog("1.1.0")
         text = self.changelog.read_text(encoding="utf-8")

@@ -70,6 +70,7 @@
 
 - `requirements.txt` — 声明唯一的第三方依赖 PyYAML
 - `tests/action/test_skip_contract.py` — 4 个用例锁住 skip 契约
+- `tests/test_bump_version.py` — 4 个用例锁住 [Unreleased] 提升行为
 - `make test-action` — 本地跑 action skip 契约、超时兜底、bump_version 三组测试
 
 ### Changed

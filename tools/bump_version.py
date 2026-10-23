@@ -81,7 +81,17 @@ def prepend_changelog(ver: str) -> bool:
         header, _, body = content[start:end].partition("\n")
         # Drop a trailing "---" separator that already closes the block, if any.
         body = re.sub(r"\n---\s*\n?$", "", body)
-        new_block = f"## [{ver}] — {today}\n{body}".rstrip() + "\n\n---\n\n"
+        # Preserve the compare link: the real heading looks like
+        # `## [Unreleased](https://.../compare/vX.Y.Z...main)`. Dropping it
+        # would make every released heading differ from the rest of the file
+        # and require a manual fix (0.6.7 needed one).
+        heading = f"## [{ver}] — {today}"
+        link = re.search(r"\((https?://[^)]+)\)", header)
+        if link:
+            url = re.sub(r"\.\.\.main$", f"...v{ver}", link.group(1))
+            url = re.sub(r"\.\.\.v[0-9][^)]*$", f"...v{ver}", url)
+            heading = f"## [{ver}]({url}) — {today}"
+        new_block = f"{heading}\n{body}".rstrip() + "\n\n---\n\n"
         # Insert where [Unreleased] was, NOT at the top of the file: the file
         # opens with `# Changelog` and an explanation, and a version section
         # above that preamble leaves the summary block with no heading above it
