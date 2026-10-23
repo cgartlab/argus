@@ -4,11 +4,11 @@ Bump the version in VERSION, prepend a CHANGELOG entry, and sync all version loc
 
 VERSION is the single source of truth. After a bump the following are synced:
   - VERSION                          → written with the new version
-  - CHANGELOG.md                     → existing `## [Unreleased]` block is promoted to the
-                                       new `## [x.y.z]` section and moved to the top, so
+  - CHANGELOG.md                     → existing `## [Unreleased]` block is promoted in
+                                       place to the new `## [x.y.z]` section, so
                                        unreleased notes are never orphaned; if no
                                        [Unreleased] block exists, an empty section is
-                                       prepended instead
+                                       inserted after the file's preamble
   - AGENTS.md                        → header `**Version:** x.y.z`
   - SKILL.md                         → frontmatter `version: x.y.z`
   - manifest.yaml                    → `version: x.y.z`
@@ -60,10 +60,9 @@ def prepend_changelog(ver: str) -> bool:
         print(f"CHANGELOG already has [{ver}] section — skipping prepend")
         return False
 
-    # Promote an existing [Unreleased] block into the new version section and
-    # move it to the top. Without this, a fresh empty section would be prepended
-    # above the [Unreleased] block and its notes would end up orphaned under the
-    # wrong version during the next release.
+    # Promote an existing [Unreleased] block into the new version section, in
+    # place. Without this, a fresh empty section would be inserted elsewhere and
+    # the notes would end up orphaned under the wrong version.
     #
     # The heading carries a compare link — `## [Unreleased](.../compare/...)` —
     # so a pattern anchored with `\n` right after `]` never matched, and every

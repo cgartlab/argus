@@ -52,17 +52,6 @@
 
   `ci.yml` 用 runner 默认 `python3`，`release.yml` 固定 `3.12`。校验器与实际发布环境可能跑在不同 Python 上。`ci.yml` 的 5 个 job 现在都走 `actions/setup-python@v7` + `python-version: "3.12"`，与 release 对齐。
 
-### Added
-
-- `requirements.txt` — 声明唯一的第三方依赖 PyYAML
-- `tests/action/test_skip_contract.py` — 4 个用例锁住 skip 契约
-- `make test-action` — 本地跑 composite action 的两组测试
-
-### Changed
-
-- `ci.yml` — 5 个 job 统一加 `Set up Python` + `Install dependencies`
-- `make test` — 现在包含 `test-action`
-
 - **`bump_version.py` 从未真正把 `[Unreleased]` 提升成版本节**
 
   提升逻辑用的正则要求标题行以换行结尾：
@@ -76,6 +65,18 @@
   后果：`make release` 抽出的发布说明是空的模板（四个空小节），而不是真实内容。`validate_versioning.py` 会拦住这种结构（`summary block has no version heading above it`），所以问题在发布前就被发现——但它拦的是症状，根因在这里。
 
   两处已修：正则只匹配标题前缀；提升后的块插回 `[Unreleased]` 原来的位置，而不是文件顶部。
+
+### Added
+
+- `requirements.txt` — 声明唯一的第三方依赖 PyYAML
+- `tests/action/test_skip_contract.py` — 4 个用例锁住 skip 契约
+- `make test-action` — 本地跑 action skip 契约、超时兜底、bump_version 三组测试
+
+### Changed
+
+- `ci.yml` — 5 个 job 统一加 `Set up Python` + `Install dependencies`
+- `make test` — 现在包含 `test-action`
+
 
 ---
 
