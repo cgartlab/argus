@@ -165,7 +165,7 @@ def check_shell_syntax(steps: list[dict], bash: str | None) -> list[str]:
     """Run `bash -n` over every shell step's script body."""
     problems: list[str] = []
     if bash is None:
-        return ["bash not found — skipped shell syntax checks"]
+        return ["SKIP: bash not found — shell syntax checks not run"]
     for step in steps:
         script = _run_of(step)
         if not script:
@@ -361,7 +361,7 @@ def check_model_ids_callable(action: dict) -> list[str]:
     try:
         import yaml  # noqa: PLC0415 - optional at import time
     except ImportError:
-        return ["PyYAML is required to validate model IDs — skipped"]
+        return ["SKIP: PyYAML not installed — model ID callability not checked"]
     if not scores_path.exists():
         return [f"{scores_path} not found — cannot validate hard-coded model IDs"]
     with scores_path.open(encoding="utf-8") as f:
@@ -469,7 +469,7 @@ def run_quarantine_roundtrip(steps: list[dict], bash: str | None) -> list[str]:
     that shipped in the first version of the quarantine step.
     """
     if bash is None:
-        return ["bash not found — skipped quarantine round-trip"]
+        return ["SKIP: bash not found — quarantine round-trip not run"]
     if _python3_is_store_stub():
         # The step shells out to `python3`; the Store stub exits non-zero with
         # an install prompt, which would otherwise look exactly like a real

@@ -4,11 +4,11 @@ Bump the version in VERSION, prepend a CHANGELOG entry, and sync all version loc
 
 VERSION is the single source of truth. After a bump the following are synced:
   - VERSION                          → written with the new version
-  - CHANGELOG.md                     → existing `## [Unreleased]` block is promoted to the
-                                       new `## [x.y.z]` section and moved to the top, so
+  - CHANGELOG.md                     → existing `## [Unreleased]` block is promoted in
+                                       place to the new `## [x.y.z]` section, so
                                        unreleased notes are never orphaned; if no
                                        [Unreleased] block exists, an empty section is
-                                       prepended instead
+                                       inserted after the file's preamble
   - AGENTS.md                        → header `**Version:** x.y.z`
   - SKILL.md                         → frontmatter `version: x.y.z`
   - manifest.yaml                    → `version: x.y.z`
@@ -60,21 +60,43 @@ def prepend_changelog(ver: str) -> bool:
         print(f"CHANGELOG already has [{ver}] section — skipping prepend")
         return False
 
-    # Promote an existing [Unreleased] block into the new version section and
-    # move it to the top. Without this, a fresh empty section would be prepended
-    # above the [Unreleased] block and its notes would end up orphaned under the
-    # wrong version during the next release.
-    m = re.search(r"^## \[Unreleased\]\n", content, re.MULTILINE)
+    # Promote an existing [Unreleased] block into the new version section, in
+    # place. Without this, a fresh empty section would be inserted elsewhere and
+    # the notes would end up orphaned under the wrong version.
+    #
+    # The heading carries a compare link — `## [Unreleased](.../compare/...)` —
+    # so a pattern anchored with `\n` right after `]` never matched, and every
+    # bump took the else branch below: an empty section appeared at the very top
+    # of the file, above `# Changelog`. Match the heading prefix only, then skip
+    # to the end of that line.
+    m = re.search(r"^## \[Unreleased\]", content, re.MULTILINE)
     if m:
         start = m.start()
-        tail = content[m.end():]
+        eol = content.find("\n", m.end())
+        if eol == -1:
+            eol = len(content)
+        tail = content[eol:]
         nxt = re.search(r"^## \[", tail, re.MULTILINE)
-        end = m.end() + (nxt.start() if nxt else len(tail))
+        end = eol + (nxt.start() if nxt else len(tail))
         header, _, body = content[start:end].partition("\n")
         # Drop a trailing "---" separator that already closes the block, if any.
         body = re.sub(r"\n---\s*\n?$", "", body)
-        new_block = f"## [{ver}] — {today}\n{body}".rstrip() + "\n\n---\n\n"
-        content = new_block + content[:start] + content[end:]
+        # Preserve the compare link: the real heading looks like
+        # `## [Unreleased](https://.../compare/vX.Y.Z...main)`. Dropping it
+        # would make every released heading differ from the rest of the file
+        # and require a manual fix (0.6.7 needed one).
+        heading = f"## [{ver}] — {today}"
+        link = re.search(r"\((https?://[^)]+)\)", header)
+        if link:
+            url = re.sub(r"\.\.\.main$", f"...v{ver}", link.group(1))
+            url = re.sub(r"\.\.\.v[0-9][^)]*$", f"...v{ver}", url)
+            heading = f"## [{ver}]({url}) — {today}"
+        new_block = f"{heading}\n{body}".rstrip() + "\n\n---\n\n"
+        # Insert where [Unreleased] was, NOT at the top of the file: the file
+        # opens with `# Changelog` and an explanation, and a version section
+        # above that preamble leaves the summary block with no heading above it
+        # (validate_versioning.py flags exactly that).
+        content = content[:start] + new_block + content[end:]
         print(f"CHANGELOG.md: promoted [Unreleased] → [{ver}] ({today})")
     else:
         entry = (
@@ -85,7 +107,13 @@ def prepend_changelog(ver: str) -> bool:
             "### Removed\n\n"
             "---\n\n"
         )
-        content = entry + content
+        # Insert after the file's preamble (the `# Changelog` header and its
+        # explanation), never above it.
+        anchor = re.search(r"^## \[", content, re.MULTILINE)
+        if anchor:
+            content = content[:anchor.start()] + entry + content[anchor.start():]
+        else:
+            content = content.rstrip() + "\n\n" + entry
         print(f"CHANGELOG.md: added [{ver}] section")
 
     with open("CHANGELOG.md", "w", encoding="utf-8") as f:

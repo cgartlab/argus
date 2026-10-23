@@ -20,6 +20,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
       - name: Validate YAML syntax
         run: |
           python3 -c "
@@ -121,6 +129,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
       - name: Check Python syntax for all tools
         run: |
           python3 -m py_compile tools/run_fixture_tests.py && echo "run_fixture_tests.py: ok"
@@ -150,6 +166,8 @@ jobs:
         run: |
           python3 tools/validate_action.py
           echo "argus-review action: shell syntax + invariants ok"
+          python3 tests/action/test_skip_contract.py
+          echo "argus-review action: missing deps are skipped, not failed"
           bash tests/action/test_timeout_fallback.sh
           echo "argus-review action: timeout reaches the fallback queue"
           python3 -m py_compile tools/validate_severity_matrix.py && echo "validate_severity_matrix.py: ok"
@@ -173,6 +191,8 @@ jobs:
       - name: Validate version consistency (VERSION / CHANGELOG / AGENTS.md / SKILL.md / manifest.yaml)
         run: |
           python3 tools/validate_versioning.py
+          python3 tests/test_bump_version.py
+          echo "bump_version.py: [Unreleased] promotes into a real section"
 
       - name: Validate load_config.py defaults (no .argus.yml)
         run: |
@@ -225,6 +245,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
       - name: Run fixture tests (dry-run — parse & validate .expected files)
         run: |
@@ -378,6 +406,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
       - name: Detect model config changes (PR)
         if: github.event_name == 'pull_request'
         id: changes
@@ -434,6 +470,14 @@ jobs:
       OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
     steps:
       - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
       - name: Preflight check — opencode CLI present?
         id: cli-check

@@ -12,7 +12,74 @@
 每个版本的第一段必须是「一句话概括」；随后按 Keep a Changelog 六类分节。
 条目应先说明对使用者的影响，再写实现细节；涉及 issue 的一律写成可点击链接。
 
-## [Unreleased](https://github.com/cgartlab/argus/compare/v0.6.6...main)
+## [0.6.7](https://github.com/cgartlab/argus/compare/v0.6.6...v0.6.7) — 2026-10-24
+
+> **一句话概括**：这是一次**校验器的诚实性**修复。三个校验器在「本机缺 bash / 缺 PyYAML」时会报成「代码有错」，把人引去找并不存在的 bug；同时 PyYAML 与 Python 版本从没被声明过，CI 靠 runner 镜像恰好预装才绿。**你不需要做任何事**——CI 上的行为完全不变；自托管或离线环境下不再出现假失败。
+
+### Fixed
+
+- **缺 bash 时校验器报假失败，而代码本身没有问题**（[#208](https://github.com/cgartlab/argus/issues/208)）
+
+  `tools/validate_action.py` 用 `SKIP: ` 前缀区分「没跑成」与「跑了但有问题」：
+
+  ```python
+  failed = {k: v for k, v in checks.items()
+            if v and not all(str(p).startswith("SKIP: ") for p in v)}
+  ```
+
+  但三处消息说的是「skipped」却没带这个前缀，于是被判为真实失败：
+
+  - `shell_syntax` — bash 不存在
+  - `quarantine_roundtrip` — bash 不存在
+  - `model_ids_callable` — PyYAML 未安装
+
+  在没有 bash 的机器上（Windows 无 Git Bash、精简容器）跑校验，退出码是 1，日志指向 `action.yml`，而真正原因是本机少一个工具。三处已统一改为 `SKIP: ` 前缀。
+
+  新增 `tests/action/test_skip_contract.py` 锁住这条契约，并在 CI 与 `make test-action` 里执行。含反向验证：撤掉前缀后测试必须变红。
+
+- **PyYAML 是隐式依赖，未声明也未在 CI 安装**（[#208](https://github.com/cgartlab/argus/issues/208)）
+
+  `tools/` 下有 5 个脚本 `import yaml`，`release.yml` 显式装了 PyYAML，但：
+
+  - 仓库没有 `requirements.txt` / `pyproject.toml`
+  - `ci.yml` **没有** `pip install`，靠 `ubuntu-latest` 镜像预装
+
+  于是 CI 的绿灯依赖 runner 镜像的内容。镜像升级、换自托管 runner、或用 slim 镜像，`validate_action.py` 的 `model_ids_callable` 检查会静默降级（叠加上面的前缀缺陷还会变成假失败）。
+
+  新增 `requirements.txt` 声明 `PyYAML>=6.0,<7.0`。
+
+- **CI 未固定 Python 版本**（[#208](https://github.com/cgartlab/argus/issues/208)）
+
+  `ci.yml` 用 runner 默认 `python3`，`release.yml` 固定 `3.12`。校验器与实际发布环境可能跑在不同 Python 上。`ci.yml` 的 5 个 job 现在都走 `actions/setup-python@v7` + `python-version: "3.12"`，与 release 对齐。
+
+- **`bump_version.py` 从未真正把 `[Unreleased]` 提升成版本节**
+
+  提升逻辑用的正则要求标题行以换行结尾：
+
+  ```python
+  re.search(r"^## \[Unreleased\]\n", content, re.MULTILINE)   # 永不匹配
+  ```
+
+  但实际标题带 compare 链接——`## [Unreleased](https://.../compare/v0.6.6...main)`——`]` 后面不是换行。于是每次都走 else 分支，把**空的版本模板插到文件最顶部**，即 `# Changelog` 标题之上；`[Unreleased]` 里已写好的说明则留在了下面，永远不会被提升。
+
+  后果：`make release` 抽出的发布说明是空的模板（四个空小节），而不是真实内容。`validate_versioning.py` 会拦住这种结构（`summary block has no version heading above it`），所以问题在发布前就被发现——但它拦的是症状，根因在这里。
+
+  两处已修：正则只匹配标题前缀；提升后的块插回 `[Unreleased]` 原来的位置，而不是文件顶部。
+
+### Added
+
+- `requirements.txt` — 声明唯一的第三方依赖 PyYAML
+- `tests/action/test_skip_contract.py` — 4 个用例锁住 skip 契约
+- `tests/test_bump_version.py` — 4 个用例锁住 [Unreleased] 提升行为
+- `make test-action` — 本地跑 action skip 契约、超时兜底、bump_version 三组测试
+
+### Changed
+
+- `ci.yml` — 5 个 job 统一加 `Set up Python` + `Install dependencies`
+- `make test` — 现在包含 `test-action`
+
+
+---
 
 ## [0.6.6](https://github.com/cgartlab/argus/compare/v0.6.5...v0.6.6) — 2026-10-20
 
