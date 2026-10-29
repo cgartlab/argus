@@ -48,6 +48,10 @@
 
 - `tests/action/test_timeout_fallback.sh` 扩展为 5 个用例：超时无评论 → 走备用；超时已有评论 → 视为成功不重试；主模型不可重试 → 仍走备用；备用超时已有评论 → 视为成功；主模型发完评论后崩溃 → 视为成功不重试。另锁定 `is_hang_exit` 契约（124/137 都是挂起，0/1 不是）。
 
+- **备用模型队列按 2026-10-29 实测重新校准**：新增 `opencode/beam-free` 为 fallback 第 1 位（`free-models.yml` 的 `fallback_models` 由 1 个扩到 2 个：`beam-free, nemotron-3.5-super-vl-free`）。模型景观自 2026-10-20 已变：`beam` / `glm-5.3` / `nemotron-3.5-lightning` 由「不可调用」转为**可调用**，`mimo-v2.6` 由「不可调用」转为**挂起**（480s 超时），`flint-40b` 新增且**挂起**；`jev-1.13` 仍不可调用。据此在 `model-scores.yml` 中：`beam` 撤掉 `regions: []` 入队；`glm-5.3`（含 1 假阳性）/ `lightning`（过度标记 P1）/ `mimo-v2.6` / `flint-40b`（挂起）/ `jev-1.13`（错误）标记 `deprecated: true` 排除出队。`deepseek-v4.1-flash-free` 维持 primary（唯一通过 golden 校验，6tp/0fp）。
+
+  判定依据：临时 `model-probe` workflow（PR #213，`workflow_dispatch`，8 个在册 free 模型各跑一次真实 Argus 评审）后删除，探测脚本 `tools/probe_free_models.py` 一并移除。每个模型用 golden fixture `product-card.css` 的完整 prompt 走 `opencode run --model <model>`（timeout 480s），分类 callable / unavailable / auth_error / hang / error，callable 再用 `.expected` 校验质量（tolerance ±1）。
+
 
 ## [0.6.7](https://github.com/cgartlab/argus/compare/v0.6.6...v0.6.7) — 2026-10-24
 
