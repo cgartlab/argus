@@ -16,11 +16,14 @@ jobs:
     # triggered by Dependabot PRs, and pure action upgrades need no frontend design review.
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    # Hard cap: the per-model `timeout` in the action.yml catches hangs per model
-    # attempt, but a pathological fallback-queue loop (every model hangs) would
-    # still eat the full 6 h GitHub default without this. 15 min covers primary
-    # (8 min) + 1 fallback (8 min) with buffer.
-    timeout-minutes: 15
+    # Hard cap: the per-model `timeout` input (600s default, GNU timeout with
+    # `-k 30`) catches hangs per model attempt, but a pathological fallback
+    # loop (every model hangs) would still eat the full 6 h GitHub default
+    # without this. 25 min covers the worst realistic case — primary (600s)
+    # + one fallback (600s) = 20 min, plus install/checkout overhead — with
+    # margin. Keep this above 2x the action's `timeout` input: the worst case
+    # is both the primary AND a fallback timing out.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
         with:
