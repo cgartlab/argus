@@ -11,10 +11,16 @@
 #      the review is posted, then the process hangs);
 #   3. a primary NON-retryable failure must also reach the fallback queue
 #      (a different model may succeed where the primary cannot);
-#   4. a fallback TIMEOUT with the review ALREADY POSTED is success too.
+#   4. a fallback TIMEOUT with the review ALREADY POSTED is success too;
+#   5. a primary NON-timeout failure with the review ALREADY POSTED is success
+#      too (post-then-crash shape) — review_already_posted must run on every
+#      failure path, not just the timeout branch.
+#   plus the is_hang_exit contract: GNU timeout returns 124 on TERM and 137 on
+#   the KILL path (the exact #185 hang shape); both must be treated as hangs.
 #
-# The test extracts the real `review_already_posted` + `run_with_fallback_queue`
-# from action.yml and runs them against a fake `opencode` on PATH.
+# The test extracts the real `review_already_posted` + `is_hang_exit` +
+# `run_with_fallback_queue` from action.yml and runs them against a fake
+# `opencode` on PATH.
 #
 # Usage: bash tests/action/test_timeout_fallback.sh   (needs bash + coreutils)
 set -uo pipefail
@@ -46,12 +52,18 @@ extract() {
 # The old test extracted `dismiss_stale_reviews`; that function was removed and
 # replaced by `review_already_posted` (it queried /pulls/{n}/reviews for
 # PENDING/COMMENTED reviews, but Argus output is an issue comment, so it was a
-# silent no-op). Fail loudly if the extraction breaks again.
+# silent no-op). `run_with_fallback_queue` now also calls `is_hang_exit`, so
+# that must be sourced too — a missing source fails the run with exit 127.
 extract review_already_posted > "$TMP/review_already.sh"
+extract is_hang_exit > "$TMP/is_hang.sh"
 extract run_with_fallback_queue > "$TMP/fn.sh"
 
 if [ ! -s "$TMP/review_already.sh" ]; then
   echo "FAIL: could not extract review_already_posted from $ACTION" >&2
+  exit 2
+fi
+if [ ! -s "$TMP/is_hang.sh" ]; then
+  echo "FAIL: could not extract is_hang_exit from $ACTION" >&2
   exit 2
 fi
 if [ ! -s "$TMP/fn.sh" ]; then
@@ -61,15 +73,16 @@ fi
 
 # Neutralise GitHub expressions; `${{ github.event.pull_request.number }}`
 # becomes empty, so pin it to a test value afterwards.
-sed -i 's/\${{[^}]*}}//g' "$TMP/review_already.sh" "$TMP/fn.sh"
+sed -i 's/\${{[^}]*}}//g' "$TMP/review_already.sh" "$TMP/is_hang.sh" "$TMP/fn.sh"
 sed -i 's/^\([[:space:]]*local pr_number="\)"/\1123"/' "$TMP/review_already.sh"
 
 # Fake `opencode` on PATH — `timeout` runs it as a child process, so a shell
 # function cannot stand in. Invocation behaviour is driven by env:
-#   FAKE_PRIMARY_MODE  hang|error|success   (invocation 1)
-#   FAKE_FALLBACK_MODE hang|success         (invocation 2+)
+#   FAKE_PRIMARY_MODE  hang|error|error_post|success   (invocation 1)
+#   FAKE_FALLBACK_MODE hang|success                    (invocation 2+)
 # A "hang" that "posts" first writes `yes` to $FAKE_REVIEW_FILE, mirroring the
-# #185 shape (review lands, then the process hangs).
+# #185 shape (review lands, then the process hangs). `error_post` mirrors the
+# post-then-crash shape (review lands, then the process exits nonzero).
 mkdir -p "$TMP/bin"
 cat > "$TMP/bin/opencode" <<'EOS_FAKE'
 #!/usr/bin/env bash
@@ -84,6 +97,11 @@ if [ "$n" -eq 1 ]; then
       ;;
     error)
       echo "model returned a non-retryable error" >&2
+      exit 1
+      ;;
+    error_post)
+      echo "yes" > "$FAKE_REVIEW_FILE"
+      echo "model posted the review then crashed" >&2
       exit 1
       ;;
   esac
@@ -125,10 +143,22 @@ set -uo pipefail
 print_auth_guidance() { echo 'stub: auth guidance' ; }
 . "$TMP/gh_stub.sh"
 REVIEW_TIMEOUT=1
+MAX_ATTEMPTS=3
 retry_re="rate limit|model not found"
 auth_re="401 unauthorized|invalid api key"
 . "$TMP/review_already.sh"
+. "$TMP/is_hang.sh"
 . "$TMP/fn.sh"
+# P1 contract: GNU timeout returns 124 on TERM, 137 on the KILL path (the
+# #185 shape). is_hang_exit must accept both and reject real failures.
+if ! is_hang_exit 124 || ! is_hang_exit 137; then
+  echo "FAIL: is_hang_exit must accept 124 and 137 (GNU timeout hang exits)"
+  exit 1
+fi
+if is_hang_exit 0 || is_hang_exit 1; then
+  echo "FAIL: is_hang_exit must reject real nonzero exits (0/1)"
+  exit 1
+fi
 run_with_fallback_queue "opencode/hung-model-free" "opencode/good-fallback-free"
 rc=\$?
 echo "HARNESS_RC=\$rc"
@@ -151,7 +181,7 @@ run_case() {
   calls=$(cat "$FAKE_OC_COUNT" 2>/dev/null || echo 0)
   tried=$(grep -c 'Trying fallback' "$TMP/out_$name.txt")
   completed=$(grep -c 'Review completed with fallback model' "$TMP/out_$name.txt")
-  already=$(grep -c 'already posted by the timed-out' "$TMP/out_$name.txt")
+  already=$(grep -c 'already posted by the' "$TMP/out_$name.txt")
 
   echo "=== $name ==="
   echo "  opencode calls:     $calls (expect $expect_calls)"
@@ -189,6 +219,11 @@ run_case "primary_nonretryable" "error" "success" 2 0 1 1 0 no || fail=1
 
 # Case 4: fallback timeout with review posted (primary failed fast) -> success.
 run_case "fallback_timeout_review_posted" "error" "hang" 2 0 1 0 1 no || fail=1
+
+# Case 5: primary NON-timeout failure with review ALREADY posted -> success,
+# no fallback (P2: review_already_posted must be consulted on EVERY failure
+# path, not just the timeout branch).
+run_case "primary_error_review_posted" "error_post" "success" 1 0 0 0 1 no || fail=1
 
 echo ""
 if [ "$fail" -eq 0 ]; then

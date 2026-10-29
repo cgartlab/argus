@@ -52,6 +52,20 @@ def has_bare_unavailable(pattern: str) -> bool:
     return any(alt.strip().rstrip("\\") == "unavailable" for alt in pattern.split("|"))
 
 
+def count_alternatives(pattern: str) -> int:
+    """Count top-level `|` alternatives (not inside parentheses)."""
+    depth = 0
+    count = 1
+    for ch in pattern:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        elif ch == "|" and depth == 0:
+            count += 1
+    return count
+
+
 def main() -> int:
     action = action_retry_re()
     fixture = fixture_retry_re()
@@ -65,23 +79,46 @@ def main() -> int:
         except re.error as exc:
             failures.append(f"{name}: invalid regex after normalisation: {exc}")
 
-    # Probe corpus: phrases that ARE retryable vs prose that must NOT match.
+    # Both patterns must describe the same decision procedure. The action uses
+    # a bash ERE (`[[:space:]]`, `\b`) and the fixture a Python re; a
+    # structural difference that changes behaviour (e.g. a trailing-space
+    # requirement vs a `\b` boundary after the 429 keyword) must not slip
+    # through. The counts must match AND every probe must agree.
+    if count_alternatives(action) != count_alternatives(fixture):
+        failures.append(
+            f"alternative count differs: action={count_alternatives(action)} "
+            f"fixture={count_alternatives(fixture)}"
+        )
+
+    # Probe corpus: phrases that ARE retryable vs prose that must NOT match,
+    # including boundary cases (429 + hyphen/word-boundary, punctuation).
     positive = [
         "Model unavailable",
+        "model is unavailable for this region",
         "This model is not available in your country",
         "429 Too Many Requests",
-        "upstream request failed: 503",
+        "429 rate-limit exceeded",
+        "429 rate limit exceeded",
+        "429 too many requests",
+        "Model not found: opencode/x",
         "no such model: opencode/x",
         "model does not exist",
+        "upstream request failed: 503",
+        "upstream error from Nvidia",
+        "endpoint is unavailable",
         "service temporarily overloaded",
-        "bad gateway",
-        "rate limit exceeded",
+        "service unavailable",
+        "bad gateway 502",
+        "gateway timeout",
+        "server_error",
     ]
     negative = [
         "This change makes the endpoint unavailable in dark mode",
         "line 42: color unavailable",
         "The CSS variable does not exist on this element",
         "no issues found; all checks passed",
+        "429 requests were processed successfully",
+        "the service was available throughout",
     ]
 
     for probe in positive:
@@ -99,15 +136,22 @@ def main() -> int:
         if f:
             failures.append(f"fixture MATCHES negative probe: {probe!r}")
 
+    # The two must AGREE on every probe — this is the actual sync guarantee.
+    for probe in positive + negative:
+        if bool(re.search(action, probe, re.IGNORECASE)) != bool(
+            re.search(fixture, probe, re.IGNORECASE)
+        ):
+            failures.append(f"action and fixture DISAGREE on probe: {probe!r}")
+
     if failures:
         for f in failures:
             print(f"  FAIL: {f}")
         print(f"{len(failures)} FAILURE(S)")
         return 1
     print("PASS retry regexes in sync (action <-> fixture)")
-    print(f"  action : {len(action)} chars")
-    print(f"  fixture: {len(fixture)} chars")
-    print(f"  probes : {len(positive)} positive / {len(negative)} negative")
+    print(f"  action : {len(action)} chars, {count_alternatives(action)} alternatives")
+    print(f"  fixture: {len(fixture)} chars, {count_alternatives(fixture)} alternatives")
+    print(f"  probes : {len(positive)} positive / {len(negative)} negative (all agree)")
     return 0
 
 

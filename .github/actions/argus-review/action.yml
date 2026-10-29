@@ -50,9 +50,16 @@ inputs:
       Seconds allowed per model attempt before GNU timeout kills it. Covers a
       hung `opencode github run` (post-review hang, #185) so one model cannot
       park the job for the full GitHub default. Keep the consuming job's
-      timeout-minutes above 2x this value (worst case = primary + one
-      fallback both timing out).
+      timeout-minutes above (max-attempts x timeout) — the worst case is every
+      attempt timing out.
     default: "600"
+  max-attempts:
+    description: >
+      Maximum number of `opencode github run` invocations in one run: the
+      primary plus fallbacks. Bounds the fallback queue so an unbounded queue
+      cannot push the consuming job past its timeout-minutes cap. Default 3
+      = primary + 2 fallbacks.
+    default: "3"
 
 runs:
   using: composite
@@ -551,9 +558,9 @@ runs:
       # action.yml" instead of reviewing.)
       #
       # Two mechanisms cover the hang the original safety net was for:
-      #   - GNU `timeout` wraps each `opencode github run` call below, so a
-      #     hung model attempt fails in $REVIEW_TIMEOUT (480s) and the
-      #     fallback queue still runs (exit 124 is retryable).
+      #   - GNU `timeout -k 30` wraps each `opencode github run` call below, so
+      #     a hung model attempt fails in $REVIEW_TIMEOUT (600s default) and
+      #     the fallback queue still runs (exit 124/137 is a hang).
       #   - the CONSUMING workflow sets job-level timeout-minutes, which IS
       #     valid at job scope; see .github/workflows/review.yml.
       shell: bash
@@ -614,6 +621,17 @@ runs:
         # run-URL footer opencode stamps on every comment it makes.
         REVIEW_TIMEOUT="${INPUT_TIMEOUT:-600}"
 
+        # IS_HANG_EXIT: did GNU `timeout` kill the attempt for running too long?
+        #
+        # Exit 124 = the command was killed by the TERM signal after the limit.
+        # Exit 137 = the `-k 30` fallback KILL was needed because the process
+        #            ignored TERM (the exact #185 shape) — 128 + 9 (SIGKILL).
+        # Both mean "ran out of time"; treat them identically. A naive
+        # `-eq 124` check misses 137 and would skip the duplicate-review guard.
+        is_hang_exit() {
+          [ "$1" -eq 124 ] || [ "$1" -eq 137 ]
+        }
+
         # REVIEW_ALREADY_POSTED: did the current run already land a review?
         #
         # opencode v1.19.3 posts its output as an ISSUE COMMENT (not a PR
@@ -669,7 +687,7 @@ runs:
           #   auth_re  — missing/invalid API key (every zen model shares the
           #              same key, so the fallback queue fails identically;
           #              fail fast with guidance instead of pointless retries)
-          local retry_re="429[[:space:]]+(rate|too|exceeded|limit(ed|s)?)[[:space:]]|rate[[:space:]]*limit|too many requests|model[[:space:]]+not[[:space:]]+found|no[[:space:]]+such[[:space:]]+model|model[[:space:]]+does[[:space:]]+not[[:space:]]+exist|model[[:space:]]+(is[[:space:]]+)?unavailable|not[[:space:]]+available[[:space:]]+in[[:space:]]+your[[:space:]]+country|upstream request failed|upstream[[:space:]]+error|endpoint is unavailable|service[[:space:]]+temporarily[[:space:]]+overloaded|temporarily[[:space:]]+overloaded|service[[:space:]]+unavailable|server_error|bad[[:space:]]+gateway|gateway[[:space:]]+timeout"
+          local retry_re="429[[:space:]]+(rate|too|exceeded|limit(ed|s)?)\b|rate[[:space:]]*limit|too many requests|model[[:space:]]+not[[:space:]]+found|no[[:space:]]+such[[:space:]]+model|model[[:space:]]+does[[:space:]]+not[[:space:]]+exist|model[[:space:]]+(is[[:space:]]+)?unavailable|not[[:space:]]+available[[:space:]]+in[[:space:]]+your[[:space:]]+country|upstream request failed|upstream[[:space:]]+error|endpoint is unavailable|service[[:space:]]+temporarily[[:space:]]+overloaded|temporarily[[:space:]]+overloaded|service[[:space:]]+unavailable|server_error|bad[[:space:]]+gateway|gateway[[:space:]]+timeout"
           local auth_re="401[[:space:]]+(unauthorized|invalid)|403[[:space:]]+(forbidden|invalid)|unauthorized|authentication[[:space:]]+(failed|error)|invalid[[:space:]]+api[[:space:]]+key|missing[[:space:]]+api[[:space:]]+key"
 
           print_auth_guidance() {
@@ -723,20 +741,15 @@ runs:
             return 0
           fi
 
-          # Timeout (exit 124). A timed-out attempt MAY have already posted the
-          # review before the process hung (that is the actual #185 shape:
-          # "评审跑完了、评论发出来了，但进程没有退出"). Only retry when no
-          # review from this run exists; otherwise treat the run as successful
-          # and do NOT burn a second model on a duplicate review.
+          # Timeout (exit 124 / 137). A timed-out attempt MAY have already
+          # posted the review before the process hung (that is the actual
+          # #185 shape: "评审跑完了、评论发出来了，但进程没有退出"). The
+          # review_already_posted() check below is on the common failure path,
+          # so it covers both this hang and a post-then-crash.
           local primary_retryable=0
-          if [ $primary_exit_code -eq 124 ]; then
-            echo "[argus] ⚠ Primary model '$primary_model' timed out after ${REVIEW_TIMEOUT}s"
+          if is_hang_exit "$primary_exit_code"; then
+            echo "[argus] ⚠ Primary model '$primary_model' timed out after ${REVIEW_TIMEOUT}s (exit $primary_exit_code)"
             echo "$primary_output" | tail -5
-            if review_already_posted; then
-              echo "$primary_output"
-              echo "[argus] ✓ Review already posted by the timed-out attempt; treating as success"
-              return 0
-            fi
             primary_retryable=1
           fi
 
@@ -746,6 +759,15 @@ runs:
             echo "$primary_output" | tail -5
             print_auth_guidance
             return $primary_exit_code
+          fi
+
+          # The review may already be on the PR for ANY failure shape — a hang
+          # after posting (#185) or a crash right after the comment lands. In
+          # that case the review IS the deliverable; do not burn a second model.
+          if review_already_posted; then
+            echo "$primary_output"
+            echo "[argus] ✓ Review already posted by the failed attempt; treating as success"
+            return 0
           fi
 
           # Any other primary failure now tries the fallback queue — including
@@ -759,15 +781,21 @@ runs:
           fi
           echo "$primary_output"
 
-          # Iterate through fallback queue.
-          # Each `opencode github run` may post an issue comment. A timed-out
-          # attempt is only "tried next" when it left no review behind — see
-          # review_already_posted() above.
+          # Iterate through fallback queue, bounded by MAX_ATTEMPTS so an
+          # unbounded queue cannot push the job past its timeout-minutes cap.
+          # Each `opencode github run` may post an issue comment. A failed
+          # attempt is only "tried next" when it left no review behind.
           local output=""
+          local attempts=1
           IFS=',' read -ra queue <<< "$fallback_models"
           for fb_model in "${queue[@]}"; do
             fb_model=$(echo "$fb_model" | xargs)  # trim whitespace
             [ -z "$fb_model" ] && continue
+            if [ "$attempts" -ge "$MAX_ATTEMPTS" ]; then
+              echo "[argus] ✗ max-attempts ($MAX_ATTEMPTS) reached — stopping fallback queue"
+              break
+            fi
+            attempts=$((attempts + 1))
             echo "[argus] → Trying fallback: $fb_model"
             export MODEL="$fb_model"
             exit_code=0
@@ -777,8 +805,8 @@ runs:
               echo "[argus] ✓ Review completed with fallback model: $fb_model"
               return 0
             fi
-            # Timeout (exit 124) — only move on if no review was posted.
-            if [ $exit_code -eq 124 ]; then
+            # Hang (124/137) — only move on if no review was posted.
+            if is_hang_exit "$exit_code"; then
               echo "[argus] ⚠ Fallback '$fb_model' timed out after ${REVIEW_TIMEOUT}s, trying next..."
               if review_already_posted; then
                 echo "$output"
@@ -792,6 +820,12 @@ runs:
               echo "[argus] ⚠ Fallback '$fb_model' failed (auth): all zen models require the same API key"
               print_auth_guidance
               return $exit_code
+            fi
+            # Posted-then-crash on a non-timeout failure: the review is in.
+            if review_already_posted; then
+              echo "$output"
+              echo "[argus] ✓ Review already posted by the failed fallback; treating as success"
+              return 0
             fi
             if echo "$output" | grep -qiE "$retry_re"; then
               echo "[argus] ⚠ Fallback '$fb_model' rate-limited or unavailable, trying next..."
@@ -845,6 +879,7 @@ runs:
         INPUT_MODEL: ${{ inputs.model }}
         INPUT_FALLBACK_MODELS: ${{ inputs.fallback-models }}
         INPUT_TIMEOUT: ${{ inputs.timeout }}
+        MAX_ATTEMPTS: ${{ inputs.max-attempts }}
 
     - name: Restore quarantined opencode config
       if: always()
