@@ -198,6 +198,8 @@ test-action:
 	else \
 		echo "SKIP: bash not found — timeout fallback not run"; \
 	fi
+	@echo "── Composite action: retry regexes in sync ──"
+	@python3 tests/action/test_retry_regex_sync.py
 	@echo "── Release tooling: bump_version promotes [Unreleased] ──"
 	@python3 tests/test_bump_version.py
 

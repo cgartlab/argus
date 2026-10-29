@@ -12,6 +12,43 @@
 每个版本的第一段必须是「一句话概括」；随后按 Keep a Changelog 六类分节。
 条目应先说明对使用者的影响，再写实现细节；涉及 issue 的一律写成可点击链接。
 
+## [Unreleased](https://github.com/cgartlab/argus/compare/v0.6.7...main)
+
+> **一句话概括**：这是一次**模型调用预算与重试语义**的修复。评审模型的单次超时上限从 8 分钟提到 10 分钟，配套把消费 job 上限从 15 提到 35 分钟（覆盖「主模型 + 2 个备用全部超时」的最坏情况），同时修复「超时后重试必然重复评论」「主模型遇不可重试错误直接失败」两个逻辑问题，并让重试分类正则重新对齐。**你不需要做任何事**——行为更稳健、重复评论减少；若你的消费仓库把 job 的 `timeout-minutes` 写死为 15，请一并提到 ≥ `max-attempts` × `timeout`（默认 3×600s=30 分钟，加安装开销建议 35），否则最坏情况装不下。
+
+### Fixed
+
+- **模型超时预算不够，主模型常被掐断后由备用模型完成评审**（[#195](https://github.com/cgartlab/argus/issues/195) 关联）
+
+  实测（2026-10-23，run 40007247220）：主模型 `opencode/deepseek-v4.1-flash-free` 跑满 480s 被 `timeout` 杀死，备用模型再用 188s 完成评审，而 job 上限 15 分钟只剩 37s 余量——备用再慢一点，整次评审就会零产出。已把单模型上限从 480s 提到 600s（默认），`review.yml` 的 job 上限从 15 提到 35 分钟，并新增 `max-attempts`（默认 3 = 主模型 + 2 备用）把队列消耗封顶，注释给出正确算式（3×600s=30 分钟 + 安装开销 < 35 分钟）。
+
+  新增可配置输入 `timeout`（秒，默认 `600`）：之前 `REVIEW_TIMEOUT="${INPUT_TIMEOUT:-480}"` 读的 `INPUT_TIMEOUT` 从未在 `inputs:` 里声明、也从未在 `env:` 里传入，是个永远为 480 的死开关，消费方无法调整。
+
+  三处 `timeout` 改为 `timeout -k 30`：SIGTERM 后 30s 仍未退出的进程会被强杀，避免 #185 那种「进程不退出」一路挂到 job 上限。注意 GNU `timeout -k` 在 SIGKILL 路径返回 **137** 而非 124，超时判定用 `is_hang_exit()` 同时识别 124/137。
+
+- **超时被当成「没评审过」，重试必然产生重复评论**
+
+  opencode v1.19.3 的产出是 **issue 评论**（`issues.createComment`），且每条评论都带 `[github run](.../runs/{runId})` footer；而旧 `dismiss_stale_reviews()` 却去查 `/pulls/{n}/reviews` 并 dismiss `PENDING`/`COMMENTED`——Argus 的产出根本不在那里，且这两个状态本就不是可 dismiss 的对象，所以它是个静默空转（还带误伤人类评审者的 APPROVED / CHANGES_REQUESTED 的风险）。已删除，替换为 `review_already_posted()`：按 run ID 查本 run 是否已发过带 `Argus Design Review Summary` 的评论，命中则视为成功、不再烧第二个模型。该检查放在**所有**失败路径（超时 124/137、发完评论后崩溃、不可重试错误）之前，覆盖「评审已发出、进程才挂掉」的全部形态。
+
+- **主模型遇不可重试错误直接失败，与备用队列行为不对称**
+
+  之前主模型只要不匹配可重试正则就 `return`（上下文溢出、provider 侧 400、tool 格式不兼容这类「换个模型可能就好了」的错误），而备用模型遇到同类错误却会继续试下一个。现在主模型除 auth 外一律进入备用队列，与备用侧一致。
+
+- **重试分类正则漂移，且漏掉真实的「模型不可用」报错**
+
+  `tools/run_fixture_tests.py` 的 `_is_retryable()` 仍保留裸 `unavailable` 备选（action 早已删除——评审正文和行号会误匹配它），而 action 的 `retry_re` 又恰好漏掉了 Zen 网关/CLI 实际会报的 `model unavailable` 与 `not available in your country`。两者已对齐并补齐这两个短语，且 `429` 前缀统一用 `\b` 边界；新增 `tests/action/test_retry_regex_sync.py` 用探针语料（含边界用例）+ 备选数量断言锁定同步，防止再次漂移。
+
+- **模型 ID 的 YAML 解析不健壮**
+
+  之前用 `grep '^primary:' | cut -d: -f2-` 直接取值，若值带引号或行尾注释，`MODEL` 会变成 `"opencode/x"` 或 `opencode/x # note` 导致模型解析失败。已加 `sanitize_model()`（去引号、去行内注释）。
+
+- **输入说明与真实刷新频率不符**：`model` / `fallback-models` 输入写「auto-refreshed every 12 hours」，实际 `update-free-models.yml` 的 cron 是 `23 3 * * 1`（每周一 03:23 UTC）。已改为 weekly。
+
+### Changed
+
+- `tests/action/test_timeout_fallback.sh` 扩展为 5 个用例：超时无评论 → 走备用；超时已有评论 → 视为成功不重试；主模型不可重试 → 仍走备用；备用超时已有评论 → 视为成功；主模型发完评论后崩溃 → 视为成功不重试。另锁定 `is_hang_exit` 契约（124/137 都是挂起，0/1 不是）。
+
+
 ## [0.6.7](https://github.com/cgartlab/argus/compare/v0.6.6...v0.6.7) — 2026-10-24
 
 > **一句话概括**：这是一次**校验器的诚实性**修复。三个校验器在「本机缺 bash / 缺 PyYAML」时会报成「代码有错」，把人引去找并不存在的 bug；同时 PyYAML 与 Python 版本从没被声明过，CI 靠 runner 镜像恰好预装才绿。**你不需要做任何事**——CI 上的行为完全不变；自托管或离线环境下不再出现假失败。

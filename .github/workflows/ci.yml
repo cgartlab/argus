@@ -170,6 +170,8 @@ jobs:
           echo "argus-review action: missing deps are skipped, not failed"
           bash tests/action/test_timeout_fallback.sh
           echo "argus-review action: timeout reaches the fallback queue"
+          python3 tests/action/test_retry_regex_sync.py
+          echo "argus-review action: retry regexes in sync (action <-> fixture)"
           python3 -m py_compile tools/validate_severity_matrix.py && echo "validate_severity_matrix.py: ok"
           python3 -m py_compile tools/validate_lessons.py && echo "validate_lessons.py: ok"
           python3 -m py_compile tools/add_fp_appeal.py && echo "add_fp_appeal.py: ok"

@@ -391,12 +391,19 @@ def run_argus_on_fixture(fixture_path: Path, model: str, verbose: bool,
             failure (5xx) — the fallback queue helps in every case because
             each zen model maps to a different upstream. Mirrors `retry_re`
             in .github/actions/argus-review/action.yml; keep the two in sync.
+
+            Phrase-specific on purpose: a bare `unavailable` alternative was
+            dropped from the action regex because line numbers and review
+            prose matched it, so keep only the specific phrases below. The
+            exact Zen errors are `model unavailable` and `not available in
+            your country` (see config/model-scores.yml).
             """
             return bool(re.search(
                 r"429\s+(rate|too|exceeded|limit(?:ed|s)?)\b|rate\s*limit|too many requests|"
                 r"model\s+not\s+found|no\s+such\s+model|model\s+does\s+not\s+exist|"
+                r"model\s+(?:is\s+)?unavailable|not\s+available\s+in\s+your\s+country|"
                 r"upstream request failed|upstream\s+error|endpoint is unavailable|"
-                r"unavailable|service\s+temporarily\s+overloaded|temporarily\s+overloaded|"
+                r"service\s+temporarily\s+overloaded|temporarily\s+overloaded|"
                 r"service\s+unavailable|server_error|bad\s+gateway|gateway\s+timeout",
                 text, re.IGNORECASE,
             ))
