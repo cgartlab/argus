@@ -1,0 +1,112 @@
+name: Model Probe (temporary)
+
+# TEMPORARY diagnostic (PR B of the model-queue expansion). Runs the exact
+# Argus prompt against a golden fixture for every live opencode free model,
+# one parallel matrix job per model, and reports callability + a quality
+# smoke. Deleted once the results are folded into config/model-scores.yml
+# (PR C). Manually triggered only.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    # Per-model budget: install (~1-2 min) + probe timeout (480s) + margin.
+    # A single hanging model must never park the whole probe.
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { model: opencode/beam-free,               slug: beam-free }
+          - { model: opencode/deepseek-v4.1-flash-free, slug: deepseek-v4.1-flash-free }
+          - { model: opencode/flint-40b-free,          slug: flint-40b-free }
+          - { model: opencode/glm-5.3-flash-free,      slug: glm-5.3-flash-free }
+          - { model: opencode/jev-1.13-free,           slug: jev-1.13-free }
+          - { model: opencode/mimo-v2.6-flash-free,    slug: mimo-v2.6-flash-free }
+          - { model: opencode/nemotron-3.5-lightning-free, slug: nemotron-3.5-lightning-free }
+          - { model: opencode/nemotron-3.5-super-vl-free, slug: nemotron-3.5-super-vl-free }
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install OpenCode CLI (pinned 1.x)
+        # Mirrors the argus-review action install step: `opencode run` is the
+        # probe primitive and OpenCode 2 removed the V1 invocation contract.
+        env:
+          OPENCODE_CLI_VERSION: "1.19.3"
+        run: |
+          set -euo pipefail
+          VERSION="${OPENCODE_CLI_VERSION:-1.19.3}"
+          case "$VERSION" in
+            1.*) ;;
+            *)
+              echo "::error::opencode-version must be an OpenCode 1.x release (got '$VERSION')."
+              exit 1
+              ;;
+          esac
+          curl -fsSL https://opencode.ai/install -o /tmp/opencode-install.sh
+          test -s /tmp/opencode-install.sh
+          bash /tmp/opencode-install.sh --version "$VERSION"
+          export PATH="$HOME/.opencode/bin:$PATH"
+          echo "PATH=$PATH" >> "$GITHUB_ENV"
+          echo "[probe] OpenCode CLI pinned to $VERSION"
+          opencode --version || echo "[probe] warning: version check non-fatal"
+
+      - name: Probe model (callability + quality smoke)
+        env:
+          MODEL: ${{ matrix.model }}
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.opencode/bin:$PATH"
+          python3 tools/probe_free_models.py \
+            --model "$MODEL" \
+            --fixture tests/fixtures/golden/product-card.css \
+            --timeout 480 \
+            --json "probe-${{ matrix.slug }}.json" \
+            --verbose
+
+      - name: Upload probe result
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-${{ matrix.slug }}
+          path: probe-${{ matrix.slug }}.json
+          if-no-files-found: error
+
+  summary:
+    runs-on: ubuntu-latest
+    needs: probe
+    if: always()
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: probe-*
+          merge-multiple: true
+          path: results
+      - name: Summarize probe results
+        run: |
+          set -euo pipefail
+          echo "## Model Probe Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| model | status | seconds | quality |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          for f in results/probe-*.json; do
+            [ -f "$f" ] || continue
+            model=$(jq -r '.model' "$f")
+            status=$(jq -r '.status' "$f")
+            secs=$(jq -r '.seconds' "$f")
+            # quality: n/a unless the model was callable and validated.
+            if [ "$(jq -r '.quality == null' "$f")" = "true" ]; then
+              q="n/a"
+            else
+              q=$(jq -r '"\(.quality.tp_count)tp/\(.quality.fp_count)fp " + (if .quality.passed then "PASS" else "FAIL" end)' "$f")
+            fi
+            echo "| $model | $status | ${secs}s | $q |" >> "$GITHUB_STEP_SUMMARY"
+          done
