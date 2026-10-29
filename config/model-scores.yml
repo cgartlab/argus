@@ -87,9 +87,10 @@ models:
     benchmark: swebench_verifiable
     source: https://anotherwrapper.com/tools/llm-pricing/deepseek-v3-0324/nemotron-3.5-lightning-30b-a3b
     confidence: high
-    # 2026-10-20 复核：**仍在** Zen 目录，但实测（2026-10-19，opencode CLI +
-    # Zen API key，连跑 2 次）报 Model unavailable —— API 列出但 CLI 无法解析。
-    # 与下方 regions: [] 那组同类，保留 deprecated 是因为它没有恢复预期。
+    # 2026-10-19/20 曾实测 Model unavailable（据此标 deprecated）；2026-10-29
+    # 重新探测：**可调用**（66s 完成，5tp/0fp），但过度标记 P1（预期 0 实际 2）
+    # 且漏 'Duplicate property'——噪声较大。可调用但比 beam/super-vl 差，
+    # 排除出队（deprecated = 不应被选用）。
     deprecated: true
   opencode/jev-1.13-free:
     underlying: "Jev 1.13 (free variant)"
@@ -97,8 +98,8 @@ models:
     benchmark: none
     source: https://opencode.ai/zen/v1/models
     confidence: low
-    # 2026-10-20 复核：**仍在** Zen 目录，但实测（2026-10-19，opencode CLI，
-    # 连跑 2 次）Model unavailable —— API 列出但 CLI 无法解析。
+    # 2026-10-19 曾实测 Model unavailable；2026-10-29 重新探测：仍**不可调用**
+    # （1.9s 非零退出，非 unavailable 短语的 error 形态）。保留 deprecated。
     deprecated: true
   opencode/beam-free:
     underlying: "Beam (free variant)"
@@ -106,25 +107,22 @@ models:
     benchmark: none
     source: https://opencode.ai/zen/v1/models
     confidence: low
-    # 地区封锁：实测（2026-10-19，opencode CLI + Zen API key）返回
-    # `RegionError: This model is not available in your country`。
-    # 目录里存在 ≠ 本账号所在地区可调用——生成器只看目录，看不到这层。
-    # regions 列出**可用**地区；空列表 = 已知在任何地区都不可用于 API 调用，
-    # 生成器据此跳过该模型（见 tools/update_free_models.py 的 region 过滤）。
-    regions: []
-  # ── 2026-10-19 实测不可调用（opencode CLI + Zen API key，各连跑 2 次均失败）──
-  # API 目录里存在但 CLI 无法解析——调用必失败。regions 空列表 = 已知不可调用，
-  # 生成器据此跳过（复用 beam-free 的 region 过滤机制，见 PR #188）。
+    # 2026-10-19 曾实测 RegionError（地区封锁，据此标 regions: []）；
+    # 2026-10-29 重新探测（model-probe，opencode 1.19.3 + golden fixture）：
+    # **可调用**——opencode run 22s 完成评审，5tp/0fp，仅漏 1 个
+    # 'Duplicate property'。地区封锁已解除/账号已可用，撤掉 region 过滤。
+    # 入队：fallback 队列第 1 位（质量仅次于 deepseek）。
   opencode/glm-5.3-flash-free:
     underlying: "GLM 5.3 Flash (free variant)"
     score: 0
     benchmark: none
     source: https://opencode.ai/zen/v1/models
     confidence: low
-    # 实测（2026-10-19，opencode CLI + Zen API key，各连跑 2 次）：Model unavailable
-    # —— API 目录列出但 CLI 无法解析，调用必失败。regions 空列表 = 已知不可调用，
-    # 生成器据此跳过（见 tools/update_free_models.py 的 region 过滤）。
-    regions: []
+    # 2026-10-19 曾实测 Model unavailable（据此标 regions: []）；2026-10-29
+    # 重新探测：**可调用**（21s 完成，4tp/1fp），但含 1 个假阳性——把
+    # must-not-flag 的 `:root` 误标（P1 计数也偏 2 vs 0）。可调用但质量最弱，
+    # 排除出队（deprecated = 不应被选用）。
+    deprecated: true
   opencode/longcat-2.5-preview-free:
     underlying: "LongCat 2.5 Preview (free variant)"
     score: 0
@@ -141,10 +139,9 @@ models:
     benchmark: none
     source: https://opencode.ai/zen/v1/models
     confidence: low
-    # 实测（2026-10-19，opencode CLI + Zen API key，各连跑 2 次）：Model unavailable
-    # —— API 目录列出但 CLI 无法解析，调用必失败。regions 空列表 = 已知不可调用，
-    # 生成器据此跳过（见 tools/update_free_models.py 的 region 过滤）。
-    regions: []
+    # 2026-10-19 曾实测 Model unavailable（据此标 regions: []）；2026-10-29
+    # 重新探测：**挂起**——480s 超时仍未产出评审（hang）。不可用，排除出队。
+    deprecated: true
   opencode/minimax-m3.1-flash-free:
     underlying: "MiniMax M3.1 Flash (free variant)"
     score: 0
@@ -155,14 +152,21 @@ models:
     # —— API 目录列出但 CLI 无法解析，调用必失败。regions 空列表 = 已知不可调用，
     # 生成器据此跳过（见 tools/update_free_models.py 的 region 过滤）。
     regions: []
-  # ── 实测可调用（2026-10-19 实测，2026-10-20 复核）──────────────────────
-  # 2026-10-20 复核结论：当前 Zen 目录里 9 个 free 模型中，只有下面两个能真正调用。
-  # 其余 7 个不可调用——2 个仍在目录但 CLI 无法解析（nemotron-3.5-lightning /
-  # jev-1.13，见上方 deprecated 组），5 个地区封锁或 CLI 不可解析
-  # （beam / glm-5.3 / longcat-2.5 / mimo-v2.6 / minimax-m3.1，标 regions: []）。
-  # 另有 7 个已从目录消失，不属于这 9 个——见上方「已从 Zen 目录消失」组。
+  # ── 实测可调用（2026-10-29 重新探测，opencode 1.19.3 + golden fixture）─────
+  # 2026-10-29 探测结论（model-probe run 40895737617，8 个在册 free 模型）：
+  #   可调用  5 个：deepseek-v4.1-flash（6tp/0fp PASS）、beam（5tp/0fp）、
+  #              nemotron-3.5-super-vl（4tp/0fp）、nemotron-3.5-lightning（5tp/0fp）、
+  #              glm-5.3（4tp/1fp，含假阳性）
+  #   挂起    2 个：flint-40b、mimo-v2.6（480s 超时，hang）
+  #   错误    1 个：jev-1.13（1.9s 非零退出）
+  # 相比 2026-10-20 记录：beam/glm/lightning 由「不可调用」转为「可调用」（地区
+  # 封锁或 CLI 不可解析已解除），mimo 由「不可调用」转为「挂起」，flint-40b 新增。
   #
-  # 下面两个的 score 仍为 0（无公开 benchmark 数据）。保留条目是为了让它们
+  # 保留 deepseek 为 primary（唯一通过 golden 校验），入队 beam + super-vl
+  # （两者 0 假阳性，质量仅次于 deepseek）；glm（含假阳性）/lightning（过度标记
+  # P1）/flint/mimo（挂起）/jev（错误）排除出队。
+  #
+  # 下面三个的 score 仍为 0（无公开 benchmark 数据）。保留条目是为了让它们
   # 计入 known_live：refresh() 只会从**已登记**的存活模型里选 primary，
   # 未登记者一律不升级（见 tools/update_free_models.py 的 known_live 过滤）。
   opencode/deepseek-v4.1-flash-free:
@@ -171,11 +175,22 @@ models:
     benchmark: none
     source: https://opencode.ai/zen/v1/models
     confidence: low
-    # 2026-10-20 实测：OK（opencode CLI，连跑 2 次均成功）。当前 primary。
+    # 2026-10-20 实测：OK。2026-10-29 探测：PASS（6tp/0fp，0 err）——唯一通过
+    # golden 校验，维持 primary。
   opencode/nemotron-3.5-super-vl-free:
     underlying: "NVIDIA Nemotron 3.5 Super VL (free variant)"
     score: 0
     benchmark: none
     source: https://opencode.ai/zen/v1/models
     confidence: low
-    # 2026-10-20 实测：OK（opencode CLI，连跑 2 次均成功）。当前 fallback。
+    # 2026-10-20 实测：OK。2026-10-29 探测：可调用（30s，4tp/0fp，漏 2 关键字）。
+    # 入队：fallback 第 2 位（0 假阳性）。
+  opencode/flint-40b-free:
+    underlying: "Flint 40B (free variant)"
+    score: 0
+    benchmark: none
+    source: https://opencode.ai/zen/v1/models
+    confidence: low
+    # 2026-10-29 首次探测：**挂起**——480s 超时仍未产出评审（hang）。不可用，
+    # 排除出队。未登记时它会落入 unknown_live 被追加进队列，故必须显式登记排除。
+    deprecated: true
