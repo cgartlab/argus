@@ -11,8 +11,8 @@
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
-    "@iconify-json/lucide": "^1.2.143",
-    "astro": "^7.3.8",
+    "@iconify-json/lucide": "^1.2.147",
+    "astro": "^7.4.2",
     "astro-icon": "^1.2.0",
     "sharp": "0.35.5"
   },
