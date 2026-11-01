@@ -12,9 +12,9 @@
 每个版本的第一段必须是「一句话概括」；随后按 Keep a Changelog 六类分节。
 条目应先说明对使用者的影响，再写实现细节；涉及 issue 的一律写成可点击链接。
 
-## [Unreleased](https://github.com/cgartlab/argus/compare/v0.6.7...main)
+## [0.6.8](https://github.com/cgartlab/argus/compare/v0.6.7...v0.6.8) — 2026-11-01
 
-> **一句话概括**：这是一次**模型调用预算与重试语义**的修复。评审模型的单次超时上限从 8 分钟提到 10 分钟，配套把消费 job 上限从 15 提到 35 分钟（覆盖「主模型 + 2 个备用全部超时」的最坏情况），同时修复「超时后重试必然重复评论」「主模型遇不可重试错误直接失败」两个逻辑问题，并让重试分类正则重新对齐。**你不需要做任何事**——行为更稳健、重复评论减少；若你的消费仓库把 job 的 `timeout-minutes` 写死为 15，请一并提到 ≥ `max-attempts` × `timeout`（默认 3×600s=30 分钟，加安装开销建议 35），否则最坏情况装不下。
+> **一句话概括**：这是一次**评审稳健性 + 模型队列**的双重更新。一方面修复**模型调用预算与重试语义**：单次超时 8→10 分钟、消费 job 上限 15→35 分钟，并修复「超时后重试重复评论」「主模型遇不可重试错误直接失败」「`timeout -k` 返回 137 未被识别」等问题；另一方面按 2026-10-29 对 8 个 free 模型的实测**重校准备用队列**（primary 维持 `deepseek-v4.1-flash-free`，新增 `beam-free` 为 fallback，剔除挂起/含假阳性/不可调用的模型）。**你需要做一件事（仅当消费仓库把 job 的 `timeout-minutes` 写死为 15）**：提到 ≥ `max-attempts` × `timeout`（默认 3×600s=30 分钟，加安装开销建议 35），否则最坏情况装不下；其余无需操作。
 
 ### Fixed
 
@@ -52,6 +52,9 @@
 
   判定依据：临时 `model-probe` workflow（PR #213，`workflow_dispatch`，8 个在册 free 模型各跑一次真实 Argus 评审）后删除，探测脚本 `tools/probe_free_models.py` 一并移除。每个模型用 golden fixture `product-card.css` 的完整 prompt 走 `opencode run --model <model>`（timeout 480s），分类 callable / unavailable / auth_error / hang / error，callable 再用 `.expected` 校验质量（tolerance ±1）。
 
+- **例行依赖升级**：`site/` 生产依赖 `astro ^7.3.8 → ^7.4.2`、`@astrojs/prism 4.1.0 → 4.1.1`、`@astrojs/markdown-satteri 0.4.4 → 0.4.5`、`@astrojs/telemetry 3.4.0 → 3.4.1`（[#211](https://github.com/cgartlab/argus/pull/211)）；`actions/labeler` 由 `@v5 → @v7`（[#207](https://github.com/cgartlab/argus/pull/207)）。均无行为变更风险，CI 全绿。
+
+---
 
 ## [0.6.7](https://github.com/cgartlab/argus/compare/v0.6.6...v0.6.7) — 2026-10-24
 
