@@ -7,6 +7,6 @@
 #
 # Scoring: SWE-bench (Verifiable/Verified) → SWE-bench Pro → Intelligence
 # Index → unknown. See config/model-scores.yml for details.
-generated_at: 2026-10-29T15:08:26Z
+generated_at: 2026-11-09T11:48:46Z
 primary: opencode/deepseek-v4.1-flash-free
-fallback_models: opencode/beam-free,opencode/nemotron-3.5-super-vl-free
+fallback_models: opencode/beam-free,opencode/nemotron-3.5-super-vl-free,opencode/crouton-alpha-free,opencode/iceman-free,opencode/inkling-2-small-free
