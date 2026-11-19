@@ -10,9 +10,9 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/sitemap": "^3.7.4",
-    "@iconify-json/lucide": "^1.2.150",
-    "astro": "^7.4.4",
+    "@astrojs/sitemap": "^3.7.5",
+    "@iconify-json/lucide": "^1.2.155",
+    "astro": "^7.4.12",
     "astro-icon": "^1.2.0",
     "sharp": "0.35.5"
   },
